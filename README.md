@@ -65,10 +65,12 @@ Re-running only applies the difference. Files you edited by hand are kept unless
 ### Codex / other agents that read `AGENTS.md`
 
 ```bash
-for f in rules/collaboration/*.md rules/security/dangerous-operations.md rules/security/data-files.md; do
-  awk 'NR == 1 && /^---$/ { fm = 1; next } fm && /^---$/ { fm = 0; next } !fm' "$f"
-done > AGENTS.md
+scripts/install.sh --agents-md AGENTS.md --select writing/commit-messages --dry-run   # preview
+scripts/install.sh --agents-md AGENTS.md --select writing/commit-messages             # apply
+scripts/install.sh --agents-md AGENTS.md --uninstall                                  # remove
 ```
+
+The rules (core + your selection, frontmatter stripped) go between `<!-- agent-agreements:start -->` and `<!-- agent-agreements:end -->`. Anything you wrote outside that block is left byte-for-byte untouched; re-running replaces only the block and prints what changed. Codex reads at most 32 KiB of `AGENTS.md` by default (`project_doc_max_bytes`), so the installer warns when the file grows past that.
 
 ## Make it yours
 
@@ -110,8 +112,15 @@ Before opening a PR, run:
 
 ```bash
 scripts/check-budget.sh      # validates frontmatter; fails if core rules exceed 400 lines
+scripts/sanitize-check.sh    # scans publishable files for paths, private IPs, emails, keys
 bash tests/install.test.sh   # installer tests (writes only to /tmp)
 ```
+
+`sanitize-check.sh` also reads a private denylist (default `~/.claude/agreements-harvest/denylist.txt`, one case-insensitive regex per line) with your own project names, colleagues, hosts and product terms. Keep that file out of the repo.
+
+### Harvesting lessons from your own memory
+
+Working in this repo with Claude Code, run `/harvest`. It lists the feedback and project memories added since the last harvest (`scripts/harvest-scan.sh`), sorts them into *new rule / strengthen an existing rule / skip*, drafts de-identified rules for the ones you pick, runs the three checks above, and writes nothing until you confirm. It is a repo-local skill and is not shipped with the plugin. Fork the repo and you can use it on your own memory.
 
 ## License
 
