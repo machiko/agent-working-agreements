@@ -1,6 +1,6 @@
 ---
 name: harvest
-description: 把 Claude Code 私人 memory 裡新累積的教訓，去識別化後整理成本 repo 的規則。只在這個 repo 內使用。
+description: 維護者用：把 Claude Code 私人 memory 裡新累積的教訓，去識別化後整理成規則。必須在 agent-working-agreements 的 clone 或 fork 裡執行。
 disable-model-invocation: true
 ---
 
@@ -9,6 +9,21 @@ disable-model-invocation: true
 目標：一條教訓從 memory 進到 `rules/`，使用者花的時間不超過 5 分鐘。所有寫入都要使用者確認；不 commit、不 push，除非使用者另外要求。
 
 ## 0. 前置檢查
+
+**先確認在 repo 的工作副本裡**，不符合任何一項就停下來，不做後續步驟：
+
+```bash
+root="$(git rev-parse --show-toplevel 2>/dev/null)" \
+  && [ -d "$root/rules" ] \
+  && grep -q '"name": *"agreements"' "$root/.claude-plugin/plugin.json" \
+  && case "$root" in */plugins/cache/*|*/plugins/marketplaces/*) false ;; esac \
+  && echo "OK: $root"
+```
+
+- 沒有印出 `OK`：告訴使用者這個指令要在 agent-working-agreements 的 clone 或 fork 裡執行（`git clone` 自己的 fork 後，在該目錄開 Claude Code），然後結束。**不要寫入 plugin 的安裝目錄**，那裡的檔案會在 plugin 更新時被覆蓋。
+- 印出 `OK`：之後的指令都在 `$root` 執行，使用工作副本裡的 `scripts/`，不要用 plugin 安裝目錄裡的版本。
+
+其他前置條件：
 
 - 私人禁用詞清單 `~/.claude/agreements-harvest/denylist.txt` 必須存在（可用 `AGREEMENTS_DENYLIST` 改路徑）。不存在時，先請使用者列出專案名、組織、同事、主機、只在原專案出現的產品用語與類別名稱，寫進這份清單。**這份清單絕不可放進 repo。**
 - 目前分支與工作區要乾淨：`git status --short`。

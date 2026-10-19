@@ -120,7 +120,7 @@ bash tests/install.test.sh   # installer tests (writes only to /tmp)
 
 ### Harvesting lessons from your own memory
 
-Working in this repo with Claude Code, run `/harvest`. It lists the feedback and project memories added since the last harvest (`scripts/harvest-scan.sh`), sorts them into *new rule / strengthen an existing rule / skip*, drafts de-identified rules for the ones you pick, runs the three checks above, and writes nothing until you confirm. It is a repo-local skill and is not shipped with the plugin. Fork the repo and you can use it on your own memory.
+Run `/agreements:harvest` from a clone of this repo (or your fork). It lists the feedback and project memories added since the last harvest (`scripts/harvest-scan.sh`), sorts them into *new rule / strengthen an existing rule / skip*, drafts de-identified rules for the ones you pick, runs the three checks above, and writes nothing until you confirm. The skill ships with the plugin but refuses to run anywhere except a git clone, so it never writes into the installed plugin. Fork the repo and you can use it on your own memory.
 
 ## License
 
