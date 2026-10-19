@@ -1,0 +1,8 @@
+# 規劃文件（PRD／實作計畫）不公開
+.claude/PRPs/
+
+# macOS
+.DS_Store
+
+# Claude Code 本機設定（個人權限）
+.claude/settings.local.json

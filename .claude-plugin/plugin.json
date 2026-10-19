@@ -1,0 +1,12 @@
+{
+  "name": "agreements",
+  "version": "0.1.0",
+  "description": "Incident-backed working agreements for AI coding agents. Pick the rules you want with a short Q&A, re-run any time to adjust.",
+  "author": {
+    "name": "machiko"
+  },
+  "homepage": "https://github.com/machiko/agent-working-agreements",
+  "repository": "https://github.com/machiko/agent-working-agreements",
+  "license": "MIT",
+  "keywords": ["rules", "claude-code", "agents", "working-agreements", "zh-TW"]
+}

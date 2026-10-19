@@ -1,0 +1,19 @@
+{
+  "name": "agent-working-agreements",
+  "owner": {
+    "name": "machiko"
+  },
+  "metadata": {
+    "description": "Incident-backed working agreements for AI coding agents"
+  },
+  "plugins": [
+    {
+      "name": "agreements",
+      "source": "./",
+      "description": "Incident-backed working agreements for AI coding agents. Pick the rules you want with a short Q&A, re-run any time to adjust.",
+      "version": "0.1.0",
+      "license": "MIT",
+      "category": "workflow"
+    }
+  ]
+}
