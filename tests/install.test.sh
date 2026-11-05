@@ -23,6 +23,19 @@ FIRST_CORE="$(printf '%s\n' "$CORE_IDS" | head -n 1)"
 OPT_A="$("$INSTALL" --list | awk -F'\t' '$2 == "optional" { print $1 }' | sed -n 1p)"
 OPT_B="$("$INSTALL" --list | awk -F'\t' '$2 == "optional" { print $1 }' | sed -n 2p)"
 
+# 有 paths（按需載入）的第一個 optional
+OPT_OD="$("$INSTALL" --list | awk -F'\t' '$2 == "optional" && $4 == "on-demand" { print $1; exit }')"
+
+# 規則檔本文的第一個 # 標題
+rule_title() {
+  awk 'NR == 1 && $0 == "---" { fm = 1; next } fm && $0 == "---" { fm = 0; next } !fm && /^# / { sub(/^# /, ""); print; exit }' "$ROOT/rules/$1.md"
+}
+FIRST_CORE_TITLE="$(rule_title "$FIRST_CORE")"
+OPT_A_TITLE="$(rule_title "$OPT_A")"
+OPT_OD_TITLE="$(rule_title "$OPT_OD")"
+# frontmatter paths 清單的第一個 glob
+OPT_OD_GLOB="$(awk '/^paths:/ { on = 1; next } on && /^  - / { sub(/^  - /, ""); gsub(/"/, ""); print; exit }' "$ROOT/rules/$OPT_OD.md")"
+
 sha() { shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1 || sha256sum "$1" | cut -d' ' -f1; }
 
 profile_files() { grep -c '^file=' "$1/.agreements-profile" 2>/dev/null || echo 0; }
@@ -158,6 +171,106 @@ cp "$TMP/broken.md" "$TMP/broken-orig.md"
 check "區塊不完整回傳 2 且不改檔" '[ $? -eq 2 ] && cmp -s "$TMP/broken.md" "$TMP/broken-orig.md"'
 "$INSTALL" --agents-md "$TMP/x.md" --target "$TMP/x" > /dev/null 2>&1
 check "--target 與 --agents-md 同時使用回傳 2" '[ $? -eq 2 ]'
+
+echo "▸ --status 未安裝時提示尚未安裝且不寫入"
+S="$TMP/status-none"
+out="$("$INSTALL" --target "$S" --status)"; rc=$?
+check "--target：exit 0" '[ "$rc" -eq 0 ]'
+check "--target：印出尚未安裝" 'printf "%s" "$out" | grep -q "尚未安裝"'
+check "--target：不建立目錄" '[ ! -e "$S" ]'
+out="$("$INSTALL" --agents-md "$S-agents/AGENTS.md" --status)"; rc=$?
+check "--agents-md 檔案不存在：exit 0 且印出尚未安裝" '[ "$rc" -eq 0 ] && printf "%s" "$out" | grep -q "尚未安裝"'
+check "--agents-md 檔案不存在：不建立檔案或目錄" '[ ! -e "$S-agents" ]'
+cp "$U/plain.md" "$TMP/status-plain.md"
+out="$("$INSTALL" --agents-md "$TMP/status-plain.md" --status)"; rc=$?
+check "--agents-md 沒有區塊：exit 0 且印出尚未安裝" '[ "$rc" -eq 0 ] && printf "%s" "$out" | grep -q "尚未安裝"'
+check "--agents-md 沒有區塊：檔案不變" 'cmp -s "$TMP/status-plain.md" "$U/plain.md"'
+
+echo "▸ --status 依 tier 分組列出標題與載入方式"
+S="$TMP/status-list"
+"$INSTALL" --target "$S" --select "$OPT_OD" > /dev/null
+out="$("$INSTALL" --target "$S" --status)"; rc=$?
+printf '%s\n' "$out" > "$TMP/out-status-list"
+core_ln="$(grep -n '^core' "$TMP/out-status-list" | head -n 1 | cut -d: -f1)"
+sel_ln="$(grep -n '^選擇的規則' "$TMP/out-status-list" | head -n 1 | cut -d: -f1)"
+first_ln="$(grep -n -F "$FIRST_CORE — ${FIRST_CORE_TITLE}｜常駐｜最新" "$TMP/out-status-list" | head -n 1 | cut -d: -f1)"
+od_ln="$(grep -n -F "$OPT_OD — ${OPT_OD_TITLE}｜按需載入（" "$TMP/out-status-list" | head -n 1 | cut -d: -f1)"
+check "exit 0" '[ "$rc" -eq 0 ]'
+check "有 core 與選擇的規則兩組，core 在前" '[ -n "$core_ln" ] && [ -n "$sel_ln" ] && [ "$core_ln" -lt "$sel_ln" ]'
+check "core 規則列在 core 組，附標題、常駐與狀態" '[ -n "$first_ln" ] && [ "$first_ln" -gt "$core_ln" ] && [ "$first_ln" -lt "$sel_ln" ]'
+check "按需載入的 optional 列在選擇的規則組" '[ -n "$od_ln" ] && [ "$od_ln" -gt "$sel_ln" ]'
+check "按需載入列出觸發的 paths" 'grep -F "$OPT_OD — " "$TMP/out-status-list" | grep -qF "$OPT_OD_GLOB"'
+check "最後一行是常駐、按需載入行數與規則總數" 'tail -n 1 "$TMP/out-status-list" | grep -qE "^常駐：[0-9]+ 行｜按需載入：[0-9]+ 行｜共 $((CORE_COUNT + 1)) 個規則$"'
+check "印出安裝時的版本與目前版本" 'grep -qE "^安裝版本：[^｜]+｜目前版本：.+" "$TMP/out-status-list"'
+
+echo "▸ --status 讀出 AGENTS.md 區塊內的規則"
+SA="$TMP/status-agents/AGENTS.md"
+"$INSTALL" --agents-md "$SA" --select "$OPT_A" > /dev/null
+before_sha="$(sha "$SA")"
+out="$("$INSTALL" --agents-md "$SA" --status)"; rc=$?
+printf '%s\n' "$out" > "$TMP/out-status-agents"
+sel_ln="$(grep -n '^選擇的規則' "$TMP/out-status-agents" | head -n 1 | cut -d: -f1)"
+a_ln="$(grep -n -F "$OPT_A — ${OPT_A_TITLE}｜" "$TMP/out-status-agents" | head -n 1 | cut -d: -f1)"
+check "exit 0 且檔案不變" '[ "$rc" -eq 0 ] && [ "$(sha "$SA")" = "$before_sha" ]'
+check "core 規則附標題並標最新" 'grep -qF "$FIRST_CORE — ${FIRST_CORE_TITLE}｜常駐｜最新" "$TMP/out-status-agents"'
+check "optional A 列在選擇的規則組" '[ -n "$sel_ln" ] && [ -n "$a_ln" ] && [ "$a_ln" -gt "$sel_ln" ]'
+check "最後一行是規則總數" 'tail -n 1 "$TMP/out-status-agents" | grep -q "共 $((CORE_COUNT + 1)) 個規則$"'
+awk -v id="$OPT_A" '$0 == "<!-- rule: " id " -->" { print; print "舊版的一行"; next } { print }' "$SA" > "$SA.tmp" && mv "$SA.tmp" "$SA"
+out="$("$INSTALL" --agents-md "$SA" --status)"
+check "區塊內容與來源不同時標有新版" 'printf "%s" "$out" | grep -qF "$OPT_A — ${OPT_A_TITLE}｜常駐｜有新版"'
+
+echo "▸ --status 標出手動修改、有新版、檔案遺失且不寫入"
+S="$TMP/status-drift"
+"$INSTALL" --target "$S" > /dev/null
+CORE_2="$(printf '%s\n' "$CORE_IDS" | sed -n 2p)"
+CORE_3="$(printf '%s\n' "$CORE_IDS" | sed -n 3p)"
+CORE_4="$(printf '%s\n' "$CORE_IDS" | sed -n 4p)"
+echo "<!-- 手動加的 -->" >> "$S/$FIRST_CORE.md"
+echo "<!-- 舊版內容 -->" >> "$S/$CORE_2.md"
+old_sha="$(sha "$S/$CORE_2.md")"
+sed "s#^file=$CORE_2 sha256=.*#file=$CORE_2 sha256=$old_sha#" "$S/.agreements-profile" > "$S/profile.tmp" && mv "$S/profile.tmp" "$S/.agreements-profile"
+rm "$S/$CORE_3.md"
+snapshot() { find "$S" -type f | sort | while read -r f; do printf '%s %s\n' "$f" "$(sha "$f")"; done; }
+before="$(snapshot)"
+out="$("$INSTALL" --target "$S" --status)"; rc=$?
+check "exit 0" '[ "$rc" -eq 0 ]'
+check "被改過的標已手動修改" 'printf "%s\n" "$out" | grep -F "$FIRST_CORE — " | grep -q "｜已手動修改$"'
+check "記錄與來源不同的標有新版" 'printf "%s\n" "$out" | grep -F "$CORE_2 — " | grep -q "｜有新版$"'
+check "被刪掉的標檔案遺失" 'printf "%s\n" "$out" | grep -F "$CORE_3 — " | grep -q "｜檔案遺失$"'
+check "其他標最新" 'printf "%s\n" "$out" | grep -F "$CORE_4 — " | grep -q "｜最新$"'
+check "profile 與規則檔的 sha 都不變" '[ "$(snapshot)" = "$before" ]'
+
+echo "▸ 預覽輸出附上規則標題"
+P="$TMP/preview-title"
+out="$("$INSTALL" --target "$P" --select "$OPT_A" --dry-run)"
+check "--target 新增行接標題" 'printf "%s" "$out" | grep -qF "＋ 新增 $OPT_A.md — $OPT_A_TITLE"'
+"$INSTALL" --target "$P" --select "$OPT_A" > /dev/null
+echo "改過" >> "$P/$FIRST_CORE.md"
+out="$("$INSTALL" --target "$P" --dry-run)"
+check "--target 保留行接標題" 'printf "%s" "$out" | grep -F "$FIRST_CORE.md — $FIRST_CORE_TITLE" | grep -q "^！ 保留"'
+check "--target 移除行接標題" 'printf "%s" "$out" | grep -qF "－ 移除 $OPT_A.md — $OPT_A_TITLE"'
+PA="$TMP/preview-title/AGENTS.md"
+out="$("$INSTALL" --agents-md "$PA" --select "$OPT_A" --dry-run)"
+check "--agents-md 新增行接標題" 'printf "%s" "$out" | grep -qF "＋ 新增 $OPT_A — $OPT_A_TITLE"'
+"$INSTALL" --agents-md "$PA" --select "$OPT_A" > /dev/null
+out="$("$INSTALL" --agents-md "$PA" --dry-run)"
+check "--agents-md 移除行接標題" 'printf "%s" "$out" | grep -qF "－ 移除 $OPT_A — $OPT_A_TITLE"'
+
+echo "▸ --status 參數錯誤"
+"$INSTALL" --target "$TMP/x" --status --select "$OPT_A" > /dev/null 2>&1
+check "--status 搭配 --select 回傳 2" '[ $? -eq 2 ]'
+"$INSTALL" --target "$TMP/x" --status --uninstall > /dev/null 2>&1
+check "--status 搭配 --uninstall 回傳 2" '[ $? -eq 2 ]'
+"$INSTALL" --target "$TMP/x" --status --dry-run > /dev/null 2>&1
+check "--status 搭配 --dry-run 回傳 2" '[ $? -eq 2 ]'
+"$INSTALL" --target "$TMP/x" --force --status > /dev/null 2>&1
+check "--status 搭配 --force 回傳 2" '[ $? -eq 2 ] && [ ! -e "$TMP/x" ]'
+
+echo "▸ setup skill 涵蓋 --status、狀態參數與重複載入提醒"
+SKILL="$ROOT/skills/setup/SKILL.md"
+check "SKILL.md 用 --status 讀取現況" 'grep -qF -- "--status" "$SKILL"'
+check "argument-hint 有「狀態」" 'grep -q "^argument-hint:.*狀態" "$SKILL"'
+check "提醒兩個範圍會重複載入" 'grep -q "重複" "$SKILL"'
 
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"

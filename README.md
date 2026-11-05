@@ -18,7 +18,7 @@ In Claude Code:
 
 Claude Code 2.1.275 or later can install in one step: `/plugin install agreements --marketplace machiko/agent-working-agreements`.
 
-`/agreements:setup` asks up to four questions (scope, writing conventions, security, tech stack), previews what will change, and installs only after you confirm. Run it again at any time to add or remove rules; run `/agreements:setup 移除` to uninstall. Rules take effect from the next session.
+`/agreements:setup` asks up to four questions (scope, writing conventions, security, tech stack), previews what will change, and installs only after you confirm. Run it again at any time to add or remove rules; run `/agreements:setup 狀態` to only show what is installed, or `/agreements:setup 移除` to uninstall. Rules take effect from the next session.
 
 ## Start here
 
@@ -58,9 +58,10 @@ scripts/install.sh --list                                   # see every rule id
 scripts/install.sh --target ~/.claude/rules/agent-agreements \
   --select writing/commit-messages,laravel/pitfalls --dry-run   # preview
 # drop --dry-run to apply; core rules are always included
+scripts/install.sh --target ~/.claude/rules/agent-agreements --status   # what's installed (read-only)
 ```
 
-Re-running only applies the difference. Files you edited by hand are kept unless you pass `--force`. `--uninstall` removes only the files the installer put there.
+`--status` lists each installed rule with its title, whether it is always loaded or on-demand (with its `paths`), and whether it is up to date, has a newer version, was edited by hand, or is missing. Re-running only applies the difference. Files you edited by hand are kept unless you pass `--force`. `--uninstall` removes only the files the installer put there.
 
 ### Codex / other agents that read `AGENTS.md`
 
@@ -68,6 +69,7 @@ Re-running only applies the difference. Files you edited by hand are kept unless
 scripts/install.sh --agents-md AGENTS.md --select writing/commit-messages --dry-run   # preview
 scripts/install.sh --agents-md AGENTS.md --select writing/commit-messages             # apply
 scripts/install.sh --agents-md AGENTS.md --uninstall                                  # remove
+scripts/install.sh --agents-md AGENTS.md --status                                     # what's installed (read-only)
 ```
 
 The rules (core + your selection, frontmatter stripped) go between `<!-- agent-agreements:start -->` and `<!-- agent-agreements:end -->`. Anything you wrote outside that block is left byte-for-byte untouched; re-running replaces only the block and prints what changed. Codex reads at most 32 KiB of `AGENTS.md` by default (`project_doc_max_bytes`), so the installer warns when the file grows past that.

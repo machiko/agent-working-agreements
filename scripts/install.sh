@@ -7,6 +7,8 @@
 #   install.sh --target <dir> --uninstall [--dry-run] [--force]
 #   install.sh --agents-md <file> [--select id1,id2] [--dry-run]
 #   install.sh --agents-md <file> --uninstall [--dry-run]
+#   install.sh --target <dir> --status
+#   install.sh --agents-md <file> --status
 #
 #   --target    安裝目錄，例如 ~/.claude/rules/agent-agreements 或 <專案>/.claude/rules/agent-agreements
 #   --agents-md 寫入 AGENTS.md（Codex 等）：只改 agent-agreements 標記區塊，區塊外內容不動
@@ -14,6 +16,8 @@
 #   --dry-run   只列出會做的變更，不寫入
 #   --force     覆蓋或移除已被手動修改的檔案
 #   --uninstall 只移除 profile 記錄的檔案，不碰目錄內其他檔案
+#   --status    唯讀：依 core／選擇的規則分組列出已安裝規則的標題、載入方式與狀態
+#               （最新、有新版、已手動修改、檔案遺失、來源已移除）；不能搭配其他選項
 #   --list      列出所有規則：id、tier、stack、是否按需載入、本文行數、選項名稱、說明（以 tab 分隔）
 #
 #   環境變數 AGENTS_MD_MAX_BYTES：AGENTS.md 大小警告門檻（預設 32768，Codex project_doc_max_bytes 預設值）
@@ -31,6 +35,7 @@ agents_md=""
 select_ids=""
 dry_run=0
 force=0
+status=0
 mode="install"
 
 die() { echo "✗ $1" >&2; exit 2; }
@@ -44,10 +49,17 @@ while [ $# -gt 0 ]; do
     --force) force=1; shift ;;
     --uninstall) mode="uninstall"; shift ;;
     --list) mode="list"; shift ;;
+    --status) status=1; shift ;;
     -h|--help) awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; exit 0 ;;
     *) die "未知參數：$1" ;;
   esac
 done
+
+if [ "$status" -eq 1 ]; then
+  [ "$mode" = "install" ] && [ -z "$select_ids" ] && [ "$dry_run" -eq 0 ] && [ "$force" -eq 0 ] \
+    || die "--status 不能搭配 --select、--uninstall、--list、--dry-run 或 --force"
+  mode="status"
+fi
 
 # ── 共用函式 ────────────────────────────────────────────
 
@@ -89,6 +101,79 @@ version() {
 
 contains() { printf '%s\n' "$1" | grep -Fxq -- "$2"; }
 
+# frontmatter 的 paths 清單，以「, 」串起來
+paths_of() {
+  awk 'NR == 1 && $0 != "---" { exit } NR > 1 && $0 == "---" { exit }
+       /^paths:/ { on = 1; next } on && /^[ ]+- / { sub(/^[ ]+- [ ]*/, ""); gsub(/^"|"$/, ""); out = out (out == "" ? "" : ", ") $0; next }
+       on { on = 0 } END { print out }' "$1"
+}
+
+# with_title <id> <顯示名稱>：來源規則有標題就印「<顯示名稱> — <標題>」，否則只印顯示名稱
+with_title() {
+  local t=""
+  [ -f "$RULES/$1.md" ] && t="$(title "$RULES/$1.md")"
+  if [ -n "$t" ]; then printf '%s — %s' "$2" "$t"; else printf '%s' "$2"; fi
+}
+
+START_RE='^<!-- agent-agreements:start'
+END_LINE='<!-- agent-agreements:end -->'
+
+# 去掉 frontmatter 與本文開頭的空行
+strip_body() {
+  awk 'NR == 1 && $0 == "---" { fm = 1; next } fm && $0 == "---" { fm = 0; next } fm { next }
+       !started && $0 == "" { next } { started = 1; print }' "$1"
+}
+
+# 區塊內某條規則的段落（到下一條規則或結束標記為止）
+section() {
+  awk -v id="$1" -v end="$END_LINE" '
+    $0 == "<!-- rule: " id " -->" { on = 1; next }
+    on && (index($0, "<!-- rule: ") == 1 || $0 == end) { exit }
+    on { print }' "$2"
+}
+
+# ── --status 共用 ──────────────────────────────────────
+
+# rule_record <id> <標題> <讀 paths 的檔案，空字串代表一律常駐> <狀態> <載入行數>
+# 輸出一筆 tab 分隔紀錄：id、tier、標題、載入方式、狀態、行數、是否按需載入
+rule_record() {
+  local tier="optional" load="常駐" od=0
+  [ -f "$RULES/$1.md" ] && tier="$(field "$RULES/$1.md" tier)"
+  if [ -n "$3" ] && [ -f "$3" ] && has_paths "$3"; then
+    load="按需載入（$(paths_of "$3")）"; od=1
+  fi
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$tier" "$2" "$load" "$4" "$5" "$od"
+}
+
+print_rule() {  # print_rule <id> <標題> <載入方式> <狀態>
+  local name="$1"
+  [ -n "$2" ] && name="$1 — $2"
+  printf '  %s｜%s｜%s\n' "$name" "$3" "$4"
+}
+
+# 讀 rule_record 的紀錄，分 core／選擇的規則兩組印出，最後一行是行數與規則總數
+report_status() {
+  local records rows group label n always=0 ondemand=0 total=0
+  records="$(cat)"
+  for group in core selected; do
+    if [ "$group" = "core" ]; then
+      label="core"; rows="$(printf '%s\n' "$records" | awk -F'\t' '$2 == "core"')"
+    else
+      label="選擇的規則"; rows="$(printf '%s\n' "$records" | awk -F'\t' 'NF && $2 != "core"')"
+    fi
+    n="$(printf '%s\n' "$rows" | grep -c . || true)"
+    echo "${label}（${n} 個）"
+    [ "$n" -eq 0 ] && echo "  （無）"
+    while IFS=$'\t' read -r id _tier t load st lines od; do
+      [ -n "$id" ] || continue
+      print_rule "$id" "$t" "$load" "$st"
+      if [ "$od" -eq 1 ]; then ondemand=$((ondemand + lines)); else always=$((always + lines)); fi
+      total=$((total + 1))
+    done <<< "$rows"
+  done
+  echo "常駐：${always} 行｜按需載入：${ondemand} 行｜共 ${total} 個規則"
+}
+
 # ── --list ─────────────────────────────────────────────
 
 if [ "$mode" = "list" ]; then
@@ -127,24 +212,7 @@ fi
 
 if [ -n "$agents_md" ]; then
   case "$agents_md" in "~"/*) agents_md="$HOME/${agents_md#\~/}" ;; esac
-  START_RE='^<!-- agent-agreements:start'
-  END_LINE='<!-- agent-agreements:end -->'
   MAX_BYTES="${AGENTS_MD_MAX_BYTES:-32768}"
-  work="$(mktemp -d "${TMPDIR:-/tmp}/aw-agents.XXXXXX")"
-
-  # 去掉 frontmatter 與本文開頭的空行
-  strip_body() {
-    awk 'NR == 1 && $0 == "---" { fm = 1; next } fm && $0 == "---" { fm = 0; next } fm { next }
-         !started && $0 == "" { next } { started = 1; print }' "$1"
-  }
-
-  # 區塊內某條規則的段落（到下一條規則或結束標記為止）
-  section() {
-    awk -v id="$1" -v end="$END_LINE" '
-      $0 == "<!-- rule: " id " -->" { on = 1; next }
-      on && (index($0, "<!-- rule: ") == 1 || $0 == end) { exit }
-      on { print }' "$2"
-  }
 
   start_ln=""; end_ln=""
   if [ -f "$agents_md" ]; then
@@ -154,6 +222,34 @@ if [ -n "$agents_md" ]; then
       die "${agents_md} 的 agent-agreements 區塊不完整（找不到結束標記），請手動修正後再執行"
     fi
   fi
+
+  # --status：唯讀，比對區塊內每條規則與目前來源
+  if [ "$mode" = "status" ]; then
+    if [ -z "$start_ln" ]; then
+      echo "尚未安裝：${agents_md} 沒有 agent-agreements 區塊"
+      exit 0
+    fi
+    block() { sed -n "${start_ln},${end_ln}p" "$agents_md"; }
+    installed_v="$(sed -n "${start_ln}s/^<!-- agent-agreements:start v\([^ ]*\) -->.*/\1/p" "$agents_md")"
+    echo "安裝位置：${agents_md}"
+    echo "安裝版本：${installed_v:-未記錄}｜目前版本：$(version)"
+    for id in $(block | sed -n 's/^<!-- rule: \([^ ]*\) -->$/\1/p' | sort); do
+      sec="$(block | section "$id" -)"
+      lines=0; [ -n "$sec" ] && lines="$(printf '%s\n' "$sec" | grep -c '')"
+      src="$RULES/$id.md"
+      if [ -f "$src" ]; then
+        t="$(title "$src")"
+        if [ "$sec" = "$(strip_body "$src")" ]; then st="最新"; else st="有新版"; fi
+      else
+        t="$(printf '%s\n' "$sec" | sed -n 's/^# //p' | head -n 1)"; st="來源已移除"
+      fi
+      # AGENTS.md 沒有 paths 機制，整個檔案都會載入，一律算常駐
+      rule_record "$id" "$t" "" "$st" "$lines"
+    done | report_status
+    exit 0
+  fi
+
+  work="$(mktemp -d "${TMPDIR:-/tmp}/aw-agents.XXXXXX")"
 
   old_block="$work/old"; : > "$old_block"
   [ -n "$start_ln" ] && sed -n "${start_ln},${end_ln}p" "$agents_md" > "$old_block"
@@ -179,17 +275,17 @@ if [ -n "$agents_md" ]; then
   changes=0; unchanged=0
   for id in $old_ids; do
     if [ "$mode" = "install" ] && contains "$desired" "$id"; then continue; fi
-    printf '－ 移除 %s\n' "$id"; changes=$((changes + 1))
+    printf '－ 移除 %s\n' "$(with_title "$id" "$id")"; changes=$((changes + 1))
   done
   for id in $desired; do
     if contains "$old_ids" "$id"; then
       if [ "$(section "$id" "$old_block")" = "$(section "$id" "$new_block")" ]; then
         unchanged=$((unchanged + 1))
       else
-        printf '↻ 更新 %s\n' "$id"; changes=$((changes + 1))
+        printf '↻ 更新 %s\n' "$(with_title "$id" "$id")"; changes=$((changes + 1))
       fi
     else
-      printf '＋ 新增 %s\n' "$id"; changes=$((changes + 1))
+      printf '＋ 新增 %s\n' "$(with_title "$id" "$id")"; changes=$((changes + 1))
     fi
   done
 
@@ -264,13 +360,38 @@ is_modified() {
   [ -n "$rec" ] && [ "$(sha "$dest")" != "$rec" ]
 }
 
+# --status：唯讀，比對 profile 記錄、目標檔案與目前來源
+if [ "$mode" = "status" ]; then
+  if [ ! -f "$profile" ]; then
+    echo "尚未安裝：${target} 沒有 ${PROFILE_NAME}"
+    exit 0
+  fi
+  installed_v="$(sed -n 's/^version=//p' "$profile" | head -n 1)"
+  echo "安裝位置：${target}"
+  echo "安裝版本：${installed_v:-未記錄}｜目前版本：$(version)"
+  for id in $installed; do
+    src="$RULES/$id.md"; dest="$target/$id.md"; rec="$(recorded_sha "$id")"
+    if [ ! -f "$dest" ]; then st="檔案遺失"
+    elif [ "$(sha "$dest")" != "$rec" ]; then st="已手動修改"
+    elif [ ! -f "$src" ]; then st="來源已移除"
+    elif [ "$rec" != "$(sha "$src")" ]; then st="有新版"
+    else st="最新"; fi
+    # 標題與 paths 以實際載入的檔案為準；檔案遺失時退回來源，且不計入行數
+    info="$dest"; lines=0
+    if [ -f "$dest" ]; then lines="$(body_lines "$dest")"; else info="$src"; fi
+    t=""; [ -f "$info" ] && t="$(title "$info")"
+    rule_record "$id" "$t" "$info" "$st" "$lines"
+  done | report_status
+  exit 0
+fi
+
 new_profile=""
 changes=0
 
 record() { new_profile="${new_profile}file=$1 sha256=$2"$'\n'; }
 
 act() {  # act <符號> <動作> <id>
-  printf '%s %s %s.md\n' "$1" "$2" "$3"
+  printf '%s %s %s\n' "$1" "$2" "$(with_title "$3" "$3.md")"
   changes=$((changes + 1))
 }
 
@@ -278,7 +399,7 @@ act() {  # act <符號> <動作> <id>
 for id in $installed; do
   if [ "$mode" = "install" ] && contains "$desired" "$id"; then continue; fi
   if is_modified "$id" && [ "$force" -eq 0 ]; then
-    echo "！ 保留（已被手動修改，加 --force 才移除）$id.md"
+    echo "！ 保留（已被手動修改，加 --force 才移除）$(with_title "$id" "$id.md")"
     record "$id" "$(recorded_sha "$id")"
     continue
   fi
@@ -298,7 +419,7 @@ for id in $desired; do
 
   if contains "$installed" "$id"; then
     if is_modified "$id" && [ "$force" -eq 0 ]; then
-      echo "！ 保留（已被手動修改，加 --force 才覆蓋）$id.md"
+      echo "！ 保留（已被手動修改，加 --force 才覆蓋）$(with_title "$id" "$id.md")"
       record "$id" "$(recorded_sha "$id")"
       continue
     fi
@@ -310,7 +431,7 @@ for id in $desired; do
     act "↻" "更新" "$id"
   else
     if [ -f "$dest" ] && [ "$force" -eq 0 ] && [ "$(sha "$dest")" != "$src_sha" ]; then
-      echo "！ 略過（目標已有同名檔案且非本工具安裝，加 --force 才覆蓋）$id.md"
+      echo "！ 略過（目標已有同名檔案且非本工具安裝，加 --force 才覆蓋）$(with_title "$id" "$id.md")"
       continue
     fi
     act "＋" "新增" "$id"
