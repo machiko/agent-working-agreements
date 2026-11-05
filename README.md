@@ -1,5 +1,7 @@
 # agent-working-agreements
 
+[![check](https://github.com/machiko/agent-working-agreements/actions/workflows/check.yml/badge.svg)](https://github.com/machiko/agent-working-agreements/actions/workflows/check.yml)
+
 Working agreements for AI coding agents (Claude Code, Codex, and friends), distilled from a year of real incidents on a production Laravel + Vue codebase.
 
 > 本 repo 的規則本文以**繁體中文**撰寫，內容是一年多來和 AI coding agent 協作時實際踩過的坑與定案的做法。安裝時用問答挑選需要的規則，之後隨時可以重跑調整。
@@ -20,6 +22,21 @@ Claude Code 2.1.275 or later can install in one step: `/plugin install agreement
 
 `/agreements:setup` asks up to four questions (scope, writing conventions, security, tech stack), previews what will change, and installs only after you confirm. Run it again at any time to add or remove rules; run `/agreements:setup 狀態` to only show what is installed, or `/agreements:setup 移除` to uninstall. Rules take effect from the next session.
 
+## Updating
+
+Third-party marketplaces don't auto-update by default. To pull a new release:
+
+```
+/plugin marketplace update agent-working-agreements
+/plugin update agreements@agent-working-agreements    # or: /plugin → Installed → agreements → Update now
+/reload-plugins
+/agreements:setup 狀態
+```
+
+Updating the plugin does **not** touch the rules already copied into `~/.claude/rules/agent-agreements` (or your project). `/agreements:setup 狀態` shows which installed rules have a newer version; run `/agreements:setup` to apply them. Rules you edited by hand are kept unless you choose to overwrite them. See [CHANGELOG.md](CHANGELOG.md) for what changed.
+
+To update automatically: `/plugin` → Marketplaces → agent-working-agreements → Enable auto-update.
+
 ## Start here
 
 | If you… | Read or install |
@@ -38,13 +55,27 @@ Claude Code 2.1.275 or later can install in one step: `/plugin install agreement
 | Directory | Highlights |
 |-----------|-----------|
 | [`rules/collaboration/`](rules/collaboration/) | Never fabricate tool results · completion needs evidence ("skipped" is not "passed") · never weaken tests to go green · re-check the branch before every commit · one worktree per parallel session · surface decisions where the user actually looks · explicit code + guard tests over hidden mechanisms · memory hygiene |
-| [`rules/security/`](rules/security/) | No production credentials where agents run · confirm every irreversible operation · deny rules and hooks are not a security boundary · keep PII files out of git · *optional:* SAST-safe patterns, data scope on every report and export |
+| [`rules/security/`](rules/security/) | No production credentials where agents run · confirm every irreversible operation · deny rules and hooks are not a security boundary · keep PII files out of git · *optional:* SAST-safe patterns, data scope on every report and export, verifying TLS certificate chains (browsers forgive what mobile clients don't) |
 | [`rules/writing/`](rules/writing/) | Keep instruction files lean · English test method names · *optional:* commit format with fixed verbs, CHANGELOG granularity, TL;DR-first cards, Taiwan vs. China terminology |
 | [`rules/laravel/`](rules/laravel/) | *optional:* `fake()` in production · `$model->id` silently null · empty `env()` values beating defaults · `package:discover` breaking Docker builds · … |
-| [`rules/docker/`](rules/docker/) | *optional:* single-file bind mounts breaking after `git switch` · `restart` vs `--force-recreate` · Xdebug trigger mode · CI cache pitfalls |
+| [`rules/docker/`](rules/docker/) | *optional:* single-file bind mounts breaking after `git switch` · `restart` vs `--force-recreate` · Xdebug trigger mode · CI cache pitfalls · deploy jobs that depend on an external registry · when not to auto-rollback |
 | [`templates/CLAUDE.md`](templates/CLAUDE.md) | A short global instruction file to start from |
 
-Always-loaded core rules are capped at 400 lines in total (`scripts/check-budget.sh`). Stack-specific rules use `paths` frontmatter, so they only load when the agent touches matching files.
+Always-loaded core rules are capped at 400 lines in total (`scripts/check-budget.sh`, enforced in CI). Stack-specific rules use `paths` frontmatter, so they only load when the agent touches matching files.
+
+### What a rule looks like
+
+Generic rule sets say *"verify the branch before committing."* Here is the same idea as it ships in [`collaboration/git-safety`](rules/collaboration/git-safety.md), with the incident that produced it:
+
+> **commit 前重新確認目前分支**
+>
+> 每次 `git commit` 前都先跑 `git branch --show-current`（或 `git status -sb`），不要沿用 session 開頭或上一次 commit 時看到的分支。
+>
+> **為什麼：** 使用者常在另一個終端切分支並 commit。agent 沿用舊資訊，就把 `feat:` commit 落在別人的 `fix/` 分支上了。
+>
+> **怎麼做：** 分支名稱要和 commit 類型相符……落錯分支時，用 cherry-pick 搬到正確的分支，原分支用 `branch -f` 退回。不要 rebase 已經 push 的分支。
+
+The "why" tells the agent *when* the rule matters (another terminal, a stale session snapshot), so it can apply the rule to cases the text doesn't list.
 
 ## Other ways to install
 
@@ -110,13 +141,16 @@ sources:                    # optional; external material the rule paraphrases o
 
 Claude Code strips frontmatter before loading a rule and ignores every key except `paths`, so these fields cost no context.
 
-Before opening a PR, run:
+Before opening a PR, run (CI runs the same checks on ubuntu and macOS):
 
 ```bash
 scripts/check-budget.sh      # validates frontmatter; fails if core rules exceed 400 lines
 scripts/sanitize-check.sh    # scans publishable files for paths, private IPs, emails, keys
+scripts/check-version.sh     # plugin.json, marketplace.json and CHANGELOG agree on the version
 bash tests/install.test.sh   # installer tests (writes only to /tmp)
 ```
+
+Releasing: Claude Code only offers an update when the `version` string changes, so every release bumps `version` in both `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` and adds a `CHANGELOG.md` section, all in the last PR before tagging.
 
 `sanitize-check.sh` also reads a private denylist (default `~/.claude/agreements-harvest/denylist.txt`, one case-insensitive regex per line) with your own project names, colleagues, hosts and product terms. Keep that file out of the repo.
 
