@@ -1,0 +1,30 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        # 腳本有 BSD／GNU 兩套分支（stat、date、shasum／sha256sum），兩邊都要驗
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安裝器行為測試
+        run: bash tests/install.test.sh
+
+      - name: frontmatter 與 core 行數預算
+        run: scripts/check-budget.sh
+
+      - name: 識別資訊掃描（CI 沒有私人禁用詞清單，只跑內建規則）
+        run: scripts/sanitize-check.sh
