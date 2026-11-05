@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-06
+
 ### Added
 
 - 新增 optional 規則「Vue 與前端地雷」：Vue 3 響應性解構丟失、直接修改 Prop 屬性、Pinia store 在 action 外賦值、Tailwind 動態 class 被 purge、未清理的監聽器造成內存洩漏、Vite SSR window 存取、第三方庫 shallowRef
