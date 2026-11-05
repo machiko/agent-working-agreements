@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 optional 規則「Vue 與前端地雷」：Vue 3 響應性解構丟失、直接修改 Prop 屬性、Pinia store 在 action 外賦值、Tailwind 動態 class 被 purge、未清理的監聽器造成內存洩漏、Vite SSR window 存取、第三方庫 shallowRef
+- 新增 Cursor IDE 規則格式支援：`install.sh --cursor` 自動將規則轉換為 Cursor `.mdc` 檔案，自動將 paths 轉譯為 globs frontmatter 並標記 core 規則為 `alwaysApply: true`
+- 新增 GitHub Issue 事故回報模板：以結構化表單徵集真實「症狀 → 根因 → 怎麼做」與去識別化自檢清單
+- 新增 並行 session 守則強化：在 Git 安全守則增補多 session / worktree 並行時的 DB migration 與本機 port 碰撞防護
+
+### Changed
+
+- 更新 `/agreements:setup`：技術棧地雷選項納入「Vue 與前端地雷」
+- 更新 測試套件：新增 Cursor `.mdc` 轉換與安裝解除安裝的自動化測試
+
 ## [0.2.0] - 2026-11-05
 
 ### Added

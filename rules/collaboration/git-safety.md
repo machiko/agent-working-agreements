@@ -43,6 +43,7 @@ tier: core
 **怎麼做：**
 
 - 並行工作用 `git worktree add` 或 agent 的 worktree 隔離，一個分支對一個 worktree。
+- **防止並行資源碰撞**：多個 session 同時建立資料庫 migration 時，容易在不同 worktree 產生相同秒數前綴的檔名；merge 前檢查是否有 timestamp 衝突。並行的 local 服務（如 Docker container、Vite dev server）配置獨立 port，不要共用相同本機狀態。
 - 移除 worktree 用 `git worktree remove`，不要 `rm -rf`。有初始化過 submodule 的 worktree，git 不加 `--force` 一律拒絕。先確認 `git status` 乾淨、submodule 內也沒有未提交的改動，再加 `--force`。
 - 無法隔離時，開工前先跑 `git status` 和 `git branch --show-current`；commit 後立刻用 `git log --oneline <branch>` 確認 commit 落在自己的分支。
 

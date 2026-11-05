@@ -33,7 +33,7 @@ disable-model-invocation: true
 1. **安裝範圍**（單選，header「範圍」）：全域（推薦，所有專案適用）／本專案（只在這個 repo 生效）
 2. **寫作規範**（複選，header「寫作」）：`writing/commit-messages`、`writing/changelog`、`writing/docs-and-cards`、`writing/taiwan-terminology`
 3. **安全**（複選，header「安全」）：`security/sast-safe-patterns`、`security/data-scope`、`security/tls-certificates`
-4. **技術棧地雷**（複選，header「技術棧」）：`laravel/pitfalls`、`docker/pitfalls`
+4. **技術棧地雷**（複選，header「技術棧」）：`laravel/pitfalls`、`vue/pitfalls`、`docker/pitfalls`
 
 每個選項的文字**原樣使用** `--list` 的欄位，不要自行改寫或縮寫：
 

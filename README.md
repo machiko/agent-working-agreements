@@ -46,7 +46,7 @@ To update automatically: `/plugin` → Marketplaces → agent-working-agreements
 | saw an agent delete or loosen tests to go green | [`collaboration/test-integrity`](rules/collaboration/test-integrity.md) |
 | worry about `rm -rf`, force pushes, or production credentials | [`security/dangerous-operations`](rules/security/dangerous-operations.md) |
 | have a CLAUDE.md / AGENTS.md that keeps growing | [`writing/lean-instructions`](rules/writing/lean-instructions.md) |
-| run a Laravel or Docker-compose stack | [`laravel/pitfalls`](rules/laravel/pitfalls.md), [`docker/pitfalls`](rules/docker/pitfalls.md) (load only when matching files are touched) |
+| run a Laravel, Vue, or Docker stack | [`laravel/pitfalls`](rules/laravel/pitfalls.md), [`vue/pitfalls`](rules/vue/pitfalls.md), [`docker/pitfalls`](rules/docker/pitfalls.md) (load only when matching files are touched) |
 
 ## What's inside
 
@@ -58,6 +58,7 @@ To update automatically: `/plugin` → Marketplaces → agent-working-agreements
 | [`rules/security/`](rules/security/) | No production credentials where agents run · confirm every irreversible operation · deny rules and hooks are not a security boundary · keep PII files out of git · *optional:* SAST-safe patterns, data scope on every report and export, verifying TLS certificate chains (browsers forgive what mobile clients don't) |
 | [`rules/writing/`](rules/writing/) | Keep instruction files lean · English test method names · *optional:* commit format with fixed verbs, CHANGELOG granularity, TL;DR-first cards, Taiwan vs. China terminology |
 | [`rules/laravel/`](rules/laravel/) | *optional:* `fake()` in production · `$model->id` silently null · empty `env()` values beating defaults · `package:discover` breaking Docker builds · … |
+| [`rules/vue/`](rules/vue/) | *optional:* reactivity lost on destructuring · mutating props · dynamic Tailwind class purging · uncleaned timers / event listeners in `onMounted` · SSR window access · … |
 | [`rules/docker/`](rules/docker/) | *optional:* single-file bind mounts breaking after `git switch` · `restart` vs `--force-recreate` · Xdebug trigger mode · CI cache pitfalls · deploy jobs that depend on an external registry · when not to auto-rollback |
 | [`templates/CLAUDE.md`](templates/CLAUDE.md) | A short global instruction file to start from |
 
@@ -104,6 +105,17 @@ scripts/install.sh --agents-md AGENTS.md --status                               
 ```
 
 The rules (core + your selection, frontmatter stripped) go between `<!-- agent-agreements:start -->` and `<!-- agent-agreements:end -->`. Anything you wrote outside that block is left byte-for-byte untouched; re-running replaces only the block and prints what changed. Codex reads at most 32 KiB of `AGENTS.md` by default (`project_doc_max_bytes`), so the installer warns when the file grows past that.
+
+### Cursor IDE (`.cursor/rules/*.mdc`)
+
+```bash
+scripts/install.sh --cursor .cursor/rules --select vue/pitfalls,writing/commit-messages --dry-run   # preview
+scripts/install.sh --cursor .cursor/rules --select vue/pitfalls,writing/commit-messages             # apply
+scripts/install.sh --cursor .cursor/rules --uninstall                                              # remove
+scripts/install.sh --cursor .cursor/rules --status                                                 # what's installed (read-only)
+```
+
+`--cursor` installs rules as Cursor `.mdc` files, automatically converting `paths` into Cursor's `globs` frontmatter and marking core rules with `alwaysApply: true`.
 
 ## Make it yours
 
