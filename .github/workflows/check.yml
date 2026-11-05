@@ -28,3 +28,9 @@ jobs:
 
       - name: 識別資訊掃描（CI 沒有私人禁用詞清單，只跑內建規則）
         run: scripts/sanitize-check.sh
+
+      - name: 版號一致（plugin.json、marketplace.json、CHANGELOG）
+        run: scripts/check-version.sh
+
+      - name: 版號檢查腳本測試
+        run: bash tests/check-version.test.sh
