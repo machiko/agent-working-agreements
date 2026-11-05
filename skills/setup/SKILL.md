@@ -1,7 +1,7 @@
 ---
 name: setup
 description: 用一次問答挑選要安裝的 agent 工作守則（規則檔），可重跑調整或移除。
-argument-hint: "[移除]"
+argument-hint: "[狀態｜移除]"
 disable-model-invocation: true
 ---
 
@@ -19,13 +19,16 @@ disable-model-invocation: true
 ## 1. 讀取現況
 
 1. 執行 `install.sh --list`。輸出以 tab 分隔：id、tier、stack、always 或 on-demand、本文行數、選項名稱、說明。
-2. 讀取兩個目標目錄下的 `.agreements-profile`（如果存在），從 `file=` 行得知目前已安裝哪些 id。
+2. 對兩個範圍各執行一次 `install.sh --status --target <目標目錄>`（唯讀，不會建立目錄）。輸出依 core／選擇的規則分組，每行是「id — 標題｜常駐或按需載入（paths）｜狀態」，最後一行是常駐與按需載入的行數和規則總數。從這裡得知目前已安裝哪些 id，不要自己讀 `.agreements-profile`。
+3. 用幾行摘要給使用者看：每個範圍「尚未安裝」或裝了幾條（core 幾條、選擇的規則有哪些），以及有沒有標成「已手動修改」「有新版」「檔案遺失」「來源已移除」的規則（列出 id）。
+4. 兩個範圍都已安裝時提醒：全域與本專案會各載入一份，同一條規則會重複載入、多佔 context；建議只留一個範圍。
 
+如果使用者的參數是「狀態」，摘要完就結束，不進入問答、不執行任何安裝。
 如果使用者的參數是「移除」，跳到第 5 步。
 
 ## 2. 一次問完（AskUserQuestion，只呼叫一次，4 題）
 
-提問前先用一兩句話告訴使用者：core 規則（`--list` 中 tier 為 core 的項目，例如誠實回報、驗證證據、Git 安全、危險操作）一律安裝，下面只挑選額外的規則；全部不勾也可以。
+提問前先告訴使用者：下面這些 core 規則一律安裝，問答只挑選額外的規則；全部不勾也可以。接著逐行列出 core 規則的標題（`--list` 中 tier 為 core 的項目，原樣使用第 6 欄「選項名稱」）。
 
 1. **安裝範圍**（單選，header「範圍」）：全域（推薦，所有專案適用）／本專案（只在這個 repo 生效）
 2. **寫作規範**（複選，header「寫作」）：`writing/commit-messages`、`writing/changelog`、`writing/docs-and-cards`、`writing/taiwan-terminology`
@@ -50,7 +53,7 @@ install.sh --target <目標目錄> --select <id1,id2,...> --dry-run
 
 ## 4. 套用
 
-使用者確認後，用同樣的參數去掉 `--dry-run` 執行。
+使用者確認後，用同樣的參數去掉 `--dry-run` 執行。套用完再執行一次 `install.sh --status --target <目標目錄>`，把結果給使用者看作為收尾。
 
 - 輸出裡有「！ 保留」，代表那個檔案被手動改過。問使用者是否要覆蓋；要覆蓋才加 `--force` 重跑。
 - 完成後提醒：規則會在**下一個 session** 開始生效；之後想調整，再執行一次 `/agreements:setup` 即可。
