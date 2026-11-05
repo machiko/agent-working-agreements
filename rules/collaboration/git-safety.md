@@ -24,7 +24,7 @@ tier: core
 
 **為什麼：** 有一次從當時所在的開發線切出 fix 分支，再 fast-forward 進舊版 release，結果那個 release 夾帶了另一條線獨有的功能，牽連數十個檔案，只能重設、cherry-pick，再 force-with-lease 推回。
 
-**怎麼做：** release 線之間有「只存在某一條線」的功能時，先跑 `git diff --stat A B` 確認差異，再決定基底。
+**怎麼做：** release 線之間有「只存在某一條線」的功能時，先跑 `git diff --stat A B` 確認差異，再決定基底。從 `origin/<release>` 切出的新分支會自動追蹤那條 release，要先 `git branch --unset-upstream`，否則 `git push`／`pull` 會打到 release。
 
 ## 只 add 明確的路徑
 
@@ -43,6 +43,7 @@ tier: core
 **怎麼做：**
 
 - 並行工作用 `git worktree add` 或 agent 的 worktree 隔離，一個分支對一個 worktree。
+- 移除 worktree 用 `git worktree remove`，不要 `rm -rf`。有初始化過 submodule 的 worktree，git 不加 `--force` 一律拒絕。先確認 `git status` 乾淨、submodule 內也沒有未提交的改動，再加 `--force`。
 - 無法隔離時，開工前先跑 `git status` 和 `git branch --show-current`；commit 後立刻用 `git log --oneline <branch>` 確認 commit 落在自己的分支。
 
 ## 不可逆的操作先確認
