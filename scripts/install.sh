@@ -135,14 +135,16 @@ section() {
 # ── --status 共用 ──────────────────────────────────────
 
 # rule_record <id> <標題> <讀 paths 的檔案，空字串代表一律常駐> <狀態> <載入行數>
-# 輸出一筆 tab 分隔紀錄：id、tier、標題、載入方式、狀態、行數、是否按需載入
+# 輸出一筆以 US（\037）分隔的紀錄：id、tier、標題、載入方式、狀態、行數、是否按需載入。
+# 不用 tab：tab 屬於 IFS 空白字元，read 會把連續的 tab 合併，空欄位（例如沒有標題）後面就整列錯位。
+US=$'\037'
 rule_record() {
   local tier="optional" load="常駐" od=0
   [ -f "$RULES/$1.md" ] && tier="$(field "$RULES/$1.md" tier)"
   if [ -n "$3" ] && [ -f "$3" ] && has_paths "$3"; then
     load="按需載入（$(paths_of "$3")）"; od=1
   fi
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$tier" "$2" "$load" "$4" "$5" "$od"
+  printf "%s${US}%s${US}%s${US}%s${US}%s${US}%s${US}%s\n" "$1" "$tier" "$2" "$load" "$4" "$5" "$od"
 }
 
 print_rule() {  # print_rule <id> <標題> <載入方式> <狀態>
@@ -157,14 +159,14 @@ report_status() {
   records="$(cat)"
   for group in core selected; do
     if [ "$group" = "core" ]; then
-      label="core"; rows="$(printf '%s\n' "$records" | awk -F'\t' '$2 == "core"')"
+      label="core"; rows="$(printf '%s\n' "$records" | awk -F"$US" '$2 == "core"')"
     else
-      label="選擇的規則"; rows="$(printf '%s\n' "$records" | awk -F'\t' 'NF && $2 != "core"')"
+      label="選擇的規則"; rows="$(printf '%s\n' "$records" | awk -F"$US" 'NF && $2 != "core"')"
     fi
     n="$(printf '%s\n' "$rows" | grep -c . || true)"
     echo "${label}（${n} 個）"
     [ "$n" -eq 0 ] && echo "  （無）"
-    while IFS=$'\t' read -r id _tier t load st lines od; do
+    while IFS="$US" read -r id _tier t load st lines od; do
       [ -n "$id" ] || continue
       print_rule "$id" "$t" "$load" "$st"
       if [ "$od" -eq 1 ]; then ondemand=$((ondemand + lines)); else always=$((always + lines)); fi
@@ -229,12 +231,13 @@ if [ -n "$agents_md" ]; then
       echo "尚未安裝：${agents_md} 沒有 agent-agreements 區塊"
       exit 0
     fi
-    block() { sed -n "${start_ln},${end_ln}p" "$agents_md"; }
+    # 區塊只讀一次存進變數：用管線餵 section 時，awk 提早 exit 會讓上游收到 SIGPIPE，大區塊下整個 --status 失敗
+    blk="$(sed -n "${start_ln},${end_ln}p" "$agents_md")"
     installed_v="$(sed -n "${start_ln}s/^<!-- agent-agreements:start v\([^ ]*\) -->.*/\1/p" "$agents_md")"
     echo "安裝位置：${agents_md}"
     echo "安裝版本：${installed_v:-未記錄}｜目前版本：$(version)"
-    for id in $(block | sed -n 's/^<!-- rule: \([^ ]*\) -->$/\1/p' | sort); do
-      sec="$(block | section "$id" -)"
+    for id in $(printf '%s\n' "$blk" | sed -n 's/^<!-- rule: \([^ ]*\) -->$/\1/p' | sort); do
+      sec="$(section "$id" - <<< "$blk")"
       lines=0; [ -n "$sec" ] && lines="$(printf '%s\n' "$sec" | grep -c '')"
       src="$RULES/$id.md"
       if [ -f "$src" ]; then
