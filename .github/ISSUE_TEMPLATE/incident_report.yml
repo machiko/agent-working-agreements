@@ -1,0 +1,60 @@
+name: "💥 踩坑事故回報 (Incident Report)"
+description: "提供實際踩過的坑與定案做法，協助擴充 agent-working-agreements 規則庫"
+title: "地雷提案：[簡短描述問題]"
+labels: ["incident", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感謝你提供真實事故！本 repo 的規則堅持 **規則 → 為什麼（事故佐證）→ 怎麼做** 結構。
+        請確保內容已**去識別化**，不含任何專案名、公司、人名、私有 IP 或憑證密鑰。
+  - type: dropdown
+    id: category
+    attributes:
+      label: 建議分類
+      description: 這條事故最適合歸入哪一個分類？
+      options:
+        - "collaboration (協作/Git/驗證/溝通)"
+        - "security (資安/敏感資料/危險操作)"
+        - "writing (寫作/Commit/文件)"
+        - "laravel (Laravel 框架地雷)"
+        - "vue (Vue 3 / 前端地雷)"
+        - "docker (Docker / 容器 / 部署地雷)"
+        - "其他新分類"
+    validations:
+      required: true
+  - type: textarea
+    id: symptom
+    attributes:
+      label: 事故症狀 (Symptom)
+      description: 當時出現了什麼非預期現象？（例如：單獨跑測試通過但整套跑失敗、正式環境噴錯、靜默覆蓋資料）
+      placeholder: "例如：正式環境噴出 Call to undefined function fake()，CI 卻抓不到..."
+    validations:
+      required: true
+  - type: textarea
+    id: root_cause
+    attributes:
+      label: 為什麼／根因 (Root Cause)
+      description: 背後的機制是什麼？為什麼 Agent 或開發者當下會誤判？
+      placeholder: "例如：Faker 屬於 require-dev，正式環境以 --no-dev 安裝時不存在。某個 match default 分支會退回去產生假資料..."
+    validations:
+      required: true
+  - type: textarea
+    id: how_to_apply
+    attributes:
+      label: 怎麼做／定案做法 (How to Apply)
+      description: 具體該如何防範或修復？給 Agent 遵循的明確指示。
+      placeholder: "例如：產生假資料的分支一律用 app()->isLocal() 守住，default 分支必須明確拋出錯誤..."
+    validations:
+      required: true
+  - type: checkboxes
+    id: sanitization_check
+    attributes:
+      label: 去識別化與授權核對清單
+      options:
+        - label: "我已檢查並移除所有內部專案名稱、公司組織名、人名"
+          required: true
+        - label: "我已檢查並移除私有 IP、內部域名、真實帳密、API Token 或憑證"
+          required: true
+        - label: "我同意此內容以本專案的 MIT License 開源釋出"
+          required: true

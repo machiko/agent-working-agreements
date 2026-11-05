@@ -5,12 +5,16 @@
 #   install.sh --list
 #   install.sh --target <dir> [--select id1,id2] [--dry-run] [--force]
 #   install.sh --target <dir> --uninstall [--dry-run] [--force]
+#   install.sh --cursor <dir> [--select id1,id2] [--dry-run] [--force]
+#   install.sh --cursor <dir> --uninstall [--dry-run] [--force]
 #   install.sh --agents-md <file> [--select id1,id2] [--dry-run]
 #   install.sh --agents-md <file> --uninstall [--dry-run]
 #   install.sh --target <dir> --status
+#   install.sh --cursor <dir> --status
 #   install.sh --agents-md <file> --status
 #
 #   --target    安裝目錄，例如 ~/.claude/rules/agent-agreements 或 <專案>/.claude/rules/agent-agreements
+#   --cursor    Cursor 規則目錄（產出 .mdc 檔），例如 .cursor/rules
 #   --agents-md 寫入 AGENTS.md（Codex 等）：只改 agent-agreements 標記區塊，區塊外內容不動
 #   --select    要加裝的 optional 規則 id（逗號分隔，例如 writing/changelog,laravel/pitfalls）；core 一律安裝
 #   --dry-run   只列出會做的變更，不寫入
@@ -31,6 +35,7 @@ RULES="$ROOT/rules"
 PROFILE_NAME=".agreements-profile"
 
 target=""
+cursor_dir=""
 agents_md=""
 select_ids=""
 dry_run=0
@@ -43,6 +48,7 @@ die() { echo "✗ $1" >&2; exit 2; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) [ $# -ge 2 ] || die "--target 需要目錄"; target="$2"; shift 2 ;;
+    --cursor) [ $# -ge 2 ] || die "--cursor 需要目錄"; cursor_dir="$2"; shift 2 ;;
     --agents-md) [ $# -ge 2 ] || die "--agents-md 需要檔案路徑"; agents_md="$2"; shift 2 ;;
     --select) [ $# -ge 2 ] || die "--select 需要規則 id"; select_ids="$2"; shift 2 ;;
     --dry-run) dry_run=1; shift ;;
@@ -64,8 +70,13 @@ fi
 # ── 共用函式 ────────────────────────────────────────────
 
 sha() {
-  if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1
-  else sha256sum "$1" | cut -d' ' -f1; fi
+  if [ $# -ge 1 ]; then
+    if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1
+    else sha256sum "$1" | cut -d' ' -f1; fi
+  else
+    if command -v shasum >/dev/null 2>&1; then shasum -a 256 | cut -d' ' -f1
+    else sha256sum | cut -d' ' -f1; fi
+  fi
 }
 
 # frontmatter 單行欄位值（與 check-budget.sh 相同的解析方式）
@@ -77,7 +88,7 @@ field() {
 }
 
 has_paths() {
-  awk 'NR == 1 && $0 != "---" { exit } NR > 1 && $0 == "---" { exit } /^paths:/ { found = 1 } END { exit !found }' "$1"
+  awk 'NR == 1 && $0 != "---" { exit } NR > 1 && $0 == "---" { exit } /^(paths|globs):/ { found = 1 } END { exit !found }' "$1"
 }
 
 body_lines() {
@@ -104,8 +115,29 @@ contains() { printf '%s\n' "$1" | grep -Fxq -- "$2"; }
 # frontmatter 的 paths 清單，以「, 」串起來
 paths_of() {
   awk 'NR == 1 && $0 != "---" { exit } NR > 1 && $0 == "---" { exit }
-       /^paths:/ { on = 1; next } on && /^[ ]+- / { sub(/^[ ]+- [ ]*/, ""); gsub(/^"|"$/, ""); out = out (out == "" ? "" : ", ") $0; next }
+       /^(paths|globs):/ { on = 1; next } on && /^[ ]+- / { sub(/^[ ]+- [ ]*/, ""); gsub(/^"|"$/, ""); out = out (out == "" ? "" : ", ") $0; next }
        on { on = 0 } END { print out }' "$1"
+}
+
+# 產出 Cursor IDE 規範的 .mdc 規則內容
+cursor_content() {
+  local src="$1" desc
+  desc="$(field "$src" label | unquote)"
+  [ -z "$desc" ] && desc="$(title "$src")"
+  echo "---"
+  echo "description: \"$desc\""
+  if has_paths "$src"; then
+    echo "globs:"
+    awk 'NR == 1 && $0 != "---" { exit } NR > 1 && $0 == "---" { exit }
+         /^(paths|globs):/ { on = 1; next } on && /^[ ]+- / { print; next }
+         on { on = 0 }' "$src"
+    echo "alwaysApply: false"
+  else
+    echo "alwaysApply: true"
+  fi
+  echo "---"
+  echo
+  strip_body "$src"
 }
 
 # with_title <id> <顯示名稱>：來源規則有標題就印「<顯示名稱> — <標題>」，否則只印顯示名稱
@@ -192,8 +224,13 @@ fi
 
 # ── 安裝／移除 ─────────────────────────────────────────
 
-[ -n "$target" ] && [ -n "$agents_md" ] && die "--target 與 --agents-md 只能擇一"
-[ -n "$target" ] || [ -n "$agents_md" ] || die "需要 --target 或 --agents-md"
+targets_set=0
+[ -n "$target" ] && targets_set=$((targets_set + 1))
+[ -n "$cursor_dir" ] && targets_set=$((targets_set + 1))
+[ -n "$agents_md" ] && targets_set=$((targets_set + 1))
+
+[ "$targets_set" -gt 1 ] && die "--target、--cursor 與 --agents-md 只能擇一"
+[ "$targets_set" -eq 0 ] && die "需要 --target、--cursor 或 --agents-md"
 
 # 期望安裝的規則：core 全部 ＋ 選擇的 optional
 desired=""
@@ -347,8 +384,21 @@ if [ -n "$agents_md" ]; then
   exit 0
 fi
 
+is_cursor=0
+ext="md"
+if [ -n "$cursor_dir" ]; then
+  target="$cursor_dir"
+  is_cursor=1
+  ext="mdc"
+fi
+
 case "$target" in "~"/*) target="$HOME/${target#\~/}" ;; esac
 profile="$target/$PROFILE_NAME"
+
+if [ -f "$profile" ] && grep -q '^format=cursor$' "$profile"; then
+  is_cursor=1
+  ext="mdc"
+fi
 
 # 已安裝的規則與記錄的雜湊（profile 每行：file=<id> sha256=<hash>）
 installed=""
@@ -357,7 +407,7 @@ installed=""
 recorded_sha() { sed -n "s#^file=$1 sha256=\\(.*\\)#\\1#p" "$profile" 2>/dev/null; }
 
 is_modified() {
-  local dest="$target/$1.md" rec
+  local dest="$target/$1.$ext" rec
   [ -f "$dest" ] || return 1
   rec="$(recorded_sha "$1")"
   [ -n "$rec" ] && [ "$(sha "$dest")" != "$rec" ]
@@ -373,12 +423,19 @@ if [ "$mode" = "status" ]; then
   echo "安裝位置：${target}"
   echo "安裝版本：${installed_v:-未記錄}｜目前版本：$(version)"
   for id in $installed; do
-    src="$RULES/$id.md"; dest="$target/$id.md"; rec="$(recorded_sha "$id")"
+    src="$RULES/$id.md"; dest="$target/$id.$ext"; rec="$(recorded_sha "$id")"
     if [ ! -f "$dest" ]; then st="檔案遺失"
     elif [ "$(sha "$dest")" != "$rec" ]; then st="已手動修改"
     elif [ ! -f "$src" ]; then st="來源已移除"
-    elif [ "$rec" != "$(sha "$src")" ]; then st="有新版"
-    else st="最新"; fi
+    else
+      if [ "$is_cursor" -eq 1 ]; then
+        expected_sha="$(cursor_content "$src" | sha)"
+      else
+        expected_sha="$(sha "$src")"
+      fi
+      if [ "$rec" != "$expected_sha" ]; then st="有新版"
+      else st="最新"; fi
+    fi
     # 標題與 paths 以實際載入的檔案為準；檔案遺失時退回來源，且不計入行數
     info="$dest"; lines=0
     if [ -f "$dest" ]; then lines="$(body_lines "$dest")"; else info="$src"; fi
@@ -394,7 +451,7 @@ changes=0
 record() { new_profile="${new_profile}file=$1 sha256=$2"$'\n'; }
 
 act() {  # act <符號> <動作> <id>
-  printf '%s %s %s\n' "$1" "$2" "$(with_title "$3" "$3.md")"
+  printf '%s %s %s\n' "$1" "$2" "$(with_title "$3" "$3.$ext")"
   changes=$((changes + 1))
 }
 
@@ -402,14 +459,14 @@ act() {  # act <符號> <動作> <id>
 for id in $installed; do
   if [ "$mode" = "install" ] && contains "$desired" "$id"; then continue; fi
   if is_modified "$id" && [ "$force" -eq 0 ]; then
-    echo "！ 保留（已被手動修改，加 --force 才移除）$(with_title "$id" "$id.md")"
+    echo "！ 保留（已被手動修改，加 --force 才移除）$(with_title "$id" "$id.$ext")"
     record "$id" "$(recorded_sha "$id")"
     continue
   fi
   act "－" "移除" "$id"
   if [ "$dry_run" -eq 0 ]; then
-    rm -f "$target/$id.md"
-    rmdir "$(dirname "$target/$id.md")" 2>/dev/null || true
+    rm -f "$target/$id.$ext"
+    rmdir "$(dirname "$target/$id.$ext")" 2>/dev/null || true
   fi
 done
 
@@ -417,12 +474,16 @@ done
 unchanged=0
 for id in $desired; do
   src="$RULES/$id.md"
-  dest="$target/$id.md"
-  src_sha="$(sha "$src")"
+  dest="$target/$id.$ext"
+  if [ "$is_cursor" -eq 1 ]; then
+    src_sha="$(cursor_content "$src" | sha)"
+  else
+    src_sha="$(sha "$src")"
+  fi
 
   if contains "$installed" "$id"; then
     if is_modified "$id" && [ "$force" -eq 0 ]; then
-      echo "！ 保留（已被手動修改，加 --force 才覆蓋）$(with_title "$id" "$id.md")"
+      echo "！ 保留（已被手動修改，加 --force 才覆蓋）$(with_title "$id" "$id.$ext")"
       record "$id" "$(recorded_sha "$id")"
       continue
     fi
@@ -434,7 +495,7 @@ for id in $desired; do
     act "↻" "更新" "$id"
   else
     if [ -f "$dest" ] && [ "$force" -eq 0 ] && [ "$(sha "$dest")" != "$src_sha" ]; then
-      echo "！ 略過（目標已有同名檔案且非本工具安裝，加 --force 才覆蓋）$(with_title "$id" "$id.md")"
+      echo "！ 略過（目標已有同名檔案且非本工具安裝，加 --force 才覆蓋）$(with_title "$id" "$id.$ext")"
       continue
     fi
     act "＋" "新增" "$id"
@@ -442,7 +503,11 @@ for id in $desired; do
 
   if [ "$dry_run" -eq 0 ]; then
     mkdir -p "$(dirname "$dest")"
-    cp "$src" "$dest"
+    if [ "$is_cursor" -eq 1 ]; then
+      cursor_content "$src" > "$dest"
+    else
+      cp "$src" "$dest"
+    fi
   fi
   record "$id" "$src_sha"
 done
@@ -476,6 +541,7 @@ else
   {
     echo "# agent-working-agreements 安裝紀錄（由 install.sh 維護，請勿手動編輯）"
     echo "version=$(version)"
+    [ "$is_cursor" -eq 1 ] && echo "format=cursor"
     echo "selected=$(printf '%s' "$select_ids" | tr -d ' ')"
     printf '%s' "$new_profile"
   } > "$profile"

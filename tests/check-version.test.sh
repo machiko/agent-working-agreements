@@ -4,6 +4,7 @@
 # 用法：tests/check-version.test.sh
 
 set -uo pipefail
+export PATH="/usr/bin:/bin:$PATH"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CHECK="$ROOT/scripts/check-version.sh"
@@ -27,7 +28,7 @@ fixture() {
 expect() {
   ROOT="$3" "$CHECK" > "$TMP/out" 2>&1
   local rc=$?
-  if [ "$rc" -eq "$2" ]; then ok "$1"; else bad "$1（exit $rc，預期 $2）"; sed 's/^/      /' "$TMP/out" >&2; fi
+  if [ "$rc" -eq "$2" ]; then ok "$1"; else bad "$1（exit ${rc}，預期 $2）"; sed 's/^/      /' "$TMP/out" >&2; fi
 }
 
 echo "▸ 三處版號一致"
