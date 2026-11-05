@@ -2,7 +2,7 @@
 category: docker
 tier: optional
 label: "Docker 地雷"
-summary: "切分支後 bind mount 斷線、Xdebug 拖慢測試、CI 快取等。用 compose 開發才選；只在碰到 Dockerfile、compose 時載入"
+summary: "切分支後 bind mount 斷線、Xdebug 拖慢測試、CI 快取、部署回滾等。用 compose 開發才選；只在碰到 Dockerfile、compose 時載入"
 stack: docker
 paths:
   - "**/Dockerfile*"
@@ -60,3 +60,22 @@ paths:
 - 第一次冷快取會比沒有快取還慢，從第二次開始才省時間。
 - 改了快取路徑時要一併改快取名稱，否則舊的封存會被還原到新路徑。
 - Bitbucket Pipelines 的快取名稱只接受小寫英數字和連字號，有底線會讓整份設定解析失敗。
+
+## 部署管線
+
+### 部署 job 在執行時依賴外部 registry
+
+- **症狀：** 發版當天部署卡在拉 step image，或拉映像逾時。映像其實已經在 runner 主機上了。
+- **根因：** pull policy 是 `always`，即使本機有映像也會先問外部 registry。部署主機對外連線慢或受限、外部 registry 又剛好壅塞時，部署就卡住。
+- **怎麼做：** 部署用的 runner 設 `pull_policy = ["if-not-present"]`。這樣就不會自動更新，所以升 step image 版本時，要先在 runner 主機手動 `docker pull` 新版。
+
+### CI 頁面顯示「線上」，runner 其實沒在跑
+
+- **症狀：** job 一直 pending，CI 平台卻顯示 runner 在線。
+- **根因：** 「線上」只代表最近一段時間內有心跳。主機重開後，以一般使用者身分跑的 runner（user mode）不會自己起來；同一台主機可能還有另一份 system mode 的設定檔在空轉。
+- **怎麼做：** 分別用 `gitlab-runner list` 和 `sudo gitlab-runner list` 比對兩份設定檔，用 `ps` 看活著的行程是哪個使用者、讀哪份設定。部署用的 runner 統一用 system mode，開機會自動啟動。
+
+### 自動回滾的前提
+
+- 部署後打 health check，失敗就回滾到前一版。回滾靠的是**舊映像還留在主機上**，所以 `docker image prune` 只能在 health check 通過後才跑。
+- 已經跑過 migration 的環境不要自動回滾程式碼：程式退回去了，schema 退不回去，比停在新版更危險。這類環境 health check 失敗就亮紅燈，交給人決定。
