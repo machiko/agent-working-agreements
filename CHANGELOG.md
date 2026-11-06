@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-06
+
+### Added
+
+- 新增 多租戶與匯出資料隔離守則：`rules/security/tenant-isolation.md`，防範 OWASP BOLA / IDOR 授權漏洞，規範列表/報表/匯出強制套用租戶範圍，背景 Worker 顯式傳遞授權上下文，跨環境權限使用固定代碼
+- 新增 向下相容別名：`scripts/install.sh` 支援 `security/data-scope -> security/tenant-isolation` 與 `security/tls-certificates -> container/pitfalls` 無痛升級
+
+### Changed
+
+- 更新 `/agreements:setup`：已安裝守則在問答中一律預設為勾選狀態（Checked）；若使用者取消勾選（Uncheck）則代表自目標環境移除該規則
+- 更新 容器環境地雷：`rules/container/pitfalls.md` 增補「憑證與私鑰禁止打包進容器映像」條款，防止私鑰殘留映像歷史 Layer
+
+### Removed
+
+- 刪除 專案特化規則：移除帶有特定地端換證事故痕跡的 `rules/security/tls-certificates.md`，將核心原則收斂至容器守則
+
 ## [0.9.0] - 2026-11-06
 
 ### Added
