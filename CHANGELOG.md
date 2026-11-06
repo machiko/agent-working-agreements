@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-06
+
 ### Added
 
 - 新增 現代前端與組件化通用規則：`rules/frontend/pitfalls.md`，涵蓋 React、Vue、Next.js、Svelte 跨框架通用事故（Tailwind dynamic purge、組件卸載記憶體洩漏、SSR window/document 預渲染報錯、Prop 屬性突變、響應性解構追蹤）
