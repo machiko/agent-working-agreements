@@ -2,7 +2,7 @@
 # doctor.sh — Agent 守則健康診斷工具：體檢本專案與環境之守則完整度、版本新鮮度與安全防護等級。
 #
 # 用法：
-#   scripts/doctor.sh
+#   scripts/doctor.sh [--fix] [專案目錄]
 #
 # 結束碼：0 健康；1 發現警告或需改善項目。
 
@@ -10,6 +10,44 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+fix_mode=0
+target_dir="."
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --fix) fix_mode=1; shift ;;
+    -h|--help)
+      echo "用法：scripts/doctor.sh [--fix] [專案目錄]"
+      echo "  --fix  自動修復缺失之 Git pre-commit 防線、CI 工作流或過期守則"
+      exit 0
+      ;;
+    *) target_dir="$1"; shift ;;
+  esac
+done
+
+case "$target_dir" in "~"/*) target_dir="$HOME/${target_dir#\~/}" ;; esac
+[ -d "$target_dir" ] || { echo "✗ 目錄不存在：$target_dir" >&2; exit 2; }
+
+echo "▸ 執行 Agent 工作守則全面健康診斷 (Doctor)$([ "$fix_mode" -eq 1 ] && echo " [自動修復模式]")"
+echo "──"
+
+git_root="$(cd "$target_dir" && git rev-parse --show-toplevel 2>/dev/null || echo "$target_dir")"
+
+# ── 自動修復預處理 ──────────────────────────────────────
+if [ "$fix_mode" -eq 1 ]; then
+  # 1. 自動安裝 Git pre-commit hook
+  if [ -d "$git_root/.git" ] && { [ ! -x "$git_root/.git/hooks/pre-commit" ] || ! grep -q "scripts/audit.sh" "$git_root/.git/hooks/pre-commit" 2>/dev/null; }; then
+    (cd "$git_root" && bash "$ROOT/scripts/audit.sh" --install-hook >/dev/null 2>&1) || true
+    echo "  ⚙ [AUTO-FIX] 已自動安裝 Git pre-commit 主動稽核防線"
+  fi
+
+  # 2. 自動安裝 CI/CD 守門工作流（若尚未配置）
+  if [ ! -f "$git_root/.github/workflows/agent-audit.yml" ] && [ ! -f "$git_root/.gitlab-ci.yml" ] && [ ! -f "$git_root/bitbucket-pipelines.yml" ] && [ ! -f "$git_root/.pre-commit-config.yaml" ]; then
+    bash "$ROOT/scripts/install.sh" --ci "$git_root" >/dev/null 2>&1 || true
+    echo "  ⚙ [AUTO-FIX] 已自動配置專案 CI/CD 守門工作流"
+  fi
+fi
 
 score=100
 issues=0
@@ -28,11 +66,8 @@ info_item() {
   echo "  • $1"
 }
 
-echo "▸ 執行 Agent 工作守則全面健康診斷 (Doctor)"
-echo "──"
-
 # 1. 守則安裝與環境診斷
-local_rules=".claude/rules/agent-agreements"
+local_rules="$target_dir/.claude/rules/agent-agreements"
 global_rules="$HOME/.claude/rules/agent-agreements"
 
 has_local=0
@@ -47,17 +82,22 @@ elif [ "$has_local" -eq 1 ]; then
 elif [ "$has_global" -eq 1 ]; then
   pass_item "守則已安裝於全域環境 (${global_rules})"
 else
-  # 檢查是否以 cursor 或 agents-md 安裝
-  if [ -d ".cursor/rules" ]; then
+  # 檢查是否以 cursor、agents-md、copilot 或 windsurf 安裝
+  if [ -d "$target_dir/.cursor/rules" ]; then
     pass_item "偵測到 Cursor IDE 規則目錄 (.cursor/rules)"
-  elif [ -f "AGENTS.md" ] && grep -q "<!-- agent-agreements:start" "AGENTS.md" 2>/dev/null; then
+  elif [ -f "$target_dir/AGENTS.md" ] && grep -q "<!-- agent-agreements:start" "$target_dir/AGENTS.md" 2>/dev/null; then
     pass_item "偵測到 AGENTS.md 守則區塊"
-  elif [ -f ".github/copilot-instructions.md" ] && grep -q "<!-- agent-agreements:start" ".github/copilot-instructions.md" 2>/dev/null; then
+  elif [ -f "$target_dir/.github/copilot-instructions.md" ] && grep -q "<!-- agent-agreements:start" "$target_dir/.github/copilot-instructions.md" 2>/dev/null; then
     pass_item "偵測到 GitHub Copilot 守則區塊"
-  elif [ -f ".windsurfrules" ] && grep -q "<!-- agent-agreements:start" ".windsurfrules" 2>/dev/null; then
+  elif [ -f "$target_dir/.windsurfrules" ] && grep -q "<!-- agent-agreements:start" "$target_dir/.windsurfrules" 2>/dev/null; then
     pass_item "偵測到 Windsurf 守則區塊"
   else
-    warn_item "尚未在此專案或全域環境安裝守則（可執行 /agreements:setup 安裝）" 25
+    if [ "$fix_mode" -eq 1 ]; then
+      bash "$ROOT/scripts/install.sh" --target "$local_rules" >/dev/null 2>&1 || true
+      pass_item "守則已自動安裝至本專案 (${local_rules})"
+    else
+      warn_item "尚未在此專案或全域環境安裝守則（可執行 /agreements:setup 安裝或加 --fix 自動修復）" 25
+    fi
   fi
 fi
 
@@ -72,7 +112,15 @@ if [ -n "$installed_profile" ]; then
   if [ "$inst_ver" = "$latest_ver" ]; then
     pass_item "守則版本為最新版 (v${inst_ver})"
   else
-    warn_item "守則版本 (v${inst_ver:-未知}) 落後於最新版 (v${latest_ver})，建議重新執行 setup 更新" 15
+    if [ "$fix_mode" -eq 1 ]; then
+      # 自動更新
+      sel="$(sed -n 's/^selected=//p' "$installed_profile" | head -n 1)"
+      target_rule_dir="$(dirname "$installed_profile")"
+      bash "$ROOT/scripts/install.sh" --target "$target_rule_dir" --select "$sel" >/dev/null 2>&1 || true
+      pass_item "守則已自動升級至最新版 (v${latest_ver})"
+    else
+      warn_item "守則版本 (v${inst_ver:-未知}) 落後於最新版 (v${latest_ver})，建議重新執行 setup 更新（或加 --fix）" 15
+    fi
   fi
 else
   info_item "未偵測到 .agreements-profile，略過版本比對"
@@ -83,7 +131,6 @@ core_count="$(find "$ROOT/rules" -type f -name "*.md" -exec grep -l "^tier: core
 pass_item "已具備完整核心守則庫 (${core_count} 條核心不變守則)"
 
 # 4. 本地 Pre-commit 守門檢查
-git_root="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 if [ -x "$git_root/.git/hooks/pre-commit" ] && grep -q "scripts/audit.sh" "$git_root/.git/hooks/pre-commit" 2>/dev/null; then
   pass_item "Git pre-commit 主動稽核防線已啟動"
 else
@@ -93,8 +140,14 @@ fi
 # 5. CI/CD 雲端自動化守護
 if [ -f "$git_root/.github/workflows/agent-audit.yml" ]; then
   pass_item "GitHub Actions CI 守門工作流已就緒"
+elif [ -f "$git_root/.gitlab-ci.yml" ] && grep -q "agent-audit" "$git_root/.gitlab-ci.yml" 2>/dev/null; then
+  pass_item "GitLab CI 守門工作流已就緒"
+elif [ -f "$git_root/bitbucket-pipelines.yml" ] && grep -q "Agent Agreements Guardrail Audit" "$git_root/bitbucket-pipelines.yml" 2>/dev/null; then
+  pass_item "Bitbucket Pipelines 守門工作流已就緒"
+elif [ -f "$git_root/.pre-commit-config.yaml" ] && grep -q "agent-agreements-audit" "$git_root/.pre-commit-config.yaml" 2>/dev/null; then
+  pass_item "pre-commit 守門配置已就緒"
 else
-  info_item "尚未配置 .github/workflows/agent-audit.yml（可執行 scripts/install.sh --ci 安裝）"
+  info_item "尚未配置 CI 守門工作流（若專案在 GitHub/GitLab 等可執行 scripts/install.sh --ci）"
 fi
 
 # 6. 自訂規則健康度 (Custom Rules)
@@ -113,6 +166,6 @@ if [ "$issues" -eq 0 ]; then
   echo "✓ 專案 Agent 守則狀態極佳！"
   exit 0
 else
-  echo "建議依據上方標示之 [WARN] 項目進行改善。"
+  echo "建議依據上方標示之 [WARN] 項目進行改善（或執行 scripts/doctor.sh --fix 自動修復）。"
   exit 0
 fi

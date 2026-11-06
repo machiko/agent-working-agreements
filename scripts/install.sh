@@ -12,7 +12,7 @@
 #   install.sh --agents-md <file> --uninstall [--dry-run]
 #   install.sh --copilot [file] [--select id1,id2] [--dry-run]
 #   install.sh --windsurf [file] [--select id1,id2] [--dry-run]
-#   install.sh --ci [dir] [--dry-run]
+#   install.sh --ci [platform] [dir] [--dry-run]
 #   install.sh --target <dir> --status
 #   install.sh --cursor <dir> --status
 #   install.sh --agents-md <file> --status
@@ -22,7 +22,7 @@
 #   --agents-md 寫入 AGENTS.md（Codex 等）：只改 agent-agreements 標記區塊，區塊外內容不動
 #   --copilot   寫入 GitHub Copilot 指示（預設 .github/copilot-instructions.md），以標記區塊注入
 #   --windsurf  寫入 Windsurf 規則（預設 .windsurfrules），以標記區塊注入
-#   --ci        安裝 GitHub Actions CI 守門工作流（.github/workflows/agent-audit.yml 與 audit.sh）
+#   --ci        安裝 CI/CD 守門工作流（支援 github、gitlab、bitbucket、pre-commit，預設智慧自動偵測）
 #   --select    要加裝的 optional 規則 id（逗號分隔，例如 writing/changelog,frontend/pitfalls）；core 一律安裝
 #   --dry-run   只列出會做的變更，不寫入
 #   --force     覆蓋或移除已被手動修改的檔案
@@ -48,6 +48,7 @@ agents_md=""
 copilot_file=""
 windsurf_file=""
 ci_dir=""
+ci_platform=""
 detect_dir=""
 select_ids=""
 dry_run=0
@@ -77,11 +78,16 @@ while [ $# -gt 0 ]; do
       fi
       ;;
     --ci)
-      if [ $# -ge 2 ] && [ "${2#-}" = "$2" ]; then
-        ci_dir="$2"; shift 2
-      else
-        ci_dir="."; shift
-      fi
+      ci_dir="."
+      shift
+      while [ $# -ge 1 ] && [ "${1#-}" = "$1" ]; do
+        case "$1" in
+          github|gitlab|bitbucket|pre-commit)
+            ci_platform="$1"; shift ;;
+          *)
+            ci_dir="$1"; shift ;;
+        esac
+      done
       ;;
     --select) [ $# -ge 2 ] || die "--select 需要規則 id"; select_ids="$2"; shift 2 ;;
     --dry-run) dry_run=1; shift ;;
@@ -315,24 +321,45 @@ if [ "$mode" = "detect" ]; then
     printf 'cloud/pitfalls\t偵測到雲端部署 (K8s/Terraform) 或日誌可觀測性依賴\n'
   fi
 
+  # 8. 自動化測試特徵
+  if [ -d "$dir/tests" ] || [ -d "$dir/test" ] || [ -d "$dir/__tests__" ] || [ -f "$dir/jest.config.js" ] || [ -f "$dir/jest.config.ts" ] || [ -f "$dir/vitest.config.ts" ] || [ -f "$dir/vitest.config.js" ] || [ -f "$dir/phpunit.xml" ] || [ -f "$dir/pytest.ini" ] || find "$dir" -maxdepth 3 -type f \( -name '*.test.*' -o -name '*.spec.*' \) 2>/dev/null | grep -q .; then
+    printf 'testing/pitfalls\t偵測到自動化測試目錄 (tests/test) 或測試設定檔\n'
+  fi
+
   exit 0
 fi
 
-# ── --ci：安裝 GitHub Actions CI 守門工作流 ─────────────
+# ── --ci：安裝全平台 CI/CD 守門工作流 ────────────────────
 
 if [ -n "$ci_dir" ]; then
   case "$ci_dir" in "~"/*) ci_dir="$HOME/${ci_dir#\~/}" ;; esac
   [ -d "$ci_dir" ] || die "目錄不存在：$ci_dir"
-  WF_DIR="$ci_dir/.github/workflows"
-  WF_FILE="$WF_DIR/agent-audit.yml"
   SCRIPTS_DIR="$ci_dir/scripts"
-  if [ "$dry_run" -eq 1 ]; then
-    echo "＋ 新增 $WF_FILE"
-    [ ! -f "$SCRIPTS_DIR/audit.sh" ] && echo "＋ 新增 $SCRIPTS_DIR/audit.sh"
-    exit 0
+
+  # 智慧偵測平台
+  if [ -z "$ci_platform" ]; then
+    if [ -f "$ci_dir/.gitlab-ci.yml" ]; then
+      ci_platform="gitlab"
+    elif [ -f "$ci_dir/bitbucket-pipelines.yml" ]; then
+      ci_platform="bitbucket"
+    elif [ -f "$ci_dir/.pre-commit-config.yaml" ]; then
+      ci_platform="pre-commit"
+    else
+      ci_platform="github"
+    fi
   fi
-  mkdir -p "$WF_DIR" "$SCRIPTS_DIR"
-  cat <<'EOF' > "$WF_FILE"
+
+  case "$ci_platform" in
+    github)
+      WF_DIR="$ci_dir/.github/workflows"
+      WF_FILE="$WF_DIR/agent-audit.yml"
+      if [ "$dry_run" -eq 1 ]; then
+        echo "＋ 新增 $WF_FILE"
+        [ ! -f "$SCRIPTS_DIR/audit.sh" ] && echo "＋ 新增 $SCRIPTS_DIR/audit.sh"
+        exit 0
+      fi
+      mkdir -p "$WF_DIR" "$SCRIPTS_DIR"
+      cat <<'EOF' > "$WF_FILE"
 name: Agent Agreements Audit
 
 on:
@@ -358,12 +385,85 @@ jobs:
             echo "Notice: scripts/audit.sh not found."
           fi
 EOF
-  if [ ! -f "$SCRIPTS_DIR/audit.sh" ] && [ -f "$ROOT/scripts/audit.sh" ]; then
-    cp "$ROOT/scripts/audit.sh" "$SCRIPTS_DIR/audit.sh"
-    chmod +x "$SCRIPTS_DIR/audit.sh"
-  fi
-  echo "✓ 已成功安裝 GitHub Actions CI 守門工作流：$WF_FILE"
-  exit 0
+      if [ ! -f "$SCRIPTS_DIR/audit.sh" ] && [ -f "$ROOT/scripts/audit.sh" ]; then
+        cp "$ROOT/scripts/audit.sh" "$SCRIPTS_DIR/audit.sh"
+        chmod +x "$SCRIPTS_DIR/audit.sh"
+      fi
+      echo "✓ 已成功安裝 GitHub Actions CI 守門工作流：$WF_FILE"
+      echo "  提示：若專案託管於 GitHub，發 PR 與 Push 將自動觸發；若為 GitLab/Bitbucket 或本地開發，可改用 scripts/audit.sh --install-hook"
+      exit 0
+      ;;
+
+    gitlab)
+      WF_FILE="$ci_dir/.gitlab-ci.yml"
+      if [ "$dry_run" -eq 1 ]; then
+        echo "＋ 新增/配置 $WF_FILE"
+        [ ! -f "$SCRIPTS_DIR/audit.sh" ] && echo "＋ 新增 $SCRIPTS_DIR/audit.sh"
+        exit 0
+      fi
+      mkdir -p "$SCRIPTS_DIR"
+      if [ -f "$WF_FILE" ] && ! grep -q "agent-audit" "$WF_FILE"; then
+        printf '\n' >> "$WF_FILE"
+        cat "$ROOT/templates/ci/gitlab-ci.yml" >> "$WF_FILE"
+      elif [ ! -f "$WF_FILE" ]; then
+        cp "$ROOT/templates/ci/gitlab-ci.yml" "$WF_FILE"
+      fi
+      if [ ! -f "$SCRIPTS_DIR/audit.sh" ] && [ -f "$ROOT/scripts/audit.sh" ]; then
+        cp "$ROOT/scripts/audit.sh" "$SCRIPTS_DIR/audit.sh"
+        chmod +x "$SCRIPTS_DIR/audit.sh"
+      fi
+      echo "✓ 已成功安裝 GitLab CI 守門工作流：$WF_FILE"
+      exit 0
+      ;;
+
+    bitbucket)
+      WF_FILE="$ci_dir/bitbucket-pipelines.yml"
+      if [ "$dry_run" -eq 1 ]; then
+        echo "＋ 新增/配置 $WF_FILE"
+        [ ! -f "$SCRIPTS_DIR/audit.sh" ] && echo "＋ 新增 $SCRIPTS_DIR/audit.sh"
+        exit 0
+      fi
+      mkdir -p "$SCRIPTS_DIR"
+      if [ -f "$WF_FILE" ] && ! grep -q "Agent Agreements Guardrail Audit" "$WF_FILE"; then
+        printf '\n' >> "$WF_FILE"
+        cat "$ROOT/templates/ci/bitbucket-pipelines.yml" >> "$WF_FILE"
+      elif [ ! -f "$WF_FILE" ]; then
+        cp "$ROOT/templates/ci/bitbucket-pipelines.yml" "$WF_FILE"
+      fi
+      if [ ! -f "$SCRIPTS_DIR/audit.sh" ] && [ -f "$ROOT/scripts/audit.sh" ]; then
+        cp "$ROOT/scripts/audit.sh" "$SCRIPTS_DIR/audit.sh"
+        chmod +x "$SCRIPTS_DIR/audit.sh"
+      fi
+      echo "✓ 已成功安裝 Bitbucket Pipelines 守門工作流：$WF_FILE"
+      exit 0
+      ;;
+
+    pre-commit)
+      WF_FILE="$ci_dir/.pre-commit-config.yaml"
+      if [ "$dry_run" -eq 1 ]; then
+        echo "＋ 新增/配置 $WF_FILE"
+        [ ! -f "$SCRIPTS_DIR/audit.sh" ] && echo "＋ 新增 $SCRIPTS_DIR/audit.sh"
+        exit 0
+      fi
+      mkdir -p "$SCRIPTS_DIR"
+      if [ -f "$WF_FILE" ] && ! grep -q "agent-agreements-audit" "$WF_FILE"; then
+        printf '\n' >> "$WF_FILE"
+        cat "$ROOT/templates/ci/pre-commit-config.yaml" >> "$WF_FILE"
+      elif [ ! -f "$WF_FILE" ]; then
+        cp "$ROOT/templates/ci/pre-commit-config.yaml" "$WF_FILE"
+      fi
+      if [ ! -f "$SCRIPTS_DIR/audit.sh" ] && [ -f "$ROOT/scripts/audit.sh" ]; then
+        cp "$ROOT/scripts/audit.sh" "$SCRIPTS_DIR/audit.sh"
+        chmod +x "$SCRIPTS_DIR/audit.sh"
+      fi
+      echo "✓ 已成功安裝 pre-commit 守門配置：$WF_FILE"
+      exit 0
+      ;;
+
+    *)
+      die "不支援的 CI 平台：$ci_platform（支援 github、gitlab、bitbucket、pre-commit）"
+      ;;
+  esac
 fi
 
 # ── 安裝／移除 ─────────────────────────────────────────

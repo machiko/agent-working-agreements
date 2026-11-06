@@ -1,0 +1,21 @@
+# Agent Agreements Audit for GitLab CI
+# 放在 .gitlab-ci.yml 或以 include 引入
+
+stages:
+  - test
+
+agent-audit:
+  stage: test
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache bash git
+  script:
+    - |
+      if [ -f "scripts/audit.sh" ]; then
+        bash scripts/audit.sh --commit HEAD
+      else
+        echo "Notice: scripts/audit.sh not found."
+      fi
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

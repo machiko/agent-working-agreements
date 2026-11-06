@@ -364,6 +364,28 @@ mkdir -p "$TD/k8s"
 out_cloud="$("$INSTALL" --detect "$TD")"
 check "detect 辨識出 cloud/pitfalls" 'printf "%s" "$out_cloud" | grep -q "^cloud/pitfalls"'
 
+echo "▸ --detect：自動化測試特徵"
+mkdir -p "$TD/tests"
+out_test="$("$INSTALL" --detect "$TD")"
+check "detect 辨識出 testing/pitfalls" 'printf "%s" "$out_test" | grep -q "^testing/pitfalls"'
+
+echo "▸ --ci 多平台：GitLab CI、Bitbucket Pipelines 與 pre-commit"
+T_CI_GL="$TMP/ci-gl"
+mkdir -p "$T_CI_GL"
+"$INSTALL" --ci gitlab "$T_CI_GL" > /dev/null
+check "ci gitlab 產出 .gitlab-ci.yml" '[ -f "$T_CI_GL/.gitlab-ci.yml" ] && grep -q "agent-audit" "$T_CI_GL/.gitlab-ci.yml"'
+check "ci gitlab 複製 audit.sh 且具執行權限" '[ -x "$T_CI_GL/scripts/audit.sh" ]'
+
+T_CI_BB="$TMP/ci-bb"
+mkdir -p "$T_CI_BB"
+"$INSTALL" --ci bitbucket "$T_CI_BB" > /dev/null
+check "ci bitbucket 產出 bitbucket-pipelines.yml" '[ -f "$T_CI_BB/bitbucket-pipelines.yml" ] && grep -q "Agent Agreements Guardrail Audit" "$T_CI_BB/bitbucket-pipelines.yml"'
+
+T_CI_PC="$TMP/ci-pc"
+mkdir -p "$T_CI_PC"
+"$INSTALL" --ci pre-commit "$T_CI_PC" > /dev/null
+check "ci pre-commit 產出 .pre-commit-config.yaml" '[ -f "$T_CI_PC/.pre-commit-config.yaml" ] && grep -q "agent-agreements-audit" "$T_CI_PC/.pre-commit-config.yaml"'
+
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"
 [ "$fail" -eq 0 ]
