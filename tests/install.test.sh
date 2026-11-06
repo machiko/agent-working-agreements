@@ -316,6 +316,20 @@ check "cursor uninstall 清除所有 .mdc 與目錄" '[ ! -e "$TC" ]'
 "$INSTALL" --cursor "$TMP/x" --target "$TMP/y" > /dev/null 2>&1
 check "--cursor 與 --target 同時使用回傳 2" '[ $? -eq 2 ]'
 
+echo "▸ --detect：智慧專案特徵偵測"
+TD="$TMP/detect-fixture"
+mkdir -p "$TD/migrations" "$TD/routes"
+touch "$TD/Dockerfile" "$TD/schema.sql"
+out="$("$INSTALL" --detect "$TD")"
+check "detect 辨識出 database/pitfalls" 'printf "%s" "$out" | grep -q "^database/pitfalls"'
+check "detect 辨識出 api/pitfalls" 'printf "%s" "$out" | grep -q "^api/pitfalls"'
+check "detect 辨識出 docker/pitfalls" 'printf "%s" "$out" | grep -q "^docker/pitfalls"'
+check "detect 不包含未匹配的 laravel/pitfalls" '! printf "%s" "$out" | grep -q "^laravel/pitfalls"'
+"$INSTALL" --detect "$TMP/no-such-dir" > /dev/null 2>&1
+check "detect 目錄不存在回傳 2" '[ $? -eq 2 ]'
+"$INSTALL" --status --detect > /dev/null 2>&1
+check "--status 搭配 --detect 回傳 2" '[ $? -eq 2 ]'
+
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"
 [ "$fail" -eq 0 ]

@@ -3,6 +3,7 @@
 #
 # 用法：
 #   install.sh --list
+#   install.sh --detect [dir]
 #   install.sh --target <dir> [--select id1,id2] [--dry-run] [--force]
 #   install.sh --target <dir> --uninstall [--dry-run] [--force]
 #   install.sh --cursor <dir> [--select id1,id2] [--dry-run] [--force]
@@ -23,6 +24,7 @@
 #   --status    唯讀：依 core／選擇的規則分組列出已安裝規則的標題、載入方式與狀態
 #               （最新、有新版、已手動修改、檔案遺失、來源已移除）；不能搭配其他選項
 #   --list      列出所有規則：id、tier、stack、是否按需載入、本文行數、選項名稱、說明（以 tab 分隔）
+#   --detect    自動掃描專案特徵並列出推薦的 optional 規則（以 tab 分隔 id 與推薦原因）
 #
 #   環境變數 AGENTS_MD_MAX_BYTES：AGENTS.md 大小警告門檻（預設 32768，Codex project_doc_max_bytes 預設值）
 #
@@ -37,6 +39,7 @@ PROFILE_NAME=".agreements-profile"
 target=""
 cursor_dir=""
 agents_md=""
+detect_dir=""
 select_ids=""
 dry_run=0
 force=0
@@ -55,6 +58,14 @@ while [ $# -gt 0 ]; do
     --force) force=1; shift ;;
     --uninstall) mode="uninstall"; shift ;;
     --list) mode="list"; shift ;;
+    --detect)
+      mode="detect"
+      shift
+      if [ $# -ge 1 ] && [ "${1#-}" = "$1" ]; then
+        detect_dir="$1"
+        shift
+      fi
+      ;;
     --status) status=1; shift ;;
     -h|--help) awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; exit 0 ;;
     *) die "未知參數：$1" ;;
@@ -63,7 +74,7 @@ done
 
 if [ "$status" -eq 1 ]; then
   [ "$mode" = "install" ] && [ -z "$select_ids" ] && [ "$dry_run" -eq 0 ] && [ "$force" -eq 0 ] \
-    || die "--status 不能搭配 --select、--uninstall、--list、--dry-run 或 --force"
+    || die "--status 不能搭配 --select、--uninstall、--list、--detect、--dry-run 或 --force"
   mode="status"
 fi
 
@@ -219,6 +230,41 @@ if [ "$mode" = "list" ]; then
     summary="$(field "$f" summary | unquote)"
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$(field "$f" tier)" "${stack:--}" "$scoped" "$(body_lines "$f")" "${label:-$(title "$f")}" "${summary:--}"
   done
+  exit 0
+fi
+
+# ── --detect ───────────────────────────────────────────
+
+if [ "$mode" = "detect" ]; then
+  dir="${detect_dir:-.}"
+  case "$dir" in "~"/*) dir="$HOME/${dir#\~/}" ;; esac
+  [ -d "$dir" ] || die "目錄不存在：$dir"
+
+  # 1. 資料庫特徵
+  if [ -d "$dir/migrations" ] || [ -d "$dir/migration" ] || [ -d "$dir/prisma" ] || [ -d "$dir/alembic" ] || [ -d "$dir/db/migrate" ] || [ -d "$dir/schema" ] || [ -f "$dir/schema.prisma" ] || [ -f "$dir/alembic.ini" ] || find "$dir" -maxdepth 2 -type f -name '*.sql' 2>/dev/null | grep -q .; then
+    printf 'database/pitfalls\t偵測到資料庫遷移、schema 或 SQL 檔案\n'
+  fi
+
+  # 2. API 特徵
+  if [ -d "$dir/controllers" ] || [ -d "$dir/controller" ] || [ -d "$dir/handlers" ] || [ -d "$dir/handler" ] || [ -d "$dir/routes" ] || [ -d "$dir/route" ] || [ -d "$dir/api" ] || [ -d "$dir/src/routes" ] || [ -d "$dir/src/controllers" ] || [ -d "$dir/src/handlers" ]; then
+    printf 'api/pitfalls\t偵測到 API 路由或控制器目錄\n'
+  fi
+
+  # 3. Docker 特徵
+  if [ -f "$dir/Dockerfile" ] || [ -f "$dir/docker-compose.yml" ] || [ -f "$dir/docker-compose.yaml" ] || [ -f "$dir/compose.yml" ] || [ -f "$dir/compose.yaml" ]; then
+    printf 'docker/pitfalls\t偵測到 Dockerfile 或 compose 設定檔\n'
+  fi
+
+  # 4. Laravel 特徵
+  if [ -f "$dir/artisan" ] || { [ -f "$dir/composer.json" ] && grep -qi '"laravel/framework"' "$dir/composer.json" 2>/dev/null; }; then
+    printf 'laravel/pitfalls\t偵測到 Laravel 專案結構或框架套件\n'
+  fi
+
+  # 5. Vue / 前端特徵
+  if [ -f "$dir/vite.config.js" ] || [ -f "$dir/vite.config.ts" ] || find "$dir" -maxdepth 3 -type f -name '*.vue' 2>/dev/null | grep -q . || { [ -f "$dir/package.json" ] && grep -qi '"vue"' "$dir/package.json" 2>/dev/null; }; then
+    printf 'vue/pitfalls\t偵測到 Vue 元件或 Vite 設定\n'
+  fi
+
   exit 0
 fi
 

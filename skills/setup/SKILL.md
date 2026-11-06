@@ -22,6 +22,7 @@ disable-model-invocation: true
 2. 對兩個範圍各執行一次 `install.sh --status --target <目標目錄>`（唯讀，不會建立目錄）。輸出依 core／選擇的規則分組，每行是「id — 標題｜常駐或按需載入（paths）｜狀態」，最後一行是常駐與按需載入的行數和規則總數。從這裡得知目前已安裝哪些 id，不要自己讀 `.agreements-profile`。
 3. 用幾行摘要給使用者看：每個範圍「尚未安裝」或裝了幾條（core 幾條、選擇的規則有哪些），以及有沒有標成「已手動修改」「有新版」「檔案遺失」「來源已移除」的規則（列出 id）。
 4. 兩個範圍都已安裝時提醒：全域與本專案會各載入一份，同一條規則會重複載入、多佔 context；建議只留一個範圍。
+5. 執行 `install.sh --detect` 掃描目前專案特徵，記下推薦的規則 id 清單。
 
 如果使用者的參數是「狀態」，摘要完就結束，不進入問答、不執行任何安裝。
 如果使用者的參數是「移除」，跳到第 5 步。
@@ -33,12 +34,12 @@ disable-model-invocation: true
 1. **安裝範圍**（單選，header「範圍」）：全域（推薦，所有專案適用）／本專案（只在這個 repo 生效）
 2. **寫作規範**（複選，header「寫作」）：`writing/commit-messages`、`writing/changelog`、`writing/docs-and-cards`、`writing/taiwan-terminology`
 3. **安全**（複選，header「安全」）：`security/sast-safe-patterns`、`security/data-scope`、`security/tls-certificates`
-4. **技術棧地雷**（複選，header「技術棧」）：`laravel/pitfalls`、`vue/pitfalls`、`docker/pitfalls`
+4. **工程地雷**（複選，header「工程地雷」）：通用工程（`database/pitfalls`、`api/pitfalls`）與特定技術棧（`docker/pitfalls`、`laravel/pitfalls`、`vue/pitfalls`）
 
 每個選項的文字**原樣使用** `--list` 的欄位，不要自行改寫或縮寫：
 
 - label：「選項名稱」欄。
-- description：「說明」欄，後面接「（N 行，常駐）」或「（N 行，按需載入）」。已安裝的項目在 description 最前面加上「已安裝｜」。
+- description：「說明」欄，後面接「（N 行，常駐）」或「（N 行，按需載入）」。被 `install.sh --detect` 推薦的項目在最前面加上「推薦｜」；已安裝的項目加上「已安裝｜」。
 - 重跑時預設沿用上次的選擇。
 
 ## 3. 預覽

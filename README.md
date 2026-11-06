@@ -2,9 +2,9 @@
 
 [![check](https://github.com/machiko/agent-working-agreements/actions/workflows/check.yml/badge.svg)](https://github.com/machiko/agent-working-agreements/actions/workflows/check.yml)
 
-Working agreements for AI coding agents (Claude Code, Codex, and friends), distilled from a year of real incidents on a production Laravel + Vue codebase.
+Working agreements for AI coding agents (Claude Code, Cursor, Codex, and friends), distilled from real incidents across database, API, Docker, and fullstack architectures.
 
-> 本 repo 的規則本文以**繁體中文**撰寫，內容是一年多來和 AI coding agent 協作時實際踩過的坑與定案的做法。安裝時用問答挑選需要的規則，之後隨時可以重跑調整。
+> 本 repo 的規則本文以**繁體中文**撰寫，內容是一年多來和 AI coding agent 協作時實際踩過的坑與定案的做法。涵蓋跨語言通用工程地雷（資料庫/ORM、API/契約、Docker）與前端/特定框架守則。安裝時支援自動特徵偵測與問答挑選，之後隨時可以重跑調整。
 
 Every rule follows the same shape: **the rule → why (the incident that caused it) → how to apply**. The "why" matters: without it, an agent can't judge edge cases.
 
@@ -46,6 +46,8 @@ To update automatically: `/plugin` → Marketplaces → agent-working-agreements
 | saw an agent delete or loosen tests to go green | [`collaboration/test-integrity`](rules/collaboration/test-integrity.md) |
 | worry about `rm -rf`, force pushes, or production credentials | [`security/dangerous-operations`](rules/security/dangerous-operations.md) |
 | have a CLAUDE.md / AGENTS.md that keeps growing | [`writing/lean-instructions`](rules/writing/lean-instructions.md) |
+| write database migrations, queries, or ORMs | [`database/pitfalls`](rules/database/pitfalls.md) (exclusive locks, non-idempotent migrations, N+1, money precision) |
+| build or consume backend APIs and integrations | [`api/pitfalls`](rules/api/pitfalls.md) (unbounded timeouts, swallowed exceptions, breaking changes, idempotency) |
 | run a Laravel, Vue, or Docker stack | [`laravel/pitfalls`](rules/laravel/pitfalls.md), [`vue/pitfalls`](rules/vue/pitfalls.md), [`docker/pitfalls`](rules/docker/pitfalls.md) (load only when matching files are touched) |
 
 ## What's inside
@@ -57,6 +59,8 @@ To update automatically: `/plugin` → Marketplaces → agent-working-agreements
 | [`rules/collaboration/`](rules/collaboration/) | Never fabricate tool results · completion needs evidence ("skipped" is not "passed") · never weaken tests to go green · re-check the branch before every commit · one worktree per parallel session · surface decisions where the user actually looks · explicit code + guard tests over hidden mechanisms · memory hygiene |
 | [`rules/security/`](rules/security/) | No production credentials where agents run · confirm every irreversible operation · deny rules and hooks are not a security boundary · keep PII files out of git · *optional:* SAST-safe patterns, data scope on every report and export, verifying TLS certificate chains (browsers forgive what mobile clients don't) |
 | [`rules/writing/`](rules/writing/) | Keep instruction files lean · English test method names · *optional:* commit format with fixed verbs, CHANGELOG granularity, TL;DR-first cards, Taiwan vs. China terminology |
+| [`rules/database/`](rules/database/) | *optional:* non-idempotent migrations · exclusive lock on `ALTER TABLE` · ORM N+1 query memory blowup · soft delete relation leaks · money precision with floats |
+| [`rules/api/`](rules/api/) | *optional:* missing HTTP/RPC timeout leading to thread starvation · swallowing exceptions with empty catch blocks · breaking API contracts · missing idempotency keys |
 | [`rules/laravel/`](rules/laravel/) | *optional:* `fake()` in production · `$model->id` silently null · empty `env()` values beating defaults · `package:discover` breaking Docker builds · … |
 | [`rules/vue/`](rules/vue/) | *optional:* reactivity lost on destructuring · mutating props · dynamic Tailwind class purging · uncleaned timers / event listeners in `onMounted` · SSR window access · … |
 | [`rules/docker/`](rules/docker/) | *optional:* single-file bind mounts breaking after `git switch` · `restart` vs `--force-recreate` · Xdebug trigger mode · CI cache pitfalls · deploy jobs that depend on an external registry · when not to auto-rollback |
@@ -86,9 +90,10 @@ The "why" tells the agent *when* the rule matters (another terminal, a stale ses
 git clone https://github.com/machiko/agent-working-agreements.git
 cd agent-working-agreements
 
+scripts/install.sh --detect                                 # auto-detect project markers & recommendations
 scripts/install.sh --list                                   # see every rule id
 scripts/install.sh --target ~/.claude/rules/agent-agreements \
-  --select writing/commit-messages,laravel/pitfalls --dry-run   # preview
+  --select database/pitfalls,api/pitfalls --dry-run         # preview
 # drop --dry-run to apply; core rules are always included
 scripts/install.sh --target ~/.claude/rules/agent-agreements --status   # what's installed (read-only)
 ```
