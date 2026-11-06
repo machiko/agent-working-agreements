@@ -5,13 +5,18 @@
 #   install.sh --list
 #   install.sh --detect [dir]
 #   install.sh --target <dir> [--select id1,id2] [--dry-run] [--force]
+#   install.sh --target <dir> --update [--dry-run] [--force]
 #   install.sh --target <dir> --uninstall [--dry-run] [--force]
 #   install.sh --cursor <dir> [--select id1,id2] [--dry-run] [--force]
+#   install.sh --cursor <dir> --update [--dry-run] [--force]
 #   install.sh --cursor <dir> --uninstall [--dry-run] [--force]
 #   install.sh --agents-md <file> [--select id1,id2] [--dry-run]
+#   install.sh --agents-md <file> --update [--dry-run]
 #   install.sh --agents-md <file> --uninstall [--dry-run]
 #   install.sh --copilot [file] [--select id1,id2] [--dry-run]
+#   install.sh --copilot [file] --update [--dry-run]
 #   install.sh --windsurf [file] [--select id1,id2] [--dry-run]
+#   install.sh --windsurf [file] --update [--dry-run]
 #   install.sh --ci [platform] [dir] [--dry-run]
 #   install.sh --target <dir> --status
 #   install.sh --cursor <dir> --status
@@ -24,6 +29,7 @@
 #   --windsurf  寫入 Windsurf 規則（預設 .windsurfrules），以標記區塊注入
 #   --ci        安裝 CI/CD 守門工作流（支援 github、gitlab、bitbucket、pre-commit，預設智慧自動偵測）
 #   --select    要加裝的 optional 規則 id（逗號分隔，例如 writing/changelog,frontend/pitfalls）；core 一律安裝
+#   --update    一鍵更新：沿用既有安裝記錄（profile / 標記區塊）之規則選項，升級至最新版本
 #   --dry-run   只列出會做的變更，不寫入
 #   --force     覆蓋或移除已被手動修改的檔案
 #   --uninstall 只移除 profile 記錄的檔案，不碰目錄內其他檔案
@@ -93,6 +99,7 @@ while [ $# -gt 0 ]; do
     --dry-run) dry_run=1; shift ;;
     --force) force=1; shift ;;
     --uninstall) mode="uninstall"; shift ;;
+    --update) mode="update"; shift ;;
     --list) mode="list"; shift ;;
     --detect)
       mode="detect"
@@ -482,6 +489,23 @@ targets_set=0
 
 [ -n "$copilot_file" ] && agents_md="$copilot_file"
 [ -n "$windsurf_file" ] && agents_md="$windsurf_file"
+
+# ── --update：讀取既有設定並更新 ──────────────────────
+if [ "$mode" = "update" ]; then
+  [ -z "$select_ids" ] || die "--update 不能搭配 --select（--update 會自動沿用既有安裝之規則選項）"
+  if [ -n "$agents_md" ]; then
+    case "$agents_md" in "~"/*) agents_md="$HOME/${agents_md#\~/}" ;; esac
+    [ -f "$agents_md" ] || die "尚未安裝，無法更新（找不到 $agents_md）"
+    select_ids="$(sed -n 's/<!-- agent-agreements:selected=\([^ ]*\) -->/\1/p' "$agents_md" | head -n 1)"
+  else
+    up_target="${cursor_dir:-$target}"
+    case "$up_target" in "~"/*) up_target="$HOME/${up_target#\~/}" ;; esac
+    up_profile="$up_target/$PROFILE_NAME"
+    [ -f "$up_profile" ] || die "尚未安裝，無法更新（找不到 $up_profile）"
+    select_ids="$(sed -n 's/^selected=//p' "$up_profile" | head -n 1)"
+  fi
+  mode="install"
+fi
 
 # 期望安裝的規則：core 全部 ＋ 選擇的 optional
 desired=""

@@ -213,6 +213,25 @@ scripts/audit.sh --install-hook
 
 ## 🛠️ 管理、更新與移除
 
+### 檢查更新與自動更新
+當透過 Claude Code 使用時，執行 `/agreements:setup` 會**自動檢查更新**：
+- 若發現已安裝守則有新版本，會主動提示並提供 **「(推薦) 一鍵自動更新至最新版」**，無須重新填寫問答。
+- 您也可以隨時輸入 `/agreements:setup 更新` 進行差異預覽與一鍵套用。
+
+若使用命令列腳本（CLI），可直接加上 `--update` 參數，自動沿用既有的勾選設定升級至最新版：
+```bash
+# Claude Code 規則目錄更新
+scripts/install.sh --target ~/.claude/rules/agent-agreements --update
+
+# Cursor 規則目錄更新
+scripts/install.sh --cursor .cursor/rules --update
+
+# 單一檔案注入更新（AGENTS.md / Copilot / Windsurf）
+scripts/install.sh --agents-md AGENTS.md --update
+scripts/install.sh --copilot --update
+scripts/install.sh --windsurf --update
+```
+
 ### 檢視安裝狀態
 隨時檢查已安裝守則的標題、載入條件與最新版本狀態：
 ```bash

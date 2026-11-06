@@ -1,7 +1,7 @@
 ---
 name: setup
 description: 用一次問答挑選要安裝的 agent 工作守則（規則檔），可重跑調整或移除。
-argument-hint: "[狀態｜移除]"
+argument-hint: "[狀態｜更新｜移除]"
 disable-model-invocation: true
 ---
 
@@ -16,16 +16,29 @@ disable-model-invocation: true
 | 全域 | `~/.claude/rules/agent-agreements` |
 | 本專案 | `<git 根目錄或目前目錄>/.claude/rules/agent-agreements` |
 
-## 1. 讀取現況
+## 1. 讀取現況與檢查更新
 
 1. 執行 `install.sh --list`。輸出以 tab 分隔：id、tier、stack、always 或 on-demand、本文行數、選項名稱、說明。
 2. 對兩個範圍各執行一次 `install.sh --status --target <目標目錄>`（唯讀，不會建立目錄）。輸出依 core／選擇的規則分組，每行是「id — 標題｜常駐或按需載入（paths）｜狀態」，最後一行是常駐與按需載入的行數和規則總數。從這裡得知目前已安裝哪些 id，不要自己讀 `.agreements-profile`。
 3. 用幾行摘要給使用者看：每個範圍「尚未安裝」或裝了幾條（core 幾條、選擇的規則有哪些），以及有沒有標成「已手動修改」「有新版」「檔案遺失」「來源已移除」的規則（列出 id）。
-4. 兩個範圍都已安裝時提醒：全域與本專案會各載入一份，同一條規則會重複載入、多佔 context；建議只留一個範圍。
-5. 執行 `install.sh --detect` 掃描目前專案特徵，記下推薦的規則 id 清單。
+4. **遠端版本檢查（非阻塞，超時 2 秒）**：執行 `curl -sSf --connect-timeout 2 https://api.github.com/repos/machiko/agent-working-agreements/releases/latest 2>/dev/null`，比對 GitHub Release tag 與本地版本（`plugin.json` 之 `version`）。若遠端有更新發布，在摘要中提示使用者：「💡 發現套件新版本 vX.Y.Z（本地目前為 vA.B.C），可透過套件管理器或 git pull 升級」。
+5. 兩個範圍都已安裝時提醒：全域與本專案會各載入一份，同一條規則會重複載入、多佔 context；建議只留一個範圍。
+6. 執行 `install.sh --detect` 掃描目前專案特徵，記下推薦的規則 id 清單。
 
-如果使用者的參數是「狀態」，摘要完就結束，不進入問答、不執行任何安裝。
-如果使用者的參數是「移除」，跳到第 5 步。
+### 參數處理與一鍵更新
+
+- **參數是「狀態」**：摘要完就結束，不進入問答、不執行任何安裝。
+- **參數是「移除」**：跳到第 5 步（移除）。
+- **參數是「更新」**：直接對已安裝範圍執行一鍵更新：
+  1. 執行 `install.sh --target <目標目錄> --update --dry-run` 產生預覽。
+  2. 將差異（＋新增、↻ 更新、－移除、！保留）呈報給使用者確認。
+  3. 使用者確認後去掉 `--dry-run` 執行更新，並以 `install.sh --status` 收尾。
+- **若未提供參數（一般互動模式）**：
+  - 檢查已安裝範圍的 `--status` 輸出中是否有規則標記為「有新版」，或 profile 安裝版本低於目前版本：
+    - **若偵測到有新版規則可更新**：主動提示使用者，並提供單選詢問（AskUserQuestion）：
+      1. `(推薦) 一鍵自動更新至最新版`：沿用現有勾選規則，直接執行 `install.sh --target <目標目錄> --update --dry-run` 預覽並套用，無須重填問答。
+      2. `重新自訂選取規則`：繼續進行第 2 步的 4 道問答流程（已安裝項目預設勾選）。
+    - **若無新版或使用者選擇重新自訂**：直接進入第 2 步（一次問完）。
 
 ## 2. 一次問完（AskUserQuestion，只呼叫一次，4 題）
 

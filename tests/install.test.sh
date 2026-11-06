@@ -300,6 +300,50 @@ check "套用後再跑一次 --status 收尾" 'grep -qF "套用完再執行一�
 check "setup skill 包含 frontend/pitfalls" 'grep -q "frontend/pitfalls" "$SKILL"'
 check "setup skill 規範已安裝規則預設勾選" 'grep -q "已安裝規則必須預設勾選" "$SKILL"'
 check "setup skill 規範取消選取即代表移除" 'grep -q "取消選取即代表移除" "$SKILL"'
+check "setup skill argument-hint 包含更新" 'grep -q "argument-hint:.*更新" "$SKILL"'
+check "setup skill 包含一鍵自動更新引導" 'grep -q "一鍵自動更新至最新版" "$SKILL"'
+check "setup skill 包含遠端版本檢查機制" 'grep -q "releases/latest" "$SKILL"'
+
+echo "▸ --update：沿用既有安裝設定一鍵更新"
+T_UP="$TMP/update-fixture"
+"$INSTALL" --target "$T_UP" --select "$OPT_A" > /dev/null
+check "update 既有安裝存在" '[ -f "$T_UP/$OPT_A.md" ]'
+
+# 模擬舊版檔案（修改檔案內容與 profile 中的 sha 使其成為舊版）
+echo "/* outdated content */" > "$T_UP/$OPT_A.md"
+outdated_sha="$(sha "$T_UP/$OPT_A.md")"
+sed -i.bak "s#^file=$OPT_A sha256=.*#file=$OPT_A sha256=$outdated_sha#" "$T_UP/.agreements-profile"
+rm -f "$T_UP/.agreements-profile.bak"
+
+# 驗證 status 顯示有新版
+out_stat="$("$INSTALL" --target "$T_UP" --status)"
+check "status 辨識出有新版" 'printf "%s" "$out_stat" | grep -q "有新版"'
+
+# 驗證 --update --dry-run
+out_up_dry="$("$INSTALL" --target "$T_UP" --update --dry-run)"
+check "update dry-run 輸出更新提示" 'printf "%s" "$out_up_dry" | grep -q "↻ 更新 $OPT_A.md"'
+check "update dry-run 不實際覆寫" 'grep -q "outdated content" "$T_UP/$OPT_A.md"'
+
+# 執行 --update
+"$INSTALL" --target "$T_UP" --update > /dev/null
+check "update 成功將規則還原至最新內容" '! grep -q "outdated content" "$T_UP/$OPT_A.md"'
+out_stat_after="$("$INSTALL" --target "$T_UP" --status)"
+check "update 後 status 全部為最新" '! printf "%s" "$out_stat_after" | grep -q "有新版"'
+
+# 測試錯誤防護：未安裝目標不能 update
+"$INSTALL" --target "$TMP/no-such-install" --update > /dev/null 2>&1
+check "未安裝目錄執行 update 回傳非零" '[ $? -ne 0 ]'
+
+# 測試錯誤防護：--update 不能搭配 --select
+"$INSTALL" --target "$T_UP" --update --select "$OPT_B" > /dev/null 2>&1
+check "update 搭配 --select 回傳非零" '[ $? -ne 0 ]'
+
+# 測試 --agents-md --update
+T_AG_UP="$TMP/agents-up.md"
+"$INSTALL" --agents-md "$T_AG_UP" --select "$OPT_A" > /dev/null
+sed -i.bak "s#rules/$OPT_A.md#outdated-marker#g" "$T_AG_UP" && rm -f "$T_AG_UP.bak"
+"$INSTALL" --agents-md "$T_AG_UP" --update > /dev/null
+check "agents-md update 成功更新區塊" 'grep -q "$OPT_A" "$T_AG_UP"'
 
 echo "▸ --cursor：安裝為 Cursor .mdc 規則檔"
 TC="$TMP/test-cursor"
