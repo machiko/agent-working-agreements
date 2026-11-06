@@ -129,6 +129,15 @@ git tag "$TAG"
 git push origin "$TAG"
 ok "成功建立並推送 Tag ${TAG}"
 
+info "建立 GitHub Release..."
+NOTES="$(awk -v ver="$VERSION" '
+  $0 ~ "^## \\[" ver "\\]" { found=1; next }
+  /^## \[/ && found { exit }
+  found { print }
+' "$CHANGELOG")"
+gh release create "$TAG" --title "$TAG" --notes "$NOTES" --latest 2>/dev/null || true
+ok "已建立 GitHub Release"
+
 echo "──"
 echo "🎉 發版成功！"
 echo "  • 版本：${TAG}"
