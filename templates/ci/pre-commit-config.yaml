@@ -1,0 +1,12 @@
+# Agent Agreements Audit for Python pre-commit framework
+# 放在專案根目錄的 .pre-commit-config.yaml
+
+repos:
+  - repo: local
+    hooks:
+      - id: agent-agreements-audit
+        name: Agent Agreements Guardrail Audit
+        entry: bash scripts/audit.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
