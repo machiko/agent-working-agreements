@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 供應鏈安全與依賴地雷：`rules/security/supply-chain.md`，防範套件名稱幻覺與搶註投毒、依賴版本浮動與 Lockfile 失步、過度寬鬆 Wildcard IAM 授權、多階段容器建構暫存密鑰殘留、測試環境混入未受控偽造憑證
+- 新增 Agent 守則健康體檢診斷工具：`scripts/doctor.sh` 與 `/agreements:doctor` 技能，評估守則安裝配置、版本新鮮度、Git pre-commit 守門機制與 CI 工作流就緒度，產出 0–100 健康評分與修復指引
+- 新增 高危全開放權限主動稽核：`scripts/audit.sh` 新增第 6 項安全防線，自動攔截 `chmod 777` 與 Wildcard IAM (`Action: "*"`, `Resource: "*"`) 變更
+
+### Changed
+
+- 更新 `/agreements:setup`：安全類別問答擴充納入「供應鏈安全與依賴地雷 (`security/supply-chain`)」
+- 更新 發版自動化腳本：`scripts/release.sh` 發版檢查加入 `doctor.sh` 守則健康度自動驗證
+
 ## [0.7.0] - 2026-11-06
 
 ### Added

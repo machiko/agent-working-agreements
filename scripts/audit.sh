@@ -162,7 +162,16 @@ if [ -n "$code_files" ]; then
   fi
 fi
 
-# 6. Git 分支安全檢查 (rules/collaboration/git-safety.md)
+# 6. 高危權限與指令檢查 (rules/security/supply-chain.md)
+sec_diff="$($diff_cmd 2>/dev/null || true)"
+high_risk="$(printf '%s\n' "$sec_diff" | grep -E '^\+[^+]' | grep -E '\bchmod\s+777\b|"Action"\s*:\s*"\*"|"Resource"\s*:\s*"\*"' || true)"
+if [ -n "$high_risk" ]; then
+  warn "檢測到高危全開放權限（chmod 777 或 Wildcard IAM 授權，見 security/supply-chain）"
+else
+  pass "無高危全開放權限變更"
+fi
+
+# 7. Git 分支安全檢查 (rules/collaboration/git-safety.md)
 branch="$(git branch --show-current 2>/dev/null || true)"
 if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
   warn "目前位於主分支「${branch}」，功能與重大重構請開分支走 PR"
