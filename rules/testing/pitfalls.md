@@ -10,6 +10,10 @@ paths:
   - "**/test/**"
 ---
 
+# 測試與 Mock 地雷
+
+> 跨語言通用的測試事故：Mock 外洩、靜態延遲、資料庫髒污、過度 Mock 與非決定性斷言。
+
 ### 1. Mock 狀態跨測試外洩污染（Mock State Leakage & Missing Reset）
 
 在測試中使用 `jest.spyOn()`、`vi.mock()` 或 `unittest.mock.patch` 時，必須在每個 test case 結束後確實清理還原，嚴禁殘留自訂實作或計數。
