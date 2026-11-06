@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-06
+
+### Added
+
+- 新增 主動守護稽核工具：`scripts/audit.sh` 與 `/agreements:audit` 技能，可掃描 staged 暫存區、diff 或 commit 是否違反空 catch、弱化測試斷言、機敏檔案與分支隔離守則，並支援 `--install-hook` 安裝 Git pre-commit 守門機制
+- 新增 optional 規則「異步、佇列與快取地雷」：快取雪崩與熱點擊穿、佇列毒藥訊息無窮重試、分佈式鎖未設租約死鎖、未受控併發扇出打爆下游、跨協程/執行緒共用可變狀態競爭
+- 新增 現場事故採集技能：`/agreements:record` 引導開發者以 3 題問答快速將踩雷教訓固化為專案自訂守則
+- 新增 異步架構智慧偵測：`install.sh --detect` 支援識別 jobs、queues、workers、tasks 及 Redis、BullMQ、Celery、Sidekiq 依賴並自動推薦 `async/pitfalls`
+- 新增 稽核工具測試套件：`tests/audit.test.sh` 覆蓋暫存區攔截、空 catch 識別、文件反例忽略與 pre-commit hook 安裝驗證
+
+### Changed
+
+- 更新 `/agreements:setup`：工程地雷問答納入通用架構「異步、佇列與快取地雷 (`async/pitfalls`)」
+- 更新 說明文件：新增主動稽核與事故採集技能說明，強化分散式架構與通用防線定位
+
 ## [0.4.0] - 2026-11-06
 
 ### Added
