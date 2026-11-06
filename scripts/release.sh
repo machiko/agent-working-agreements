@@ -40,6 +40,7 @@ bash "$ROOT/scripts/sanitize-check.sh" >/dev/null || die "sanitize-check.sh 未�
 bash "$ROOT/tests/check-version.test.sh" >/dev/null || die "check-version.test.sh 未通過"
 bash "$ROOT/tests/install.test.sh" >/dev/null || die "install.test.sh 未通過"
 bash "$ROOT/tests/audit.test.sh" >/dev/null || die "audit.test.sh 未通過"
+bash "$ROOT/scripts/doctor.sh" >/dev/null || die "doctor.sh 未通過"
 ok "所有自動化檢查通過"
 
 # 1. 確保遠端 release 分支存在
