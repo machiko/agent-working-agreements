@@ -265,6 +265,11 @@ if [ "$mode" = "detect" ]; then
     printf 'vue/pitfalls\t偵測到 Vue 元件或 Vite 設定\n'
   fi
 
+  # 6. 異步/佇列/快取特徵
+  if [ -d "$dir/jobs" ] || [ -d "$dir/job" ] || [ -d "$dir/queues" ] || [ -d "$dir/queue" ] || [ -d "$dir/workers" ] || [ -d "$dir/worker" ] || [ -d "$dir/tasks" ] || [ -d "$dir/src/jobs" ] || [ -d "$dir/src/queues" ] || [ -d "$dir/src/workers" ] || [ -d "$dir/src/tasks" ] || { [ -f "$dir/package.json" ] && grep -qiE '"(bull|bullmq|redis|ioredis|celery|sidekiq)"' "$dir/package.json" 2>/dev/null; } || { [ -f "$dir/composer.json" ] && grep -qiE '"(predis/predis|redis)"' "$dir/composer.json" 2>/dev/null; }; then
+    printf 'async/pitfalls\t偵測到佇列、Worker 或快取相關目錄或依賴\n'
+  fi
+
   exit 0
 fi
 
