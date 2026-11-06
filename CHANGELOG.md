@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 軟體開發生命週期守則：`rules/collaboration/sdlc-lifecycle.md`（Optional），定義中大型功能在規格 (Spec)、實作 (Code)、測試 (Test)、驗收 (Review)、合併 (Merge)、上線 (Release) 之 6 階段交付標準與品質閘門
+
+### Changed
+
+- 更新 `/agreements:setup`：問答第 2 題擴充為「協作與寫作規範」，納入 `collaboration/sdlc-lifecycle` 供專案自由勾選安裝
+- 更新 守則目錄文件：`README.md` 新增「協作流程」分類登記
+
 ## [0.9.2] - 2026-11-06
 
 ### Added
