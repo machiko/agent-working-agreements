@@ -48,6 +48,7 @@ To update automatically: `/plugin` → Marketplaces → agent-working-agreements
 | have a CLAUDE.md / AGENTS.md that keeps growing | [`writing/lean-instructions`](rules/writing/lean-instructions.md) |
 | write database migrations, queries, or ORMs | [`database/pitfalls`](rules/database/pitfalls.md) (exclusive locks, non-idempotent migrations, N+1, money precision) |
 | build or consume backend APIs and integrations | [`api/pitfalls`](rules/api/pitfalls.md) (unbounded timeouts, swallowed exceptions, breaking changes, idempotency) |
+| manage queues, background jobs, or Redis cache | [`async/pitfalls`](rules/async/pitfalls.md) (cache stampede, poison pills, distributed lock deadlocks, fan-out) |
 | run a Laravel, Vue, or Docker stack | [`laravel/pitfalls`](rules/laravel/pitfalls.md), [`vue/pitfalls`](rules/vue/pitfalls.md), [`docker/pitfalls`](rules/docker/pitfalls.md) (load only when matching files are touched) |
 
 ## What's inside
@@ -61,6 +62,7 @@ To update automatically: `/plugin` → Marketplaces → agent-working-agreements
 | [`rules/writing/`](rules/writing/) | Keep instruction files lean · English test method names · *optional:* commit format with fixed verbs, CHANGELOG granularity, TL;DR-first cards, Taiwan vs. China terminology |
 | [`rules/database/`](rules/database/) | *optional:* non-idempotent migrations · exclusive lock on `ALTER TABLE` · ORM N+1 query memory blowup · soft delete relation leaks · money precision with floats |
 | [`rules/api/`](rules/api/) | *optional:* missing HTTP/RPC timeout leading to thread starvation · swallowing exceptions with empty catch blocks · breaking API contracts · missing idempotency keys |
+| [`rules/async/`](rules/async/) | *optional:* cache stampede & dogpiling · poison pills in job queues · distributed lock deadlocks · unbounded concurrency fan-out · shared mutable state in coroutines/threads |
 | [`rules/laravel/`](rules/laravel/) | *optional:* `fake()` in production · `$model->id` silently null · empty `env()` values beating defaults · `package:discover` breaking Docker builds · … |
 | [`rules/vue/`](rules/vue/) | *optional:* reactivity lost on destructuring · mutating props · dynamic Tailwind class purging · uncleaned timers / event listeners in `onMounted` · SSR window access · … |
 | [`rules/docker/`](rules/docker/) | *optional:* single-file bind mounts breaking after `git switch` · `restart` vs `--force-recreate` · Xdebug trigger mode · CI cache pitfalls · deploy jobs that depend on an external registry · when not to auto-rollback |
@@ -122,6 +124,28 @@ scripts/install.sh --cursor .cursor/rules --status                              
 
 `--cursor` installs rules as Cursor `.mdc` files, automatically converting `paths` into Cursor's `globs` frontmatter and marking core rules with `alwaysApply: true`.
 
+## Active Guardrails & Incident Recording
+
+In addition to passive prompt rules, active verification and incident recording skills are included:
+
+### `/agreements:audit` (or `scripts/audit.sh`)
+
+Scans git staged changes, diffs, or specific commits against critical agreements:
+- **Swallowed Exceptions**: blocks empty `catch (e) {}` / `except: pass` in code diffs.
+- **Test Integrity**: detects deleted test assertions.
+- **Sensitive Files**: intercepts staged `.env`, `.csv`, `.sql`, or `storage/` data files.
+- **Tailwind Purge**: warns against dynamic class string concatenation.
+- **Branch Isolation**: warns when modifying directly on `main` / `master`.
+
+Install as a Git pre-commit hook with one command:
+```bash
+scripts/audit.sh --install-hook
+```
+
+### `/agreements:record`
+
+Whenever an agent makes an unexpected mistake, run `/agreements:record`. It guides you through a 3-step structured interview (*Symptom → Root Cause → How to Prevent*), strips sensitive info, and saves it into `.claude/rules/agent-agreements/custom/<name>.md`.
+
 ## Make it yours
 
 These are *my* agreements. Fork and edit. In particular:
@@ -165,6 +189,7 @@ scripts/check-budget.sh      # validates frontmatter; fails if core rules exceed
 scripts/sanitize-check.sh    # scans publishable files for paths, private IPs, emails, keys
 scripts/check-version.sh     # plugin.json, marketplace.json and CHANGELOG agree on the version
 bash tests/install.test.sh   # installer tests (writes only to /tmp)
+bash tests/audit.test.sh     # active guardrail audit tests (writes only to /tmp)
 ```
 
 Releasing: Claude Code only offers an update when the `version` string changes, so every release bumps `version` in both `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` and adds a `CHANGELOG.md` section, all in the last PR before tagging.
