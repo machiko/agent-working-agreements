@@ -4,6 +4,7 @@
 # 用法：tests/install.test.sh
 
 set -uo pipefail
+export PATH="/usr/bin:/bin:$PATH"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 INSTALL="$ROOT/scripts/install.sh"
@@ -296,6 +297,24 @@ check "提醒兩個範圍會重複載入" 'grep -q "重複" "$SKILL"'
 check "參數是「狀態」時只顯示現況、不進入問答" 'grep -q "參數是「狀態」.*不進入問答" "$SKILL"'
 check "提問前列出 core 規則的標題" 'grep -q "列出 core 規則的標題" "$SKILL"'
 check "套用後再跑一次 --status 收尾" 'grep -qF "套用完再執行一次 \`install.sh --status" "$SKILL"'
+check "setup skill 技術棧包含 vue/pitfalls" 'grep -q "vue/pitfalls" "$SKILL"'
+
+echo "▸ --cursor：安裝為 Cursor .mdc 規則檔"
+TC="$TMP/test-cursor"
+"$INSTALL" --cursor "$TC" --select "$OPT_A" --dry-run > "$TMP/out-cursor-dry"
+check "cursor dry-run 不寫檔" '[ ! -e "$TC" ]'
+check "cursor dry-run 列出 .mdc 檔" 'grep -q "＋ 新增 $OPT_A.mdc" "$TMP/out-cursor-dry"'
+"$INSTALL" --cursor "$TC" --select "$OPT_A" > /dev/null
+check "cursor 安裝產出 .mdc 檔" '[ -f "$TC/$FIRST_CORE.mdc" ] && [ -f "$TC/$OPT_A.mdc" ]'
+check "cursor core 檔標記 alwaysApply: true" 'grep -q "^alwaysApply: true$" "$TC/$FIRST_CORE.mdc"'
+check "cursor optional 檔含 globs 與 alwaysApply: false" 'grep -q "^globs:" "$TC/$OPT_A.mdc" && grep -q "^alwaysApply: false$" "$TC/$OPT_A.mdc"'
+check "cursor profile 記錄 format=cursor" 'grep -q "^format=cursor$" "$TC/.agreements-profile"'
+out="$("$INSTALL" --cursor "$TC" --status)"
+check "cursor --status 正常輸出且顯示最新" 'printf "%s" "$out" | grep -q "最新"'
+"$INSTALL" --cursor "$TC" --uninstall > /dev/null
+check "cursor uninstall 清除所有 .mdc 與目錄" '[ ! -e "$TC" ]'
+"$INSTALL" --cursor "$TMP/x" --target "$TMP/y" > /dev/null 2>&1
+check "--cursor 與 --target 同時使用回傳 2" '[ $? -eq 2 ]'
 
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"
