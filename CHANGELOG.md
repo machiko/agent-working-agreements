@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 優化 自動發版流程：`scripts/release.sh` 發版時自動依 CHANGELOG 內容建立 GitHub Release 頁面並標記最新版本
+
 ## [0.5.0] - 2026-11-06
 
 ### Added
