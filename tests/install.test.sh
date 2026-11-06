@@ -299,10 +299,10 @@ check "提問前列出 core 規則的標題" 'grep -q "列出 core 規則的標�
 check "套用後再跑一次 --status 收尾" 'grep -qF "套用完再執行一次 \`install.sh --status" "$SKILL"'
 check "setup skill 包含 frontend/pitfalls" 'grep -q "frontend/pitfalls" "$SKILL"'
 check "setup skill 包含 collaboration/sdlc-lifecycle" 'grep -q "collaboration/sdlc-lifecycle" "$SKILL"'
-check "setup skill 規範已安裝規則預設勾選" 'grep -q "已安裝規則必須預設勾選" "$SKILL"'
-check "setup skill 規範取消選取即代表移除" 'grep -q "取消選取即代表移除" "$SKILL"'
+check "setup skill 包含加裝其他規則引導" 'grep -q "加裝其他規則" "$SKILL"'
+check "setup skill 包含移除部分規則引導" 'grep -q "移除部分規則" "$SKILL"'
 check "setup skill argument-hint 包含更新" 'grep -q "argument-hint:.*更新" "$SKILL"'
-check "setup skill 包含一鍵自動更新引導" 'grep -q "一鍵自動更新至最新版" "$SKILL"'
+check "setup skill 包含維持現有規則一鍵更新引導" 'grep -q "維持現有規則並一鍵更新" "$SKILL"'
 check "setup skill 包含遠端版本檢查機制" 'grep -q "releases/latest" "$SKILL"'
 
 echo "▸ --update：沿用既有安裝設定一鍵更新"

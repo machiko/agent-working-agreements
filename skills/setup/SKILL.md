@@ -34,31 +34,49 @@ disable-model-invocation: true
   2. 將差異（＋新增、↻ 更新、－移除、！保留）呈報給使用者確認。
   3. 使用者確認後去掉 `--dry-run` 執行更新，並以 `install.sh --status` 收尾。
 - **若未提供參數（一般互動模式）**：
-  - 檢查已安裝範圍的 `--status` 輸出中是否有規則標記為「有新版」，或 profile 安裝版本低於目前版本：
-    - **若偵測到有新版規則可更新**：主動提示使用者，並提供單選詢問（AskUserQuestion）：
-      1. `(推薦) 一鍵自動更新至最新版`：沿用現有勾選規則，直接執行 `install.sh --target <目標目錄> --update --dry-run` 預覽並套用，無須重填問答。
-      2. `重新自訂選取規則`：繼續進行第 2 步的 4 道問答流程（已安裝項目預設勾選）。
-    - **若無新版或使用者選擇重新自訂**：直接進入第 2 步（一次問完）。
+  - 進入第 2 步（意圖確認與問答引導）。
 
-## 2. 一次問完（AskUserQuestion，只呼叫一次，4 題）
+## 2. 意圖確認與問答引導 (AskUserQuestion)
 
-提問前先告訴使用者：下面這些 core 規則一律安裝，問答只挑選額外的規則；全部不勾也可以。接著逐行列出 core 規則的標題（`--list` 中 tier 為 core 的項目，原樣使用第 6 欄「選項名稱」）。
+依目標範圍的安裝現況進行分流引導：
 
-同時向使用者說明勾選與移除機制：
-- **已安裝的規則會在問答清單中預設勾選（Checked）**。
-- **若想移除某條規則，直接在清單中取消勾選（Uncheck）即可**。
+### 情境 A：目標範圍已安裝（調整、加裝或更新模式）
 
+向使用者提問操作意圖（單選，header「操作」）：
+- 標題：「您想如何調整目前已安裝的工作守則？」
+- 選項（2～4 項）：
+  1. `維持現有規則並一鍵更新`（推薦）：沿用目前安裝的規則設定，升級至最新版，無須填寫後續問答。
+  2. `加裝其他規則`：從尚未安裝的規則中挑選要追加的項目，現有規則 100% 完整保留，絕不誤刪。
+  3. `移除部分規則`：只列出目前已安裝的 optional 規則，勾選要卸載的項目進行精準移除。
+  4. `重新自訂挑選`：完整重新進行各領域挑選（若想大幅度重新規劃規則組合）。
+
+各選項後續流程：
+- **若選擇「維持現有規則並一鍵更新」**：
+  直接跳到第 3 步執行 `install.sh --target <目標目錄> --update --dry-run` 預覽並套用。
+- **若選擇「加裝其他規則」**：
+  向使用者發出問答（複選，每題 2～4 個選項）：只列出目前**尚未安裝**的 optional 規則（若符合專案偵測特徵則冠上「推薦｜」）。使用者勾選要追加的 id 後，將「既有已安裝 id ＋ 新勾選 id」以逗號串接傳入第 3 步的 `--select` 執行預覽與套用。
+- **若選擇「移除部分規則」**：
+  向使用者發出問答（複選）：只列出目前**已安裝**的 optional 規則。使用者勾選「確定要移除的規則」後，將「既有已安裝 id 排除勾選要移除的 id」傳入第 3 步的 `--select` 執行預覽（會顯示 `－ 移除 ...`）並套用。
+- **若選擇「重新自訂挑選」**：
+  進入下方「情境 B」的完整問答流程。
+
+---
+
+### 情境 B：首次安裝或重新自訂挑選
+
+提問前先告訴使用者：下面這些 core 規則一律安裝，問答只挑選額外的 optional 規則；全部不勾也可以。接著逐行列出 core 規則的標題（`--list` 中 tier 為 core 的項目，原樣使用第 6 欄「選項名稱」）。
+
+發出問答（注意：Claude Code 之 AskUserQuestion 每題選項為 2～4 項）：
 1. **安裝範圍**（單選，header「範圍」）：全域（推薦，所有專案適用）／本專案（只在這個 repo 生效）。若目前已有安裝範圍，預設選擇該範圍。
-2. **協作與寫作規範**（複選，header「協作」）：`collaboration/sdlc-lifecycle`、`writing/commit-messages`、`writing/changelog`、`writing/docs-and-cards`、`writing/taiwan-terminology`
-3. **安全**（複選，header「安全」）：`security/sast-safe-patterns`、`security/tenant-isolation`、`security/supply-chain`
-4. **工程地雷**（複選，header「工程地雷」）：架構層（`database/pitfalls`、`api/pitfalls`、`async/pitfalls`、`cloud/pitfalls`、`testing/pitfalls`）與應用層（`frontend/pitfalls`、`backend/pitfalls`、`container/pitfalls`）
+2. **協作與交付規範**（複選，header「協作」）：例如 `collaboration/sdlc-lifecycle`、`writing/commit-messages`、`writing/changelog`、`writing/taiwan-terminology`（若已安裝，在 label 最前面加上「【已安裝】」）。
+3. **安全防護**（複選，header「安全」）：`security/sast-safe-patterns`、`security/tenant-isolation`、`security/supply-chain`（若已安裝，在 label 最前面加上「【已安裝】」）。
+4. **工程地雷**（複選，header「工程地雷」）：例如架構層（`database/pitfalls`、`api/pitfalls`、`testing/pitfalls` 等）與應用層（`frontend/pitfalls`、`backend/pitfalls`、`container/pitfalls` 等；可依 `--detect` 推薦優先放入推薦選項，每題 2～4 項；已安裝項目 label 加上「【已安裝】」）。
 
-每個選項的文字**原樣使用** `--list` 的欄位，不要自行改寫或縮寫：
+每個選項的文字：
+- label：已安裝的項目加上「【已安裝】」，被 `--detect` 推薦的項目加上「(推薦)」。
+- description：「說明」欄，後面接「（N 行，常駐）」或「（N 行，按需載入）」。
 
-- label：「選項名稱」欄。
-- description：「說明」欄，後面接「（N 行，常駐）」或「（N 行，按需載入）」。被 `install.sh --detect` 推薦的項目在最前面加上「推薦｜」；已安裝的項目加上「已安裝｜」。
-- **已安裝規則必須預設勾選（Default Checked）**：呼叫 `AskUserQuestion` 時，針對第 2、3、4 題的複選題，**必須將目標範圍中目前已安裝規則的 label 填入 `default` 陣列中作為預設勾選項目**。
-- **取消選取即代表移除**：使用者完成選取後，只將最終仍保持勾選狀態的規則 id 以逗號串接傳入第 3 步的 `--select`。原本已安裝但在問答中被使用者取消勾選（Uncheck）的規則，將不包含在 `--select` 參數中，`install.sh` 會自動將其識別為「－ 移除」，並在套用時自目標目錄中刪除。
+使用者完成選取後，只將最終選取的規則 id 以逗號串接傳入第 3 步的 `--select`。
 
 ## 3. 預覽
 
