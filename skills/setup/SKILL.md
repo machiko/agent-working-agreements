@@ -31,7 +31,11 @@ disable-model-invocation: true
 
 提問前先告訴使用者：下面這些 core 規則一律安裝，問答只挑選額外的規則；全部不勾也可以。接著逐行列出 core 規則的標題（`--list` 中 tier 為 core 的項目，原樣使用第 6 欄「選項名稱」）。
 
-1. **安裝範圍**（單選，header「範圍」）：全域（推薦，所有專案適用）／本專案（只在這個 repo 生效）
+同時向使用者說明勾選與移除機制：
+- **已安裝的規則會在問答清單中預設勾選（Checked）**。
+- **若想移除某條規則，直接在清單中取消勾選（Uncheck）即可**。
+
+1. **安裝範圍**（單選，header「範圍」）：全域（推薦，所有專案適用）／本專案（只在這個 repo 生效）。若目前已有安裝範圍，預設選擇該範圍。
 2. **寫作規範**（複選，header「寫作」）：`writing/commit-messages`、`writing/changelog`、`writing/docs-and-cards`、`writing/taiwan-terminology`
 3. **安全**（複選，header「安全」）：`security/sast-safe-patterns`、`security/data-scope`、`security/tls-certificates`、`security/supply-chain`
 4. **工程地雷**（複選，header「工程地雷」）：架構層（`database/pitfalls`、`api/pitfalls`、`async/pitfalls`、`cloud/pitfalls`、`testing/pitfalls`）與應用層（`frontend/pitfalls`、`backend/pitfalls`、`container/pitfalls`）
@@ -40,7 +44,8 @@ disable-model-invocation: true
 
 - label：「選項名稱」欄。
 - description：「說明」欄，後面接「（N 行，常駐）」或「（N 行，按需載入）」。被 `install.sh --detect` 推薦的項目在最前面加上「推薦｜」；已安裝的項目加上「已安裝｜」。
-- 重跑時預設沿用上次的選擇。
+- **已安裝規則必須預設勾選（Default Checked）**：呼叫 `AskUserQuestion` 時，針對第 2、3、4 題的複選題，**必須將目標範圍中目前已安裝規則的 label 填入 `default` 陣列中作為預設勾選項目**。
+- **取消選取即代表移除**：使用者完成選取後，只將最終仍保持勾選狀態的規則 id 以逗號串接傳入第 3 步的 `--select`。原本已安裝但在問答中被使用者取消勾選（Uncheck）的規則，將不包含在 `--select` 參數中，`install.sh` 會自動將其識別為「－ 移除」，並在套用時自目標目錄中刪除。
 
 ## 3. 預覽
 

@@ -298,6 +298,8 @@ check "參數是「狀態」時只顯示現況、不進入問答" 'grep -q "參�
 check "提問前列出 core 規則的標題" 'grep -q "列出 core 規則的標題" "$SKILL"'
 check "套用後再跑一次 --status 收尾" 'grep -qF "套用完再執行一次 \`install.sh --status" "$SKILL"'
 check "setup skill 包含 frontend/pitfalls" 'grep -q "frontend/pitfalls" "$SKILL"'
+check "setup skill 規範已安裝規則預設勾選" 'grep -q "已安裝規則必須預設勾選" "$SKILL"'
+check "setup skill 規範取消選取即代表移除" 'grep -q "取消選取即代表移除" "$SKILL"'
 
 echo "▸ --cursor：安裝為 Cursor .mdc 規則檔"
 TC="$TMP/test-cursor"
