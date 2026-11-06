@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-06
+
 ### Added
 
 - 新增 軟體開發生命週期守則：`rules/collaboration/sdlc-lifecycle.md`（Optional），定義中大型功能在規格 (Spec)、實作 (Code)、測試 (Test)、驗收 (Review)、合併 (Merge)、上線 (Release) 之 6 階段交付標準與品質閘門
