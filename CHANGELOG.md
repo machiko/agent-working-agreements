@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-06
+
 ### Added
 
 - 新增 一鍵更新機制：`scripts/install.sh --update`，自動沿用既有安裝之 profile 記錄或標記區塊之規則選項，無須重新指定 `--select` 即可將已安裝守則升級至最新版本
