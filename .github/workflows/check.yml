@@ -23,6 +23,15 @@ jobs:
       - name: 安裝器行為測試
         run: bash tests/install.test.sh
 
+      - name: 主動稽核防線測試
+        run: bash tests/audit.test.sh
+
+      - name: 守則體檢與修復測試
+        run: bash tests/doctor.test.sh
+
+      - name: Agent 自省審查測試
+        run: bash tests/review.test.sh
+
       - name: frontmatter 與 core 行數預算
         run: scripts/check-budget.sh
 

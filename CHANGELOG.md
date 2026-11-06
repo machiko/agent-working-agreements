@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-06
+
+### Added
+
+- 新增 全平台 CI/CD 守門生成矩陣：`scripts/install.sh --ci` 擴充支援 `github`、`gitlab`、`bitbucket` 與 Python `pre-commit` 框架，內建專案環境智慧自動偵測
+- 新增 CI 平台標準設定範本：`templates/ci/gitlab-ci.yml`、`templates/ci/bitbucket-pipelines.yml`、`templates/ci/pre-commit-config.yaml`
+- 新增 測試與 Mock 地雷守則：`rules/testing/pitfalls.md`，防範 Mock 全域外洩未重置、靜態 sleep 延遲導致 Flaky 測試、整合測試未回滾資料庫髒污、過度 Mock 私有內部實作細節與非決定性斷言
+- 新增 Agent 自省審查工具與技能：`scripts/review.sh` 與 `/agreements:review`，在提交前對照守則逐條清查 Diff 並輸出 Markdown 審查報告表格
+- 新增 守則健康診斷自動修復：`scripts/doctor.sh --fix` 與 `/agreements:doctor fix`，一鍵自動安裝 Git pre-commit 防線、配置 CI 守門工作流並補齊核心守則
+- 新增 自動化測試：新增 `tests/doctor.test.sh` 與 `tests/review.test.sh` 完整驗證體檢修復與自省審查功能
+
+### Changed
+
+- 更新 專案特徵偵測：`scripts/install.sh --detect` 支援辨識 Jest、Vitest、PHPUnit、Pytest 與測試目錄，自動推薦 `testing/pitfalls`
+- 更新 `/agreements:setup`：問答擴充納入「測試與 Mock 地雷 (`testing/pitfalls`)」
+- 更新 發版自動化腳本：`scripts/release.sh` 發版驗證納入 `doctor.test.sh` 與 `review.test.sh`
+- 更新 文件指南：`README.md` 全面擴充多平台 CI/CD、Doctor 自動修復與自省審查說明
+
 ## [0.8.0] - 2026-11-06
 
 ### Added
