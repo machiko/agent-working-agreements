@@ -332,12 +332,14 @@ check "detect 目錄不存在回傳 2" '[ $? -eq 2 ]'
 "$INSTALL" --status --detect > /dev/null 2>&1
 check "--status 搭配 --detect 回傳 2" '[ $? -eq 2 ]'
 
-echo "▸ 別名相容對應 (vue -> frontend, docker -> container, laravel -> backend)"
+echo "▸ 別名相容對應 (vue -> frontend, docker -> container, laravel -> backend, data-scope -> tenant-isolation)"
 T_ALIAS="$TMP/alias-fixture"
-"$INSTALL" --target "$T_ALIAS" --select vue/pitfalls,docker/pitfalls,laravel/pitfalls --dry-run > "$TMP/out-alias"
+"$INSTALL" --target "$T_ALIAS" --select vue/pitfalls,docker/pitfalls,laravel/pitfalls,security/data-scope,security/tls-certificates --dry-run > "$TMP/out-alias"
 check "vue/pitfalls 自動對應至 frontend/pitfalls" 'grep -q "frontend/pitfalls" "$TMP/out-alias"'
 check "docker/pitfalls 自動對應至 container/pitfalls" 'grep -q "container/pitfalls" "$TMP/out-alias"'
 check "laravel/pitfalls 自動對應至 backend/pitfalls" 'grep -q "backend/pitfalls" "$TMP/out-alias"'
+check "security/data-scope 自動對應至 security/tenant-isolation" 'grep -q "security/tenant-isolation" "$TMP/out-alias"'
+check "security/tls-certificates 自動對應至 container/pitfalls" 'grep -q "container/pitfalls" "$TMP/out-alias"'
 
 echo "▸ --copilot：安裝 GitHub Copilot 指示"
 T_COP="$TMP/copilot-fixture"

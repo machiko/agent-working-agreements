@@ -199,12 +199,11 @@ scripts/audit.sh --install-hook
 | **資料庫** | [`database/pitfalls`](rules/database/pitfalls.md) | 非冪等 Migration、大型資料表 `ALTER TABLE` 獲取排他鎖導致連線池打滿、ORM N+1 查詢引發記憶體暴增、軟刪除關聯外洩、浮點數儲存金額精度遺失 |
 | **API 整合** | [`api/pitfalls`](rules/api/pitfalls.md) | HTTP/RPC 未設 Timeout 造成執行緒飢餓死鎖、以空 catch 靜默吞噬錯誤、重大變更未維持向下相容、缺乏 Idempotency Key 造成重複扣款/下單 |
 | **非同步** | [`async/pitfalls`](rules/async/pitfalls.md) | 快取擊穿與雪崩（Stampede）、佇列毒藥訊息（Poison Pill）死循環、分散式鎖未設釋放防線導致死鎖、無上限並發請求衝垮下游、協程中共享可變狀態競爭 |
-| **容器環境** | [`container/pitfalls`](rules/container/pitfalls.md) | 單檔 Bind Mount 在 `git switch` 後 Inode 失效斷鏈、Client 終止後容器遺留孤兒殭屍行程、macOS 檔案監聽事件遺失、反向代理缺少 Host 白名單 |
+| **容器環境** | [`container/pitfalls`](rules/container/pitfalls.md) | 單檔 Bind Mount 在 `git switch` 後 Inode 失效斷鏈、Client 終止後容器遺留孤兒殭屍行程、macOS 檔案監聽事件遺失、反向代理缺少 Host 白名單、禁止將憑證與私鑰烤入映像檔 |
 | **雲原生** | [`cloud/pitfalls`](rules/cloud/pitfalls.md) | 高基數（High-Cardinality）Metric 標籤耗盡記憶體、結構化 Log 洩漏 PII 與 Token、連線池與 TIME_WAIT 短暫埠耗盡、Presigned URL 權限與效期過長、循環 Healthcheck 假死 |
 | **供應鏈安全** | [`security/supply-chain`](rules/security/supply-chain.md) | 套件名稱幻覺（Hallucination）與搶註投毒、Lockfile 與依賴失步、過度寬鬆 Wildcard IAM / RBAC 授權、多階段容器建構暫存密鑰殘留、測試環境混入未受控偽造憑證 |
 | **安全合規** | [`security/sast-safe-patterns`](rules/security/sast-safe-patterns.md) | 常見靜態代碼分析（SAST）誤報與正確安全修正模式 |
-| **安全合規** | [`security/data-scope`](rules/security/data-scope.md) | 報表與匯出功能嚴格限制資料存取範圍與租戶隔離 |
-| **安全合規** | [`security/tls-certificates`](rules/security/tls-certificates.md) | 嚴格驗證 TLS 憑證鏈（防範瀏覽器寬容但行動裝置/API 報錯問題） |
+| **安全合規** | [`security/tenant-isolation`](rules/security/tenant-isolation.md) | 防範 BOLA/IDOR：報表與匯出功能嚴格限制租戶資料範圍，背景任務顯式傳遞授權 |
 | **風格慣例** | [`writing/commit-messages`](rules/writing/commit-messages.md) | 規範化 Conventional Commits 格式（搭配繁體中文動詞） |
 | **風格慣例** | [`writing/changelog`](rules/writing/changelog.md) | 保持 CHANGELOG 維護粒度與語義清晰 |
 | **風格慣例** | [`writing/docs-and-cards`](rules/writing/docs-and-cards.md) | 撰寫卡片與文檔時以 TL;DR 為先之專業表達結構 |

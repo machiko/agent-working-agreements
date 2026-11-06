@@ -275,6 +275,8 @@ alias_id() {
     vue/pitfalls) echo "frontend/pitfalls" ;;
     laravel/pitfalls) echo "backend/pitfalls" ;;
     docker/pitfalls) echo "container/pitfalls" ;;
+    security/data-scope) echo "security/tenant-isolation" ;;
+    security/tls-certificates) echo "container/pitfalls" ;;
     *) echo "$1" ;;
   esac
 }

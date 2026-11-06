@@ -54,3 +54,11 @@ paths:
 - **症狀：** 前端呼叫同源的新增 API 端點（如 `/api/v2/items`）時，偶發回傳 404、405 或直接返回 SPA 的 index.html。
 - **根因：** 本機環境通常透過 Nginx、Traefik 或 Caddy 轉發 `/api/*` 避開 CORS。新增端點若路徑模式不符既有 proxy rule，請求會直接穿透落入前端靜態服務路由。
 - **怎麼做：** 調整反向代理規則時，優先採用泛型路由轉發（如 `location /api/ { proxy_pass ... }`），避免針對每個子路徑逐一手動條列；每次修改 proxy 設定檔後先跑語法測試（如 `nginx -t`）再 reload。
+
+## 憑證與私鑰禁止打包進容器映像 (No Certificates in Images)
+
+- **症狀：** 專案更換 HTTPS 憑證或輪換金鑰後，發布新容器仍出示舊憑證，或容器映像檔推送至公開/共享 Registry 後造成私鑰永久外洩。
+- **根因：** 在 Dockerfile 建構階段使用 `COPY ./ssl /etc/ssl` 將憑證與私鑰烤入映像檔中。即使在後續指令中刪除或覆蓋，私鑰仍殘留在 Docker 映像檔的唯讀歷史 Layer 中，拉取歷史層即可輕易還原。
+- **怎麼做：**
+  - 憑證與私鑰一律在執行期（Runtime）以唯讀 Volume 掛載（例如 Compose 的 `./ssl:/etc/ssl/private:ro`），或透過 K8s Secrets / AWS Secrets Manager 於啟動時動態注入。
+  - 確保 `.dockerignore` 與 `.gitignore` 包含 `*.pem`、`*.crt`、`*.key`，防止意外建構或提交進映像歷史。
