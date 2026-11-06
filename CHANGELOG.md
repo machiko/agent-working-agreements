@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-06
+
+### Added
+
+- 新增 雲原生、日誌與可觀測性通用規則：`rules/cloud/pitfalls.md`，涵蓋高基數指標標籤拖垮監控、結構化日誌洩漏 PII/Token、連線池未複用致 Ephemeral Port 耗盡、Presigned URL 權限與有效期限失控、循環健康檢查重啟死鎖
+- 新增 GitHub Copilot 支援：`scripts/install.sh --copilot` 一鍵將守則注入 `.github/copilot-instructions.md` 標記區塊，支援預覽、狀態查詢與獨立卸載
+- 新增 Windsurf 規則支援：`scripts/install.sh --windsurf` 一鍵將守則注入 `.windsurfrules`，達成主流 Agent 工具鏈全覆蓋
+- 新增 CI 自動化守護工作流安裝器：`scripts/install.sh --ci` 一鍵配置 `.github/workflows/agent-audit.yml` 與審查腳本，在 PR 階段阻擋合規違規
+- 新增 雲原生與監控特徵偵測：`install.sh --detect` 支援辨識 K8s、Helm、Terraform、Prometheus、OpenTelemetry、Datadog 依賴並自動推薦 `cloud/pitfalls`
+- 新增 測試套件：新增 Copilot、Windsurf、CI 工作流安裝與雲原生偵測自動化測試案例
+
+### Changed
+
+- 更新 `/agreements:setup`：工程地雷問答擴充納入架構層「雲原生、日誌與可觀測性地雷 (`cloud/pitfalls`)」
+- 更新 說明文件：新增 GitHub Copilot、Windsurf 與 GitHub Actions CI 自動化守門章節
+
 ## [0.6.0] - 2026-11-06
 
 ### Added

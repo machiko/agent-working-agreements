@@ -10,6 +10,9 @@
 #   install.sh --cursor <dir> --uninstall [--dry-run] [--force]
 #   install.sh --agents-md <file> [--select id1,id2] [--dry-run]
 #   install.sh --agents-md <file> --uninstall [--dry-run]
+#   install.sh --copilot [file] [--select id1,id2] [--dry-run]
+#   install.sh --windsurf [file] [--select id1,id2] [--dry-run]
+#   install.sh --ci [dir] [--dry-run]
 #   install.sh --target <dir> --status
 #   install.sh --cursor <dir> --status
 #   install.sh --agents-md <file> --status
@@ -17,7 +20,10 @@
 #   --target    安裝目錄，例如 ~/.claude/rules/agent-agreements 或 <專案>/.claude/rules/agent-agreements
 #   --cursor    Cursor 規則目錄（產出 .mdc 檔），例如 .cursor/rules
 #   --agents-md 寫入 AGENTS.md（Codex 等）：只改 agent-agreements 標記區塊，區塊外內容不動
-#   --select    要加裝的 optional 規則 id（逗號分隔，例如 writing/changelog,laravel/pitfalls）；core 一律安裝
+#   --copilot   寫入 GitHub Copilot 指示（預設 .github/copilot-instructions.md），以標記區塊注入
+#   --windsurf  寫入 Windsurf 規則（預設 .windsurfrules），以標記區塊注入
+#   --ci        安裝 GitHub Actions CI 守門工作流（.github/workflows/agent-audit.yml 與 audit.sh）
+#   --select    要加裝的 optional 規則 id（逗號分隔，例如 writing/changelog,frontend/pitfalls）；core 一律安裝
 #   --dry-run   只列出會做的變更，不寫入
 #   --force     覆蓋或移除已被手動修改的檔案
 #   --uninstall 只移除 profile 記錄的檔案，不碰目錄內其他檔案
@@ -39,6 +45,9 @@ PROFILE_NAME=".agreements-profile"
 target=""
 cursor_dir=""
 agents_md=""
+copilot_file=""
+windsurf_file=""
+ci_dir=""
 detect_dir=""
 select_ids=""
 dry_run=0
@@ -53,6 +62,27 @@ while [ $# -gt 0 ]; do
     --target) [ $# -ge 2 ] || die "--target 需要目錄"; target="$2"; shift 2 ;;
     --cursor) [ $# -ge 2 ] || die "--cursor 需要目錄"; cursor_dir="$2"; shift 2 ;;
     --agents-md) [ $# -ge 2 ] || die "--agents-md 需要檔案路徑"; agents_md="$2"; shift 2 ;;
+    --copilot)
+      if [ $# -ge 2 ] && [ "${2#-}" = "$2" ]; then
+        copilot_file="$2"; shift 2
+      else
+        copilot_file=".github/copilot-instructions.md"; shift
+      fi
+      ;;
+    --windsurf)
+      if [ $# -ge 2 ] && [ "${2#-}" = "$2" ]; then
+        windsurf_file="$2"; shift 2
+      else
+        windsurf_file=".windsurfrules"; shift
+      fi
+      ;;
+    --ci)
+      if [ $# -ge 2 ] && [ "${2#-}" = "$2" ]; then
+        ci_dir="$2"; shift 2
+      else
+        ci_dir="."; shift
+      fi
+      ;;
     --select) [ $# -ge 2 ] || die "--select 需要規則 id"; select_ids="$2"; shift 2 ;;
     --dry-run) dry_run=1; shift ;;
     --force) force=1; shift ;;
@@ -280,6 +310,59 @@ if [ "$mode" = "detect" ]; then
     printf 'async/pitfalls\t偵測到佇列、Worker 或快取相關目錄或依賴\n'
   fi
 
+  # 7. 雲原生、日誌與可觀測性特徵
+  if [ -d "$dir/k8s" ] || [ -d "$dir/helm" ] || [ -d "$dir/terraform" ] || [ -d "$dir/.k8s" ] || find "$dir" -maxdepth 3 -type f \( -name '*telemetry*' -o -name '*otel*' -o -name '*logger*' \) 2>/dev/null | grep -q . || { [ -f "$dir/package.json" ] && grep -qiE '"(@opentelemetry|winston|pino|prom-client|datadog)"' "$dir/package.json" 2>/dev/null; } || { [ -f "$dir/go.mod" ] && grep -qiE '(prometheus|opentelemetry|zap|zerolog)' "$dir/go.mod" 2>/dev/null; } || { [ -f "$dir/requirements.txt" ] && grep -qiE '(prometheus|opentelemetry|structlog)' "$dir/requirements.txt" 2>/dev/null; }; then
+    printf 'cloud/pitfalls\t偵測到雲端部署 (K8s/Terraform) 或日誌可觀測性依賴\n'
+  fi
+
+  exit 0
+fi
+
+# ── --ci：安裝 GitHub Actions CI 守門工作流 ─────────────
+
+if [ -n "$ci_dir" ]; then
+  case "$ci_dir" in "~"/*) ci_dir="$HOME/${ci_dir#\~/}" ;; esac
+  [ -d "$ci_dir" ] || die "目錄不存在：$ci_dir"
+  WF_DIR="$ci_dir/.github/workflows"
+  WF_FILE="$WF_DIR/agent-audit.yml"
+  SCRIPTS_DIR="$ci_dir/scripts"
+  if [ "$dry_run" -eq 1 ]; then
+    echo "＋ 新增 $WF_FILE"
+    [ ! -f "$SCRIPTS_DIR/audit.sh" ] && echo "＋ 新增 $SCRIPTS_DIR/audit.sh"
+    exit 0
+  fi
+  mkdir -p "$WF_DIR" "$SCRIPTS_DIR"
+  cat <<'EOF' > "$WF_FILE"
+name: Agent Agreements Audit
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, master]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Agent Guardrail Audit
+        run: |
+          if [ -f "scripts/audit.sh" ]; then
+            bash scripts/audit.sh --commit HEAD
+          else
+            echo "Notice: scripts/audit.sh not found."
+          fi
+EOF
+  if [ ! -f "$SCRIPTS_DIR/audit.sh" ] && [ -f "$ROOT/scripts/audit.sh" ]; then
+    cp "$ROOT/scripts/audit.sh" "$SCRIPTS_DIR/audit.sh"
+    chmod +x "$SCRIPTS_DIR/audit.sh"
+  fi
+  echo "✓ 已成功安裝 GitHub Actions CI 守門工作流：$WF_FILE"
   exit 0
 fi
 
@@ -289,9 +372,14 @@ targets_set=0
 [ -n "$target" ] && targets_set=$((targets_set + 1))
 [ -n "$cursor_dir" ] && targets_set=$((targets_set + 1))
 [ -n "$agents_md" ] && targets_set=$((targets_set + 1))
+[ -n "$copilot_file" ] && targets_set=$((targets_set + 1))
+[ -n "$windsurf_file" ] && targets_set=$((targets_set + 1))
 
-[ "$targets_set" -gt 1 ] && die "--target、--cursor 與 --agents-md 只能擇一"
-[ "$targets_set" -eq 0 ] && die "需要 --target、--cursor 或 --agents-md"
+[ "$targets_set" -gt 1 ] && die "--target、--cursor、--agents-md、--copilot 與 --windsurf 只能擇一"
+[ "$targets_set" -eq 0 ] && die "需要指定目標（--target、--cursor、--agents-md、--copilot、--windsurf 或 --ci）"
+
+[ -n "$copilot_file" ] && agents_md="$copilot_file"
+[ -n "$windsurf_file" ] && agents_md="$windsurf_file"
 
 # 期望安裝的規則：core 全部 ＋ 選擇的 optional
 desired=""

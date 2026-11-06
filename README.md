@@ -52,6 +52,7 @@ To update automatically: `/plugin` → Marketplaces → agent-working-agreements
 | build modern Web frontends (React / Vue / Svelte / Next.js) | [`frontend/pitfalls`](rules/frontend/pitfalls.md) (Tailwind purge, component unmount leaks, SSR window access, prop mutation) |
 | build modern Web backends (Node / Python / Go / PHP / Java) | [`backend/pitfalls`](rules/backend/pitfalls.md) (empty env defaults, dev-dependencies leakage, build-time secrets injection, export OOM) |
 | run containers & local environments (Docker / Podman / Compose) | [`container/pitfalls`](rules/container/pitfalls.md) (single-file bind mounts inode drop, container orphan processes, inotify drop) |
+| manage cloud, k8s, or observability logs/metrics | [`cloud/pitfalls`](rules/cloud/pitfalls.md) (high cardinality metrics, structured log PII leaks, port exhaustion, circular healthchecks) |
 
 ## What's inside
 
@@ -68,6 +69,7 @@ To update automatically: `/plugin` → Marketplaces → agent-working-agreements
 | [`rules/frontend/`](rules/frontend/) | *optional:* Tailwind dynamic class purge · uncleaned event listeners / timers in unmount · SSR window / document prerender crashes · mutating props breaking one-way data flow · reactivity loss on destructuring |
 | [`rules/backend/`](rules/backend/) | *optional:* empty env strings overriding safe defaults · dev / mock dependencies leaking to production · build-time secrets injection failures · unchunked export memory OOM · non-standard primary key ORM access |
 | [`rules/container/`](rules/container/) | *optional:* single-file bind mounts breaking after `git switch` · container orphan processes after killing client · macOS inotify event drop · test profiler overhead · reverse proxy whitelist omission |
+| [`rules/cloud/`](rules/cloud/) | *optional:* high-cardinality metric label memory blowup · structured log PII / secret leaks · outbound connection pool & TIME_WAIT exhaustion · presigned URL expiry & scope · circular healthcheck deadlocks |
 | [`templates/CLAUDE.md`](templates/CLAUDE.md) | A short global instruction file to start from |
 
 Always-loaded core rules are capped at 400 lines in total (`scripts/check-budget.sh`, enforced in CI). Stack-specific rules use `paths` frontmatter, so they only load when the agent touches matching files.
@@ -125,6 +127,30 @@ scripts/install.sh --cursor .cursor/rules --status                              
 ```
 
 `--cursor` installs rules as Cursor `.mdc` files, automatically converting `paths` into Cursor's `globs` frontmatter and marking core rules with `alwaysApply: true`.
+
+### GitHub Copilot Workspace (`.github/copilot-instructions.md`)
+
+```bash
+scripts/install.sh --copilot                                                     # injects into .github/copilot-instructions.md
+scripts/install.sh --copilot custom-path.md --select frontend/pitfalls           # custom path with specific rules
+scripts/install.sh --copilot --uninstall                                         # removes only injected agreements block
+```
+
+### Windsurf IDE (`.windsurfrules`)
+
+```bash
+scripts/install.sh --windsurf                                                    # injects into .windsurfrules
+scripts/install.sh --windsurf --select frontend/pitfalls,backend/pitfalls        # specify rules
+scripts/install.sh --windsurf --uninstall                                        # removes only injected agreements block
+```
+
+### GitHub Actions CI Automated Guardrail
+
+```bash
+scripts/install.sh --ci                                                          # installs .github/workflows/agent-audit.yml & scripts/audit.sh
+```
+
+Automatically audits every Pull Request and main push in GitHub Actions CI to catch swallowed exceptions, sensitive files, or deleted test assertions before merging.
 
 ## Active Guardrails & Incident Recording
 

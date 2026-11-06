@@ -337,6 +337,33 @@ check "vue/pitfalls 自動對應至 frontend/pitfalls" 'grep -q "frontend/pitfal
 check "docker/pitfalls 自動對應至 container/pitfalls" 'grep -q "container/pitfalls" "$TMP/out-alias"'
 check "laravel/pitfalls 自動對應至 backend/pitfalls" 'grep -q "backend/pitfalls" "$TMP/out-alias"'
 
+echo "▸ --copilot：安裝 GitHub Copilot 指示"
+T_COP="$TMP/copilot-fixture"
+mkdir -p "$T_COP"
+"$INSTALL" --copilot "$T_COP/.github/copilot-instructions.md" --select "$OPT_A" > /dev/null
+check "copilot 檔案產出且含標記區塊" '[ -f "$T_COP/.github/copilot-instructions.md" ] && grep -q "<!-- agent-agreements:start" "$T_COP/.github/copilot-instructions.md"'
+
+echo "▸ --windsurf：安裝 Windsurf 規則"
+T_WIND="$TMP/windsurf-fixture"
+mkdir -p "$T_WIND"
+"$INSTALL" --windsurf "$T_WIND/.windsurfrules" --select "$OPT_A" > /dev/null
+check "windsurf 檔案產出且含標記區塊" '[ -f "$T_WIND/.windsurfrules" ] && grep -q "<!-- agent-agreements:start" "$T_WIND/.windsurfrules"'
+
+echo "▸ --ci：安裝 GitHub Actions CI 守門工作流"
+T_CI="$TMP/ci-fixture"
+mkdir -p "$T_CI"
+"$INSTALL" --ci "$T_CI" --dry-run > "$TMP/out-ci-dry"
+check "ci dry-run 不寫入檔案" '[ ! -f "$T_CI/.github/workflows/agent-audit.yml" ]'
+check "ci dry-run 列出新增工作流" 'grep -q "agent-audit.yml" "$TMP/out-ci-dry"'
+"$INSTALL" --ci "$T_CI" > /dev/null
+check "ci 產出 GitHub Actions 工作流檔" '[ -f "$T_CI/.github/workflows/agent-audit.yml" ]'
+check "ci 複製 audit.sh 且具備執行權限" '[ -x "$T_CI/scripts/audit.sh" ]'
+
+echo "▸ --detect：雲原生與可觀測性特徵"
+mkdir -p "$TD/k8s"
+out_cloud="$("$INSTALL" --detect "$TD")"
+check "detect 辨識出 cloud/pitfalls" 'printf "%s" "$out_cloud" | grep -q "^cloud/pitfalls"'
+
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"
 [ "$fail" -eq 0 ]
