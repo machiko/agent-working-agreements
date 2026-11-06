@@ -34,7 +34,7 @@ disable-model-invocation: true
 1. **安裝範圍**（單選，header「範圍」）：全域（推薦，所有專案適用）／本專案（只在這個 repo 生效）
 2. **寫作規範**（複選，header「寫作」）：`writing/commit-messages`、`writing/changelog`、`writing/docs-and-cards`、`writing/taiwan-terminology`
 3. **安全**（複選，header「安全」）：`security/sast-safe-patterns`、`security/data-scope`、`security/tls-certificates`
-4. **工程地雷**（複選，header「工程地雷」）：通用架構（`database/pitfalls`、`api/pitfalls`、`async/pitfalls`）與特定技術棧（`docker/pitfalls`、`laravel/pitfalls`、`vue/pitfalls`）
+4. **工程地雷**（複選，header「工程地雷」）：架構層（`database/pitfalls`、`api/pitfalls`、`async/pitfalls`）與應用層（`frontend/pitfalls`、`backend/pitfalls`、`container/pitfalls`）
 
 每個選項的文字**原樣使用** `--list` 的欄位，不要自行改寫或縮寫：
 

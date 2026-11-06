@@ -49,7 +49,9 @@ To update automatically: `/plugin` → Marketplaces → agent-working-agreements
 | write database migrations, queries, or ORMs | [`database/pitfalls`](rules/database/pitfalls.md) (exclusive locks, non-idempotent migrations, N+1, money precision) |
 | build or consume backend APIs and integrations | [`api/pitfalls`](rules/api/pitfalls.md) (unbounded timeouts, swallowed exceptions, breaking changes, idempotency) |
 | manage queues, background jobs, or Redis cache | [`async/pitfalls`](rules/async/pitfalls.md) (cache stampede, poison pills, distributed lock deadlocks, fan-out) |
-| run a Laravel, Vue, or Docker stack | [`laravel/pitfalls`](rules/laravel/pitfalls.md), [`vue/pitfalls`](rules/vue/pitfalls.md), [`docker/pitfalls`](rules/docker/pitfalls.md) (load only when matching files are touched) |
+| build modern Web frontends (React / Vue / Svelte / Next.js) | [`frontend/pitfalls`](rules/frontend/pitfalls.md) (Tailwind purge, component unmount leaks, SSR window access, prop mutation) |
+| build modern Web backends (Node / Python / Go / PHP / Java) | [`backend/pitfalls`](rules/backend/pitfalls.md) (empty env defaults, dev-dependencies leakage, build-time secrets injection, export OOM) |
+| run containers & local environments (Docker / Podman / Compose) | [`container/pitfalls`](rules/container/pitfalls.md) (single-file bind mounts inode drop, container orphan processes, inotify drop) |
 
 ## What's inside
 
@@ -63,9 +65,9 @@ To update automatically: `/plugin` → Marketplaces → agent-working-agreements
 | [`rules/database/`](rules/database/) | *optional:* non-idempotent migrations · exclusive lock on `ALTER TABLE` · ORM N+1 query memory blowup · soft delete relation leaks · money precision with floats |
 | [`rules/api/`](rules/api/) | *optional:* missing HTTP/RPC timeout leading to thread starvation · swallowing exceptions with empty catch blocks · breaking API contracts · missing idempotency keys |
 | [`rules/async/`](rules/async/) | *optional:* cache stampede & dogpiling · poison pills in job queues · distributed lock deadlocks · unbounded concurrency fan-out · shared mutable state in coroutines/threads |
-| [`rules/laravel/`](rules/laravel/) | *optional:* `fake()` in production · `$model->id` silently null · empty `env()` values beating defaults · `package:discover` breaking Docker builds · … |
-| [`rules/vue/`](rules/vue/) | *optional:* reactivity lost on destructuring · mutating props · dynamic Tailwind class purging · uncleaned timers / event listeners in `onMounted` · SSR window access · … |
-| [`rules/docker/`](rules/docker/) | *optional:* single-file bind mounts breaking after `git switch` · `restart` vs `--force-recreate` · Xdebug trigger mode · CI cache pitfalls · deploy jobs that depend on an external registry · when not to auto-rollback |
+| [`rules/frontend/`](rules/frontend/) | *optional:* Tailwind dynamic class purge · uncleaned event listeners / timers in unmount · SSR window / document prerender crashes · mutating props breaking one-way data flow · reactivity loss on destructuring |
+| [`rules/backend/`](rules/backend/) | *optional:* empty env strings overriding safe defaults · dev / mock dependencies leaking to production · build-time secrets injection failures · unchunked export memory OOM · non-standard primary key ORM access |
+| [`rules/container/`](rules/container/) | *optional:* single-file bind mounts breaking after `git switch` · container orphan processes after killing client · macOS inotify event drop · test profiler overhead · reverse proxy whitelist omission |
 | [`templates/CLAUDE.md`](templates/CLAUDE.md) | A short global instruction file to start from |
 
 Always-loaded core rules are capped at 400 lines in total (`scripts/check-budget.sh`, enforced in CI). Stack-specific rules use `paths` frontmatter, so they only load when the agent touches matching files.

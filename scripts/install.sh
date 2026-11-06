@@ -233,6 +233,16 @@ if [ "$mode" = "list" ]; then
   exit 0
 fi
 
+# ── 別名相容對應 ───────────────────────────────────────
+alias_id() {
+  case "$1" in
+    vue/pitfalls) echo "frontend/pitfalls" ;;
+    laravel/pitfalls) echo "backend/pitfalls" ;;
+    docker/pitfalls) echo "container/pitfalls" ;;
+    *) echo "$1" ;;
+  esac
+}
+
 # ── --detect ───────────────────────────────────────────
 
 if [ "$mode" = "detect" ]; then
@@ -250,19 +260,19 @@ if [ "$mode" = "detect" ]; then
     printf 'api/pitfalls\t偵測到 API 路由或控制器目錄\n'
   fi
 
-  # 3. Docker 特徵
-  if [ -f "$dir/Dockerfile" ] || [ -f "$dir/docker-compose.yml" ] || [ -f "$dir/docker-compose.yaml" ] || [ -f "$dir/compose.yml" ] || [ -f "$dir/compose.yaml" ]; then
-    printf 'docker/pitfalls\t偵測到 Dockerfile 或 compose 設定檔\n'
+  # 3. 現代前端與組件化特徵
+  if [ -f "$dir/vite.config.js" ] || [ -f "$dir/vite.config.ts" ] || [ -f "$dir/next.config.js" ] || [ -f "$dir/next.config.mjs" ] || [ -f "$dir/next.config.ts" ] || [ -f "$dir/nuxt.config.ts" ] || [ -f "$dir/nuxt.config.js" ] || [ -f "$dir/svelte.config.js" ] || find "$dir" -maxdepth 3 -type f \( -name '*.vue' -o -name '*.jsx' -o -name '*.tsx' -o -name '*.svelte' \) 2>/dev/null | grep -q . || { [ -f "$dir/package.json" ] && grep -qiE '"(react|vue|svelte|next|nuxt|vite|tailwindcss)"' "$dir/package.json" 2>/dev/null; }; then
+    printf 'frontend/pitfalls\t偵測到現代前端組件 (React/Vue/Svelte) 或建構工具\n'
   fi
 
-  # 4. Laravel 特徵
-  if [ -f "$dir/artisan" ] || { [ -f "$dir/composer.json" ] && grep -qi '"laravel/framework"' "$dir/composer.json" 2>/dev/null; }; then
-    printf 'laravel/pitfalls\t偵測到 Laravel 專案結構或框架套件\n'
+  # 4. Web 後端與應用服務特徵
+  if [ -f "$dir/artisan" ] || [ -f "$dir/composer.json" ] || [ -f "$dir/requirements.txt" ] || [ -f "$dir/pyproject.toml" ] || [ -f "$dir/Pipfile" ] || [ -f "$dir/go.mod" ] || [ -f "$dir/Cargo.toml" ] || [ -f "$dir/pom.xml" ] || [ -f "$dir/build.gradle" ] || { [ -f "$dir/package.json" ] && grep -qiE '"(express|nestjs|fastify|koa|hono|hapi)"' "$dir/package.json" 2>/dev/null; }; then
+    printf 'backend/pitfalls\t偵測到 Web 後端應用架構或依賴\n'
   fi
 
-  # 5. Vue / 前端特徵
-  if [ -f "$dir/vite.config.js" ] || [ -f "$dir/vite.config.ts" ] || find "$dir" -maxdepth 3 -type f -name '*.vue' 2>/dev/null | grep -q . || { [ -f "$dir/package.json" ] && grep -qi '"vue"' "$dir/package.json" 2>/dev/null; }; then
-    printf 'vue/pitfalls\t偵測到 Vue 元件或 Vite 設定\n'
+  # 5. 容器與本機虛擬化特徵
+  if [ -f "$dir/Dockerfile" ] || [ -f "$dir/Containerfile" ] || [ -f "$dir/docker-compose.yml" ] || [ -f "$dir/docker-compose.yaml" ] || [ -f "$dir/compose.yml" ] || [ -f "$dir/compose.yaml" ] || [ -f "$dir/.dockerignore" ] || [ -d "$dir/nginx" ]; then
+    printf 'container/pitfalls\t偵測到容器設定檔 (Dockerfile/Compose/Containerfile)\n'
   fi
 
   # 6. 異步/佇列/快取特徵
@@ -290,8 +300,9 @@ if [ "$mode" = "install" ]; then
     [ "$(field "$RULES/$id.md" tier)" = "core" ] && desired="$desired$id"$'\n'
   done
   if [ -n "$select_ids" ]; then
-    for id in $(printf '%s' "$select_ids" | tr ',' ' '); do
-      [ -f "$RULES/$id.md" ] || die "找不到規則：${id}（用 --list 查看可用 id）"
+    for raw_id in $(printf '%s' "$select_ids" | tr ',' ' '); do
+      id="$(alias_id "$raw_id")"
+      [ -f "$RULES/$id.md" ] || die "找不到規則：${raw_id}（用 --list 查看可用 id）"
       contains "$desired" "$id" || desired="$desired$id"$'\n'
     done
   fi
