@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-06
+
 ### Added
 
 - 新增 供應鏈安全與依賴地雷：`rules/security/supply-chain.md`，防範套件名稱幻覺與搶註投毒、依賴版本浮動與 Lockfile 失步、過度寬鬆 Wildcard IAM 授權、多階段容器建構暫存密鑰殘留、測試環境混入未受控偽造憑證
