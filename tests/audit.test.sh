@@ -118,6 +118,24 @@ else
   bad "文件中的反例代碼觸發了誤判 (exit $rc)"
 fi
 
+echo "▸ 前端 React JSX/TSX 動態 Tailwind 拼接警告"
+REPO_FRONT="$TMP/repo_front"
+init_repo "$REPO_FRONT"
+mkdir -p "$REPO_FRONT/src"
+cat << 'EOF' > "$REPO_FRONT/src/Button.tsx"
+export const Button = ({ color }) => {
+  return <button className={'bg-' + color + '-500'}>Click</button>;
+};
+EOF
+git add "$REPO_FRONT/src/Button.tsx"
+"$AUDIT" --staged > "$TMP/out" 2>&1
+rc=$?
+if [ $rc -eq 0 ] && grep -q "檢測到動態字串拼接 class" "$TMP/out"; then
+  ok "成功警告 React TSX 動態 Tailwind class 拼接"
+else
+  bad "未發出動態 class 拼接警告 (exit $rc)"
+fi
+
 echo "▸ 安裝 Git pre-commit hook (--install-hook)"
 REPO_HOOK="$TMP/repo_hook"
 init_repo "$REPO_HOOK"
