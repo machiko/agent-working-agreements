@@ -298,6 +298,7 @@ check "參數是「狀態」時只顯示現況、不進入問答" 'grep -q "參�
 check "提問前列出 core 規則的標題" 'grep -q "列出 core 規則的標題" "$SKILL"'
 check "套用後再跑一次 --status 收尾" 'grep -qF "套用完再執行一次 \`install.sh --status" "$SKILL"'
 check "setup skill 包含 frontend/pitfalls" 'grep -q "frontend/pitfalls" "$SKILL"'
+check "setup skill 包含 collaboration/sdlc-lifecycle" 'grep -q "collaboration/sdlc-lifecycle" "$SKILL"'
 check "setup skill 規範已安裝規則預設勾選" 'grep -q "已安裝規則必須預設勾選" "$SKILL"'
 check "setup skill 規範取消選取即代表移除" 'grep -q "取消選取即代表移除" "$SKILL"'
 check "setup skill argument-hint 包含更新" 'grep -q "argument-hint:.*更新" "$SKILL"'
@@ -433,6 +434,14 @@ T_CI_PC="$TMP/ci-pc"
 mkdir -p "$T_CI_PC"
 "$INSTALL" --ci pre-commit "$T_CI_PC" > /dev/null
 check "ci pre-commit 產出 .pre-commit-config.yaml" '[ -f "$T_CI_PC/.pre-commit-config.yaml" ] && grep -q "agent-agreements-audit" "$T_CI_PC/.pre-commit-config.yaml"'
+
+echo "▸ collaboration/sdlc-lifecycle：安裝軟體生命週期規範"
+T_SDLC="$TMP/sdlc-fixture"
+"$INSTALL" --target "$T_SDLC" --select collaboration/sdlc-lifecycle > /dev/null
+check "sdlc-lifecycle 檔案產出且存在" '[ -f "$T_SDLC/collaboration/sdlc-lifecycle.md" ]'
+check "sdlc-lifecycle profile 記錄" 'grep -q "^file=collaboration/sdlc-lifecycle" "$T_SDLC/.agreements-profile"'
+out_sdlc_stat="$("$INSTALL" --target "$T_SDLC" --status)"
+check "sdlc-lifecycle status 正確標示標題" 'printf "%s" "$out_sdlc_stat" | grep -q "軟體開發生命週期"'
 
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"

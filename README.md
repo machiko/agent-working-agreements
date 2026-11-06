@@ -202,6 +202,7 @@ scripts/audit.sh --install-hook
 | **容器環境** | [`container/pitfalls`](rules/container/pitfalls.md) | 單檔 Bind Mount 在 `git switch` 後 Inode 失效斷鏈、Client 終止後容器遺留孤兒殭屍行程、macOS 檔案監聽事件遺失、反向代理缺少 Host 白名單、禁止將憑證與私鑰烤入映像檔 |
 | **雲原生** | [`cloud/pitfalls`](rules/cloud/pitfalls.md) | 高基數（High-Cardinality）Metric 標籤耗盡記憶體、結構化 Log 洩漏 PII 與 Token、連線池與 TIME_WAIT 短暫埠耗盡、Presigned URL 權限與效期過長、循環 Healthcheck 假死 |
 | **供應鏈安全** | [`security/supply-chain`](rules/security/supply-chain.md) | 套件名稱幻覺（Hallucination）與搶註投毒、Lockfile 與依賴失步、過度寬鬆 Wildcard IAM / RBAC 授權、多階段容器建構暫存密鑰殘留、測試環境混入未受控偽造憑證 |
+| **協作流程** | [`collaboration/sdlc-lifecycle`](rules/collaboration/sdlc-lifecycle.md) | 規範中大型功能開發的 6 階段（規格、實作、測試、驗收、合併、上線）交付標準與品質閘門 |
 | **安全合規** | [`security/sast-safe-patterns`](rules/security/sast-safe-patterns.md) | 常見靜態代碼分析（SAST）誤報與正確安全修正模式 |
 | **安全合規** | [`security/tenant-isolation`](rules/security/tenant-isolation.md) | 防範 BOLA/IDOR：報表與匯出功能嚴格限制租戶資料範圍，背景任務顯式傳遞授權 |
 | **風格慣例** | [`writing/commit-messages`](rules/writing/commit-messages.md) | 規範化 Conventional Commits 格式（搭配繁體中文動詞） |

@@ -49,7 +49,7 @@ disable-model-invocation: true
 - **若想移除某條規則，直接在清單中取消勾選（Uncheck）即可**。
 
 1. **安裝範圍**（單選，header「範圍」）：全域（推薦，所有專案適用）／本專案（只在這個 repo 生效）。若目前已有安裝範圍，預設選擇該範圍。
-2. **寫作規範**（複選，header「寫作」）：`writing/commit-messages`、`writing/changelog`、`writing/docs-and-cards`、`writing/taiwan-terminology`
+2. **協作與寫作規範**（複選，header「協作」）：`collaboration/sdlc-lifecycle`、`writing/commit-messages`、`writing/changelog`、`writing/docs-and-cards`、`writing/taiwan-terminology`
 3. **安全**（複選，header「安全」）：`security/sast-safe-patterns`、`security/tenant-isolation`、`security/supply-chain`
 4. **工程地雷**（複選，header「工程地雷」）：架構層（`database/pitfalls`、`api/pitfalls`、`async/pitfalls`、`cloud/pitfalls`、`testing/pitfalls`）與應用層（`frontend/pitfalls`、`backend/pitfalls`、`container/pitfalls`）
 
