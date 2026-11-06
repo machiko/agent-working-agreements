@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 現代前端與組件化通用規則：`rules/frontend/pitfalls.md`，涵蓋 React、Vue、Next.js、Svelte 跨框架通用事故（Tailwind dynamic purge、組件卸載記憶體洩漏、SSR window/document 預渲染報錯、Prop 屬性突變、響應性解構追蹤）
+- 新增 Web 後端與應用服務通用規則：`rules/backend/pitfalls.md`，涵蓋 Node.js、Python、Go、PHP、Java 跨語言通用事故（環境變數留空覆蓋預設值、dev 依賴洩漏、建構階段密鑰注入失敗、匯出與大運算 OOM、ORM 非標準主鍵資料覆蓋）
+- 新增 容器與本機虛擬化環境通用規則：`rules/container/pitfalls.md`，涵蓋 Docker、Podman、Compose 通用事故（切分支單檔 bind mount inode 斷線、終端殺 client 程序殘留、macOS inotify 檔案事件丟失、測試 profiler 常駐拖慢、反向代理路由白名單）
+- 新增 向後相容別名映射：`scripts/install.sh` 自動將舊技術棧 id (`vue/pitfalls`, `laravel/pitfalls`, `docker/pitfalls`) 平滑映射至全新通用應用層規則
+- 新增 多技術棧智慧特徵偵測：擴大支援 React、Next.js、Nuxt、Svelte、Python、Go、Node.js、Containerfile 等特徵識別
+
+### Changed
+
+- 重構 守則架構昇華為純通用分層：移除特定技術棧目錄（`rules/vue/`, `rules/laravel/`, `rules/docker/`），工程地雷全面劃分為「架構層（API、Database、Async）」與「應用層（Frontend、Backend、Container）」
+- 更新 主動稽核工具：`scripts/audit.sh` 前端樣式稽核全面支援 `.vue`, `.jsx`, `.tsx`, `.svelte`, `.html`，並增補除錯語法殘留檢查
+- 更新 `/agreements:setup`：問答工程地雷選項全面升級為通用架構層與通用應用層
+
 ## [0.5.1] - 2026-11-06
 
 ### Changed

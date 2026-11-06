@@ -137,13 +137,13 @@ else
   pass "未觸及測試檔案或無測試異動"
 fi
 
-# 4. 動態 Tailwind Class Purge 檢查 (rules/vue/pitfalls.md)
-front_files="$(printf '%s\n' "$files" | grep -E '\.(vue|jsx|tsx|html)$' || true)"
+# 4. 動態 Tailwind Class Purge 檢查 (rules/frontend/pitfalls.md)
+front_files="$(printf '%s\n' "$files" | grep -E '\.(vue|jsx|tsx|svelte|html)$' || true)"
 if [ -n "$front_files" ]; then
   front_diff="$($diff_cmd -- $front_files 2>/dev/null || true)"
-  dyn_classes="$(printf '%s\n' "$front_diff" | grep -E '^\+[^+]' | grep -E ':class="[^"]*(\x27|\x22)[a-z]+-[a-z0-9]*-?(\x27|\x22)\s*\+' || true)"
+  dyn_classes="$(printf '%s\n' "$front_diff" | grep -E '^\+[^+]' | grep -E '(:class|className)=["\x27{][^"}\x27]*(\x27|\x22|\`)[a-z]+-[a-z0-9]*-?(\x27|\x22|\`)\s*(\+|\$)' || true)"
   if [ -n "$dyn_classes" ]; then
-    warn "檢測到動態字串拼接 class（可能在生產 build 時被 Tailwind purge 移除）"
+    warn "檢測到動態字串拼接 class（可能在生產 build 時被 Tailwind purge 移除，見 frontend/pitfalls）"
   else
     pass "前端 class 完整性正常"
   fi
@@ -151,7 +151,18 @@ else
   pass "無前端 template/樣式變更"
 fi
 
-# 5. Git 分支安全檢查 (rules/collaboration/git-safety.md)
+# 5. 除錯語句殘留檢查 (rules/collaboration/verification.md)
+if [ -n "$code_files" ]; then
+  debug_diff="$($diff_cmd -- $code_files 2>/dev/null || true)"
+  debug_statements="$(printf '%s\n' "$debug_diff" | grep -E '^\+[^+]' | grep -E '\b(console\.log|dd\(|dump\(|debugger;|breakpoint\(\)|var_dump\()' || true)"
+  if [ -n "$debug_statements" ]; then
+    warn "檢測到可能殘留的除錯語句（console.log / dd / debugger），請確認是否為測試除錯遺留"
+  else
+    pass "無明顯除錯語句殘留"
+  fi
+fi
+
+# 6. Git 分支安全檢查 (rules/collaboration/git-safety.md)
 branch="$(git branch --show-current 2>/dev/null || true)"
 if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
   warn "目前位於主分支「${branch}」，功能與重大重構請開分支走 PR"

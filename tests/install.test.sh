@@ -297,7 +297,7 @@ check "提醒兩個範圍會重複載入" 'grep -q "重複" "$SKILL"'
 check "參數是「狀態」時只顯示現況、不進入問答" 'grep -q "參數是「狀態」.*不進入問答" "$SKILL"'
 check "提問前列出 core 規則的標題" 'grep -q "列出 core 規則的標題" "$SKILL"'
 check "套用後再跑一次 --status 收尾" 'grep -qF "套用完再執行一次 \`install.sh --status" "$SKILL"'
-check "setup skill 技術棧包含 vue/pitfalls" 'grep -q "vue/pitfalls" "$SKILL"'
+check "setup skill 包含 frontend/pitfalls" 'grep -q "frontend/pitfalls" "$SKILL"'
 
 echo "▸ --cursor：安裝為 Cursor .mdc 規則檔"
 TC="$TMP/test-cursor"
@@ -323,12 +323,19 @@ touch "$TD/Dockerfile" "$TD/schema.sql"
 out="$("$INSTALL" --detect "$TD")"
 check "detect 辨識出 database/pitfalls" 'printf "%s" "$out" | grep -q "^database/pitfalls"'
 check "detect 辨識出 api/pitfalls" 'printf "%s" "$out" | grep -q "^api/pitfalls"'
-check "detect 辨識出 docker/pitfalls" 'printf "%s" "$out" | grep -q "^docker/pitfalls"'
-check "detect 不包含未匹配的 laravel/pitfalls" '! printf "%s" "$out" | grep -q "^laravel/pitfalls"'
+check "detect 辨識出 container/pitfalls" 'printf "%s" "$out" | grep -q "^container/pitfalls"'
+check "detect 不包含未匹配的 backend/pitfalls" '! printf "%s" "$out" | grep -q "^backend/pitfalls"'
 "$INSTALL" --detect "$TMP/no-such-dir" > /dev/null 2>&1
 check "detect 目錄不存在回傳 2" '[ $? -eq 2 ]'
 "$INSTALL" --status --detect > /dev/null 2>&1
 check "--status 搭配 --detect 回傳 2" '[ $? -eq 2 ]'
+
+echo "▸ 別名相容對應 (vue -> frontend, docker -> container, laravel -> backend)"
+T_ALIAS="$TMP/alias-fixture"
+"$INSTALL" --target "$T_ALIAS" --select vue/pitfalls,docker/pitfalls,laravel/pitfalls --dry-run > "$TMP/out-alias"
+check "vue/pitfalls 自動對應至 frontend/pitfalls" 'grep -q "frontend/pitfalls" "$TMP/out-alias"'
+check "docker/pitfalls 自動對應至 container/pitfalls" 'grep -q "container/pitfalls" "$TMP/out-alias"'
+check "laravel/pitfalls 自動對應至 backend/pitfalls" 'grep -q "backend/pitfalls" "$TMP/out-alias"'
 
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"
