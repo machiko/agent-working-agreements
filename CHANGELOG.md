@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 一鍵更新機制：`scripts/install.sh --update`，自動沿用既有安裝之 profile 記錄或標記區塊之規則選項，無須重新指定 `--select` 即可將已安裝守則升級至最新版本
+- 新增 自動檢查更新引導：`/agreements:setup` 與 `/agreements:setup 更新`，啟動時自動檢查遠端最新版本與已安裝守則新鮮度，若偵測到新版主動提供「(推薦) 一鍵自動更新至最新版」，無須重填問答流程
+
+### Changed
+
+- 更新 守則管理指南：`README.md` 新增檢查更新與自動更新章節，涵蓋 Claude Code、Cursor、AGENTS.md、Copilot 與 Windsurf 之 `--update` 操作指引
+
 ## [0.9.1] - 2026-11-06
 
 ### Added
