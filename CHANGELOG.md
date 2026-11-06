@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-06
+
 ### Added
 
 - 新增 雲原生、日誌與可觀測性通用規則：`rules/cloud/pitfalls.md`，涵蓋高基數指標標籤拖垮監控、結構化日誌洩漏 PII/Token、連線池未複用致 Ephemeral Port 耗盡、Presigned URL 權限與有效期限失控、循環健康檢查重啟死鎖
