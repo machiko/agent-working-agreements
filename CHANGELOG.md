@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-06
+
 ### Added
 
 - 新增 主動守護稽核工具：`scripts/audit.sh` 與 `/agreements:audit` 技能，可掃描 staged 暫存區、diff 或 commit 是否違反空 catch、弱化測試斷言、機敏檔案與分支隔離守則，並支援 `--install-hook` 安裝 Git pre-commit 守門機制
