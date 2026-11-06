@@ -136,6 +136,19 @@ else
   bad "未發出動態 class 拼接警告 (exit $rc)"
 fi
 
+echo "▸ 高危全開放權限警告 (chmod 777)"
+REPO_PERM="$TMP/repo_perm"
+init_repo "$REPO_PERM"
+echo "chmod 777 /var/run/docker.sock" > "$REPO_PERM/setup.sh"
+git add "$REPO_PERM/setup.sh"
+"$AUDIT" --staged > "$TMP/out" 2>&1
+rc=$?
+if [ $rc -eq 0 ] && grep -q "檢測到高危全開放權限" "$TMP/out"; then
+  ok "成功發出 chmod 777 高危權限警告"
+else
+  bad "未發出高危權限警告 (exit $rc)"
+fi
+
 echo "▸ 安裝 Git pre-commit hook (--install-hook)"
 REPO_HOOK="$TMP/repo_hook"
 init_repo "$REPO_HOOK"

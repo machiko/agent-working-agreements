@@ -53,6 +53,7 @@ To update automatically: `/plugin` → Marketplaces → agent-working-agreements
 | build modern Web backends (Node / Python / Go / PHP / Java) | [`backend/pitfalls`](rules/backend/pitfalls.md) (empty env defaults, dev-dependencies leakage, build-time secrets injection, export OOM) |
 | run containers & local environments (Docker / Podman / Compose) | [`container/pitfalls`](rules/container/pitfalls.md) (single-file bind mounts inode drop, container orphan processes, inotify drop) |
 | manage cloud, k8s, or observability logs/metrics | [`cloud/pitfalls`](rules/cloud/pitfalls.md) (high cardinality metrics, structured log PII leaks, port exhaustion, circular healthchecks) |
+| manage packages, dependencies, or IAM roles | [`security/supply-chain`](rules/security/supply-chain.md) (package hallucination, lockfile drift, wildcard IAM, leaking build secrets) |
 
 ## What's inside
 
@@ -61,7 +62,7 @@ To update automatically: `/plugin` → Marketplaces → agent-working-agreements
 | Directory | Highlights |
 |-----------|-----------|
 | [`rules/collaboration/`](rules/collaboration/) | Never fabricate tool results · completion needs evidence ("skipped" is not "passed") · never weaken tests to go green · re-check the branch before every commit · one worktree per parallel session · surface decisions where the user actually looks · explicit code + guard tests over hidden mechanisms · memory hygiene |
-| [`rules/security/`](rules/security/) | No production credentials where agents run · confirm every irreversible operation · deny rules and hooks are not a security boundary · keep PII files out of git · *optional:* SAST-safe patterns, data scope on every report and export, verifying TLS certificate chains (browsers forgive what mobile clients don't) |
+| [`rules/security/`](rules/security/) | No production credentials where agents run · confirm every irreversible operation · deny rules and hooks are not a security boundary · keep PII files out of git · *optional:* SAST-safe patterns, data scope on every report and export, verifying TLS certificate chains (browsers forgive what mobile clients don't), supply chain hygiene (package hallucinations, lockfile drift, wildcard IAM, leaking build secrets) |
 | [`rules/writing/`](rules/writing/) | Keep instruction files lean · English test method names · *optional:* commit format with fixed verbs, CHANGELOG granularity, TL;DR-first cards, Taiwan vs. China terminology |
 | [`rules/database/`](rules/database/) | *optional:* non-idempotent migrations · exclusive lock on `ALTER TABLE` · ORM N+1 query memory blowup · soft delete relation leaks · money precision with floats |
 | [`rules/api/`](rules/api/) | *optional:* missing HTTP/RPC timeout leading to thread starvation · swallowing exceptions with empty catch blocks · breaking API contracts · missing idempotency keys |
@@ -173,6 +174,10 @@ scripts/audit.sh --install-hook
 ### `/agreements:record`
 
 Whenever an agent makes an unexpected mistake, run `/agreements:record`. It guides you through a 3-step structured interview (*Symptom → Root Cause → How to Prevent*), strips sensitive info, and saves it into `.claude/rules/agent-agreements/custom/<name>.md`.
+
+### `/agreements:doctor` (or `scripts/doctor.sh`)
+
+Diagnoses the health of your local and global agreements configuration, version freshness, pre-commit hook protection, and CI guardrail status with a 0–100 health score.
 
 ## Make it yours
 
