@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-11-07
+
+### Added
+
+- 新增 命中守則顯式提示機制：`rules/collaboration/communication.md` 與 `templates/CLAUDE.md` 規範 Agent 於觸發具體工程防禦與協作動作時，在回應結尾以 `🛡️ 命中守則：[類別/名稱] 具體動作` 單行徽章標註，讓守則防護透明可見
+
 ## [0.9.4] - 2026-11-06
 
 ### Fixed
