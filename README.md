@@ -178,7 +178,7 @@ scripts/audit.sh --install-hook
 | **協作** | [`collaboration/test-integrity`](rules/collaboration/test-integrity.md) | 禁止刪除或放寬既有測試斷言來換取綠燈 |
 | **協作** | [`collaboration/git-safety`](rules/collaboration/git-safety.md) | Commit 前必須重新確認目前分支，禁止直接在他人分支或主分支亂提交 |
 | **協作** | [`collaboration/verification`](rules/collaboration/verification.md) | 以執行證據說話，報告完整重現步驟與驗證日誌 |
-| **協作** | [`collaboration/communication`](rules/collaboration/communication.md) | 決策放在使用者看的見之處，重大不可逆變更需明確確認 |
+| **協作** | [`collaboration/communication`](rules/collaboration/communication.md) | 決策放在使用者看的見之處、重大變更先確認、命中守則時於結尾顯式標註 |
 | **協作** | [`collaboration/design-judgment`](rules/collaboration/design-judgment.md) | 顯式程式碼優於隱含黑魔法；以 Guard Test 保障核心邏輯 |
 | **協作** | [`collaboration/memory-hygiene`](rules/collaboration/memory-hygiene.md) | 記憶庫衛生管理，不將暫時性錯誤推論沉澱為全域記憶 |
 | **安全** | [`security/dangerous-operations`](rules/security/dangerous-operations.md) | 禁止在 Agent 環境放置生產環境金鑰；危險破壞性指令必須二次確認 |

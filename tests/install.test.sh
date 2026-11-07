@@ -443,6 +443,10 @@ check "sdlc-lifecycle profile 記錄" 'grep -q "^file=collaboration/sdlc-lifecyc
 out_sdlc_stat="$("$INSTALL" --target "$T_SDLC" --status)"
 check "sdlc-lifecycle status 正確標示標題" 'printf "%s" "$out_sdlc_stat" | grep -q "軟體開發生命週期"'
 
+echo "▸ collaboration/communication：包含命中守則顯式標註規範"
+check "core 安裝後 communication.md 含命中守則標註" 'grep -q "🛡️ 命中守則：" "$T_SDLC/collaboration/communication.md"'
+check "templates/CLAUDE.md 含命中守則標註" 'grep -q "🛡️ 命中守則：" "$ROOT/templates/CLAUDE.md"'
+
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"
 [ "$fail" -eq 0 ]
