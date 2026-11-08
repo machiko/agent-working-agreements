@@ -166,7 +166,7 @@ c6_status="✅ 通過"
 c6_desc="未發現動態字串拼接 class 名稱"
 if [ -n "$front_files" ]; then
   front_diff="$($diff_cmd -- $front_files 2>/dev/null || true)"
-  dyn_classes="$(printf '%s\n' "$front_diff" | grep -E '^\+[^+]' | grep -E '(:class|className)=["\x27{][^"}\x27]*(\x27|\x22|\`)[a-z]+-[a-z0-9]*-?(\x27|\x22|\`)\s*(\+|\$)' || true)"
+  dyn_classes="$(printf '%s\n' "$front_diff" | grep -E '^\+[^+]' | grep -E '(:class|className)=["'\''{][^"'\''}]*['\''"`][a-z]+-[a-z0-9]*-?['\''"`][[:space:]]*(\+|\$)' || true)"
   if [ -n "$dyn_classes" ]; then
     c6_status="⚠️ 警告"
     c6_desc="發現動態字串拼接 class，可能在生產建構遭 Purge"
