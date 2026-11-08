@@ -492,6 +492,18 @@ check "依團隊策略強制安裝 tenant-isolation" '[ -f "$T_POLICY/security/t
 check "依團隊策略強制安裝 supply-chain" '[ -f "$T_POLICY/security/supply-chain.md" ]'
 check "profile 記錄 policy 檔名" 'grep -q "^policy=.agreements.json" "$T_POLICY/.agreements-profile"'
 
+# Monorepo 向上尋找根目錄策略檔測試
+T_MONO="$TMP/monorepo-fixture"
+mkdir -p "$T_MONO/packages/backend"
+cat <<'EOF' > "$T_MONO/.agreements.json"
+{
+  "enforce_rules": ["security/tenant-isolation"]
+}
+EOF
+"$INSTALL" --target "$T_MONO/packages/backend" > /dev/null
+check "Monorepo 子目錄向上找到根目錄策略檔並安裝 tenant-isolation" '[ -f "$T_MONO/packages/backend/security/tenant-isolation.md" ]'
+check "Monorepo 子目錄 profile 記錄根目錄 policy" 'grep -q "^policy=.agreements.json" "$T_MONO/packages/backend/.agreements-profile"'
+
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"
 [ "$fail" -eq 0 ]

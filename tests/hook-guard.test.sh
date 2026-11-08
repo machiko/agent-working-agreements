@@ -72,6 +72,17 @@ in10='{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command"
 out10="$(printf '%s' "$in10" | AGREEMENTS_HOOKS_DISABLE=1 bash "$GUARD")"
 check "啟用停用開關時不攔截" '[ -z "$out10" ]'
 
+# 11. prohibit_disable_hooks: true 時鎖死停用開關
+TMP_LOCK_DIR="$(mktemp -d /tmp/aw-lock-test.XXXXXX)"
+cat <<'EOF' > "$TMP_LOCK_DIR/.agreements.json"
+{
+  "prohibit_disable_hooks": true
+}
+EOF
+out11="$(cd "$TMP_LOCK_DIR" && printf '%s' "$in10" | AGREEMENTS_HOOKS_DISABLE=1 bash "$GUARD" 2>&1)"
+check "prohibit_disable_hooks 時忽略 AGREEMENTS_HOOKS_DISABLE 並攔截" 'printf "%s" "$out11" | grep -q "\"permissionDecision\": \"deny\""'
+rm -rf "$TMP_LOCK_DIR"
+
 echo "▸ hook-guard: --install-git-hooks Universal Git Hooks"
 TMP_REPO="$(mktemp -d /tmp/aw-hook-test.XXXXXX)"
 trap 'rm -rf "$TMP_REPO"' EXIT
@@ -97,6 +108,15 @@ check "pre-push 攔截 force push 覆蓋" 'printf "%s" "$out_pp" | grep -q "git-
 # 正常快進推送
 ff_input="refs/heads/main $c2 refs/heads/main $c1"
 check "pre-push 放行快進推送" 'printf "%s\n" "$ff_input" | (cd "$TMP_REPO" && bash .git/hooks/pre-push origin https://example.com)'
+
+# pre-push 遇到 prohibit_disable_hooks 時忽略 AGREEMENTS_HOOKS_DISABLE
+cat <<'EOF' > "$TMP_REPO/.agreements.json"
+{
+  "prohibit_disable_hooks": true
+}
+EOF
+out_pp_lock="$(printf '%s\n' "$push_input" | (cd "$TMP_REPO" && AGREEMENTS_HOOKS_DISABLE=1 bash .git/hooks/pre-push origin https://example.com) 2>&1 || true)"
+check "pre-push 遇 prohibit_disable_hooks 仍攔截 force push" 'printf "%s" "$out_pp_lock" | grep -q "git-safety"'
 
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}"

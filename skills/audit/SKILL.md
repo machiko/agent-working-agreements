@@ -32,7 +32,7 @@ fi
 
 - **若稽核失敗 (FAIL > 0)：**
   1. 列出違規檔案與違規項目。
-  2. 標註違反的具體守則與危害（例如：`api/pitfalls.md` 靜默吞噬例外、`security/sast-safe-patterns.md` 洩漏機敏資訊、`core/test-invariants.md` 弱化測試）。
+  2. 標註違反的具體守則與危害（例如：`api/pitfalls.md` 靜默吞噬例外、`security/sast-safe-patterns.md` 洩漏機敏資訊、`collaboration/test-integrity.md` 弱化測試）。
   3. 提供具體的修復方針，提醒不要使用空 catch 或刪除斷言。
 
 - **若稽核通過 (PASS)：**

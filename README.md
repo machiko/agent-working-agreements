@@ -140,12 +140,17 @@ scripts/doctor.sh
 # 一鍵自動修復缺失之 Git hook、CI 檔案與過期守則
 scripts/doctor.sh --fix
 
+# 固化目前已安裝之守則為專案 .agreements.json 策略檔
+scripts/doctor.sh --init-policy
+
 # CI 專用：檢驗守則無篡改、核心規則完整且符合團隊策略（若漂移 exit 1 阻擋 PR）
 scripts/doctor.sh --check-drift
 
 # Claude Code 專屬指令
 /agreements:doctor
 /agreements:doctor fix
+/agreements:doctor drift
+/agreements:doctor init-policy
 ```
 
 ### 📋 Agent 變更自省審查 (`scripts/review.sh`)
@@ -174,7 +179,10 @@ scripts/review.sh --staged     # 審查暫存區變更
   "prohibit_disable_hooks": false
 }
 ```
-* 執行 `install.sh` 或 `/agreements:setup` 時，會自動識別專案策略檔並鎖定強制守則，避免個人環境設置歧異。
+* 執行 `install.sh` 或 `/agreements:setup` 時，會自動向上尋找專案或 Monorepo 根目錄策略檔並鎖定強制守則，避免個人環境設置歧異。
+* 若設定 `"prohibit_disable_hooks": true`，將鎖死防護網，強制忽略 `AGREEMENTS_HOOKS_DISABLE=1`，防止 Agent 或腳本繞過安全攔截。
+* 具備完整 JSON Schema（[`schema/v1.json`](schema/v1.json)），在 VS Code 與 Cursor 等現代編輯器中支援全 28 條守則 ID 自動補齊與結構驗證。
+* 可透過 `scripts/doctor.sh --init-policy` 或 `/agreements:doctor init-policy` 一鍵從現有安裝生成標準策略檔。
 * CI 執行 `scripts/doctor.sh --check-drift` 時，會自動檢核專案是否嚴格安裝策略檔指定之全部守則。
 
 ### 🛡️ 執行期主動防護 (Runtime Hooks & Universal Git Hooks)

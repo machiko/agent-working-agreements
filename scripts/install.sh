@@ -172,8 +172,13 @@ contains() { printf '%s\n' "$1" | grep -Fxq -- "$2"; }
 find_policy_file() {
   local dir="$1"
   [ -d "$dir" ] || return 1
-  if [ -f "$dir/.agreements.json" ]; then echo "$dir/.agreements.json"; return 0; fi
-  if [ -f "$dir/.agreementsrc" ]; then echo "$dir/.agreementsrc"; return 0; fi
+  local cur="$dir"
+  while [ -n "$cur" ] && [ "$cur" != "/" ]; do
+    if [ -f "$cur/.agreements.json" ]; then echo "$cur/.agreements.json"; return 0; fi
+    if [ -f "$cur/.agreementsrc" ]; then echo "$cur/.agreementsrc"; return 0; fi
+    [ "$cur" = "." ] && break
+    cur="$(dirname "$cur")"
+  done
   local git_toplevel
   git_toplevel="$(cd "$dir" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
   if [ -n "$git_toplevel" ] && [ -d "$git_toplevel" ]; then
