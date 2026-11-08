@@ -17,7 +17,7 @@
     "preset": {
       "type": "string",
       "enum": ["smart", "full", "core"],
-      "description": "預設套裝方案：smart (智慧推薦)、full (全套防禦)、core (極簡核心)",
+      "description": "保留欄位，目前不生效：install.sh 與 doctor.sh 都不讀取。記錄團隊偏好的套裝方案 smart (智慧推薦)、full (全套防禦)、core (極簡核心)；實際強制安裝的守則以 enforce_rules 為準",
       "default": "smart"
     },
     "enforce_rules": {

@@ -1,97 +1,76 @@
 #!/usr/bin/env python3
-"""hook-guard.py — Claude Code PreToolUse runtime guardrail hook.
+"""hook-guard.py — Claude Code PreToolUse 執行期防線的比對器。
 
-Intercepts high-risk destructive operations before execution.
+由 hook-guard.sh 呼叫（停用開關與團隊策略檔的判斷都在 hook-guard.sh）。
+從 stdin 讀 PreToolUse JSON，指令命中 lib/guard-rules.tsv 的規則就輸出 deny；
+規則檔與 bash fallback 共用，兩邊行為一致。
 """
 
+import json
 import os
 import re
 import sys
-import json
+from typing import List, Optional, Pattern, Tuple
+
+Rule = Tuple[str, Pattern[str], str, Optional[Pattern[str]]]
+
+RULES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib", "guard-rules.tsv")
+PLACEHOLDERS = {"{S}": r"[ \t]", "{NS}": r"[^ \t\"']", "{E}": r"([^A-Za-z0-9_=./-]|$)"}
+SEPARATORS = re.compile(r"&&|\|\||;|\n")
 
 
-def is_destructive_git(cmd: str) -> tuple[bool, str]:
-    # Check force push: --force or -f or +refs/
-    if re.search(r'\bgit\s+push\b.*(^|\s)(--force|-f\b|\+refs/)', cmd):
-        return True, "🛡️ 觸發 git-safety 守則攔截：嚴禁使用 force push（--force 或 -f）。所有變更應透過 feature 分支開立 PR 合併。"
-
-    # Check git clean -f
-    if re.search(r'\bgit\s+clean\b.*(^|\s)-[a-zA-Z]*f', cmd):
-        return True, "🛡️ 觸發 git-safety 守則攔截：git clean -f 會永久刪除未追蹤的檔案。不可未經使用者明確指示逕行刪除。"
-
-    # Check git reset --hard
-    if re.search(r'\bgit\s+reset\s+--hard\b', cmd):
-        return True, "🛡️ 觸發 git-safety 守則攔截：git reset --hard 會無預警抹除工作區所有修改。若需暫存改動請改用 git stash。"
-
-    return False, ""
-
-
-def is_destructive_system(cmd: str) -> tuple[bool, str]:
-    # Check rm -rf / or rm -rf ~ or rm -rf $HOME
-    if re.search(r'\brm\b.*(^|\s)-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+([/~]|\$HOME|/\*)(\s|$)', cmd):
-        return True, "🛡️ 觸發 dangerous-operations 守則攔截：嚴禁對根目錄或家目錄執行 rm -rf 刪除操作。"
-
-    # Check chmod -R 777
-    if re.search(r'\bchmod\b.*(^|\s)-[a-zA-Z]*R[a-zA-Z]*\s+777(\s|$)', cmd) or re.search(r'\bchmod\b.*\b777\s+-[a-zA-Z]*R\b', cmd):
-        return True, "🛡️ 觸發 dangerous-operations 守則攔截：嚴禁對目錄設定 777 全開放權限。"
-
-    # Check leaking .env file via curl/wget/nc
-    if re.search(r'\b(curl|wget|nc|ncat)\b.*\.env(\.[a-zA-Z0-9_-]+)?(\s|$)', cmd) or re.search(r'\bcat\s+.*\.env.*\|\s*(curl|wget|nc)', cmd):
-        return True, "🛡️ 觸發 data-files 守則攔截：嚴禁將 .env 機敏設定檔透過網路傳輸或洩漏至外部。"
-
-    return False, ""
-
-
-def check_prohibit_disable() -> bool:
-    for candidate in [".agreements.json", ".agreementsrc"]:
-        if os.path.isfile(candidate):
-            try:
-                with open(candidate, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                return bool(data.get("prohibit_disable_hooks", False))
-            except (json.JSONDecodeError, OSError):
+def load_rules() -> List[Rule]:
+    rules: List[Rule] = []
+    with open(RULES_FILE, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line or line.startswith("#"):
                 continue
-    return False
+            rule, pattern, message, *rest = line.split("\t")
+            allow = re.compile(expand(rest[0])) if rest and rest[0] else None
+            rules.append((rule, re.compile(expand(pattern)), message, allow))
+    return rules
 
 
-def main():
-    prohibit_disable = check_prohibit_disable()
-    if not prohibit_disable and os.environ.get("AGREEMENTS_HOOKS_DISABLE") not in (None, "", "0"):
-        sys.exit(0)
+def expand(pattern: str) -> str:
+    for token, cls in PLACEHOLDERS.items():
+        pattern = pattern.replace(token, cls)
+    return pattern
 
+
+def find_violation(command: str, rules: List[Rule]) -> Optional[Tuple[str, str]]:
+    for segment in SEPARATORS.split(command):
+        for rule, pattern, message, allow in rules:
+            if pattern.search(segment) and not (allow and allow.search(segment)):
+                return rule, message
+    return None
+
+
+def main() -> None:
     try:
-        raw_input = sys.stdin.read()
-        if not raw_input.strip():
-            sys.exit(0)
-        data = json.loads(raw_input)
-    except Exception:
-        # Fail-open if json parsing fails
-        sys.exit(0)
+        data = json.loads(sys.stdin.read() or "{}")
+    except ValueError:
+        return  # 輸入不是 JSON 時放行（fail-open），不擋住 Agent 的正常操作
+    if not isinstance(data, dict) or data.get("tool_name") != "Bash":
+        return
+    tool_input = data.get("tool_input") or {}
+    command = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
+    if not command:
+        return
 
-    hook_event = data.get("hook_event_name", "PreToolUse")
-    tool_name = data.get("tool_name", "")
-    tool_input = data.get("tool_input", {})
-
-    if tool_name == "Bash":
-        cmd = tool_input.get("command", "")
-        if cmd:
-            blocked, reason = is_destructive_git(cmd)
-            if not blocked:
-                blocked, reason = is_destructive_system(cmd)
-
-            if blocked:
-                output = {
-                    "hookSpecificOutput": {
-                        "hookEventName": hook_event,
-                        "permissionDecision": "deny"
-                    },
-                    "systemMessage": reason
-                }
-                print(json.dumps(output, ensure_ascii=False))
-                sys.exit(0)
-
-    # Allow operation by default
-    sys.exit(0)
+    hit = find_violation(command, load_rules())
+    if hit is None:
+        return
+    rule, message = hit
+    reason = f"🛡️ 觸發 {rule} 守則攔截：{message}"
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": data.get("hook_event_name", "PreToolUse"),
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        },
+        "systemMessage": reason,
+    }, ensure_ascii=False))
 
 
 if __name__ == "__main__":

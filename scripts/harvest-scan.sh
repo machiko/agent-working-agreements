@@ -40,7 +40,8 @@ if [ "$mode" = "since" ] && [ -f "$STATE" ]; then
   since="$(sed -n 's/^last_harvest=//p' "$STATE")"
 fi
 
-mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1"; }
+# GNU 的 stat -f 是檔案系統資訊、失敗前會先印到 stdout，所以先試 GNU 的 -c
+mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1"; }
 day() { date -r "$1" '+%Y-%m-%d' 2>/dev/null || date -d "@$1" '+%Y-%m-%d'; }
 
 # frontmatter 欄位（支援頂層或 metadata 底下縮排的 type）

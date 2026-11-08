@@ -2,13 +2,17 @@
 # doctor.sh — Agent 守則健康診斷工具：體檢本專案與環境之守則完整度、版本新鮮度與安全防護等級。
 #
 # 用法：
-#   scripts/doctor.sh [--fix] [專案目錄]
+#   scripts/doctor.sh [--fix] [專案目錄]       # 體檢並評分；--fix 自動補裝 Git hooks、CI 工作流與過期守則
+#   scripts/doctor.sh --check-drift [專案目錄] # CI 用：核心守則被改、遺失或缺少團隊策略強制守則時 exit 1
+#   scripts/doctor.sh --init-policy [專案目錄] # 依目前安裝現況產生 .agreements.json
 #
-# 結束碼：0 健康；1 發現警告或需改善項目。
+# 結束碼：體檢模式一律 0（警告只影響評分）；--check-drift 發現漂移為 1；參數或目錄錯誤為 2。
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=lib/policy.sh
+. "$ROOT/scripts/lib/policy.sh"
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 fix_mode=0
@@ -36,6 +40,8 @@ case "$target_dir" in "~"/*) target_dir="$HOME/${target_dir#\~/}" ;; esac
 [ -d "$target_dir" ] || { echo "✗ 目錄不存在：$target_dir" >&2; exit 2; }
 
 git_root="$(cd "$target_dir" && git rev-parse --show-toplevel 2>/dev/null || echo "$target_dir")"
+# git 實際使用的 hooks 目錄（支援 worktree 與 core.hooksPath）；不在 git repo 內則為空
+hooks_dir="$(cd "$git_root" 2>/dev/null && rel="$(git rev-parse --git-path hooks 2>/dev/null)" && mkdir -p "$rel" && cd "$rel" && pwd -P || true)"
 
 # ── --init-policy 一鍵初始化團隊策略檔 ───────────────────
 if [ "$init_policy" -eq 1 ]; then
@@ -137,39 +143,18 @@ if [ "$check_drift" -eq 1 ]; then
   fi
 
   # 檢查團隊策略檔 (.agreements.json / .agreementsrc)
-  policy_file=""
-  cur_search="$target_dir"
-  while [ -n "$cur_search" ] && [ "$cur_search" != "/" ]; do
-    if [ -f "$cur_search/.agreements.json" ]; then policy_file="$cur_search/.agreements.json"; break; fi
-    if [ -f "$cur_search/.agreementsrc" ]; then policy_file="$cur_search/.agreementsrc"; break; fi
-    [ "$cur_search" = "." ] && break
-    cur_search="$(dirname "$cur_search")"
-  done
-  if [ -z "$policy_file" ]; then
-    if [ -f "$git_root/.agreements.json" ]; then policy_file="$git_root/.agreements.json";
-    elif [ -f "$git_root/.agreementsrc" ]; then policy_file="$git_root/.agreementsrc"; fi
-  fi
+  policy_file="$(aw_find_policy "$target_dir" || true)"
 
   if [ -n "$policy_file" ]; then
-    enforced=""
-    if command -v python3 >/dev/null 2>&1; then
-      enforced="$(python3 -c '
-import json, sys
-try:
-    with open(sys.argv[1], "r", encoding="utf-8") as f:
-        d = json.load(f)
-    for r in d.get("enforce_rules", []):
-        if isinstance(r, str) and r.strip():
-            print(r.strip())
-except Exception:
-    pass
-' "$policy_file")"
-    else
-      enforced="$(sed -n '/"enforce_rules"/,/]/p' "$policy_file" | sed -n 's/.*"\([^"]*\)".*/\1/p' | grep -v 'enforce_rules' || true)"
-    fi
+    enforced="$(aw_policy_enforce_rules "$policy_file")"
     for enf in $enforced; do
-      if ! printf '%s\n' "$status_out" | grep -q -E "^[[:space:]]*${enf}[[:space:]—]"; then
+      enf_line="$(printf '%s\n' "$status_out" | grep -E "^[[:space:]]*${enf}[[:space:]—]" || true)"
+      if [ -z "$enf_line" ]; then
         echo "  ✗ [DRIFT] 違反團隊策略（$(basename "$policy_file")）：強制守則 ${enf} 尚未安裝！" >&2
+        exit 1
+      fi
+      if printf '%s\n' "$enf_line" | grep -qE "(已手動修改|檔案遺失|來源已移除)"; then
+        echo "  ✗ [DRIFT] 違反團隊策略（$(basename "$policy_file")）：強制守則狀態異常 (${enf})：$(printf '%s\n' "$enf_line" | awk -F'｜' '{print $NF}')" >&2
         exit 1
       fi
     done
@@ -186,14 +171,14 @@ echo "──"
 # ── 自動修復預處理 ──────────────────────────────────────
 if [ "$fix_mode" -eq 1 ]; then
   # 1. 自動安裝 Git pre-commit hook
-  if [ -d "$git_root/.git" ] && { [ ! -x "$git_root/.git/hooks/pre-commit" ] || ! grep -q "scripts/audit.sh" "$git_root/.git/hooks/pre-commit" 2>/dev/null; }; then
+  if [ -n "$hooks_dir" ] && { [ ! -x "$hooks_dir/pre-commit" ] || ! grep -q "scripts/audit.sh" "$hooks_dir/pre-commit" 2>/dev/null; }; then
     (cd "$git_root" && bash "$ROOT/scripts/audit.sh" --install-hook >/dev/null 2>&1) || true
     echo "  ⚙ [AUTO-FIX] 已自動安裝 Git pre-commit 主動稽核防線"
   fi
 
   # 2. 自動安裝 Git pre-push hook (防 Force Push)
-  if [ -d "$git_root/.git" ] && [ ! -x "$git_root/.git/hooks/pre-push" ]; then
-    (cd "$git_root" && bash "$ROOT/scripts/hook-guard.sh" --install-git-hooks "$git_root" >/dev/null 2>&1) || true
+  if [ -n "$hooks_dir" ] && [ ! -x "$hooks_dir/pre-push" ]; then
+    (cd "$git_root" && bash "$ROOT/scripts/audit.sh" --install-pre-push >/dev/null 2>&1) || true
     echo "  ⚙ [AUTO-FIX] 已自動安裝 Git pre-push 破壞性操作防線"
   fi
 
@@ -286,7 +271,7 @@ core_count="$(find "$ROOT/rules" -type f -name "*.md" -exec grep -l "^tier: core
 pass_item "已具備完整核心守則庫 (${core_count} 條核心不變守則)"
 
 # 4. 本地 Pre-commit 守門檢查
-if [ -x "$git_root/.git/hooks/pre-commit" ] && grep -q "scripts/audit.sh" "$git_root/.git/hooks/pre-commit" 2>/dev/null; then
+if [ -n "$hooks_dir" ] && [ -x "$hooks_dir/pre-commit" ] && grep -q "scripts/audit.sh" "$hooks_dir/pre-commit" 2>/dev/null; then
   pass_item "Git pre-commit 主動稽核防線已啟動"
 else
   warn_item "尚未安裝 Git pre-commit 防線（可執行 scripts/audit.sh --install-hook 安裝）" 10

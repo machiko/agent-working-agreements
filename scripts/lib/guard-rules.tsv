@@ -1,0 +1,14 @@
+# guard-rules.tsv — hook-guard.py 與 hook-guard.sh（bash fallback）共用的攔截規則。
+# 格式：守則<TAB>攔截正規表示式<TAB>攔截訊息[<TAB>放行例外正規表示式]
+# 每條指令先依 && || ; 換行切成子指令，子指令命中攔截式、且沒命中放行例外，就拒絕執行。
+# 正規表示式要同時相容 POSIX ERE（grep -E）與 Python re：不用 \b \s \d 與 lookaround。
+# 佔位符由兩支程式各自展開：{S} 空白或 tab；{NS} 非空白且非引號；{E} 字詞結尾（不是英數、_ = . / - 的字元，或行尾），
+# 讓 bash -c 'git push -f'、$(git reset --hard)、(git push --force) 這類包裝也擋得到。
+git-safety	(^|[^A-Za-z0-9_-])git{S}(.*{S})?push({S}.*)?{S}(--force|-[A-Za-z]*f[A-Za-z]*|\+{NS}+){E}	嚴禁使用 force push（--force、-f 或 +refspec）。一般變更走 feature 分支與 PR；確實需要覆寫遠端（例如 rebase 後）請先取得使用者同意，再由使用者自行執行。
+git-safety	(^|[^A-Za-z0-9_-])git{S}(.*{S})?clean({S}.*)?{S}(-[A-Za-z]*f[A-Za-z]*|--force){E}	git clean -f 會永久刪除未追蹤的檔案，不可未經使用者明確指示執行。先用 git clean -n 列出會刪的檔案給使用者確認。	{S}(-[A-Za-z]*n[A-Za-z]*|--dry-run){E}
+git-safety	(^|[^A-Za-z0-9_-])git{S}(.*{S})?reset({S}.*)?{S}--hard{E}	git reset --hard 會抹除工作區所有未提交的修改。需要暫存改動請改用 git stash；確實要丟棄請先取得使用者同意。
+dangerous-operations	(^|[^A-Za-z0-9_-])rm{S}(.*{S})?(-[A-Za-z]*[rR][A-Za-z]*|--recursive)({S}.*)?{S}["']?(/|/\*|~|~/|~/\*|\$\{?HOME\}?|\$\{?HOME\}?/|\$\{?HOME\}?/\*)["']?{E}	嚴禁對根目錄或家目錄執行遞迴刪除。
+dangerous-operations	(^|[^A-Za-z0-9_-])chmod{S}(.*{S})?(-[A-Za-z]*R[A-Za-z]*|--recursive)({S}.*)?{S}0?777{E}	嚴禁遞迴設定 777 全開放權限。
+dangerous-operations	(^|[^A-Za-z0-9_-])chmod{S}(.*{S})?0?777{S}(.*{S})?(-[A-Za-z]*R[A-Za-z]*|--recursive){E}	嚴禁遞迴設定 777 全開放權限。
+data-files	(^|[^A-Za-z0-9_-])(curl|wget|nc|ncat|scp|rsync){S}(.*[@=/]|.*{S})?\.env(\.[A-Za-z0-9_-]+)?{E}	嚴禁把 .env 機敏設定檔透過網路傳輸或外洩。
+data-files	(^|[^A-Za-z0-9_-])cat{S}(.*[/]|.*{S})?\.env(\.[A-Za-z0-9_-]+)?({S}.*)?\|{S}*(curl|wget|nc|ncat){E}	嚴禁把 .env 機敏設定檔透過網路傳輸或外洩。

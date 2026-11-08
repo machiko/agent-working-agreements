@@ -6,7 +6,8 @@
 #   scripts/audit.sh --staged       # 明確只檢查 staged 暫存區（或 --cached）
 #   scripts/audit.sh --diff         # 檢查工作區尚未暫存的修改 (Unstaged diff)
 #   scripts/audit.sh --commit HEAD  # 檢查指定 commit
-#   scripts/audit.sh --install-hook # 安裝為 .git/hooks/pre-commit
+#   scripts/audit.sh --install-hook # 安裝為 Git pre-commit hook（既有 hook 會備份並串接執行）
+#   scripts/audit.sh --install-pre-push # 安裝 Git pre-push hook（擋 force push；hook-guard.sh --install-git-hooks 會呼叫）
 #
 # 結束碼：0 合規；1 發現嚴重違規 (FAIL)；2 參數錯誤。
 
@@ -24,25 +25,123 @@ while [ $# -gt 0 ]; do
     --diff) mode="diff"; shift ;;
     --commit) [ $# -ge 2 ] || { echo "✗ --commit 需要指定 ref" >&2; exit 2; }; target_ref="$2"; mode="commit"; shift 2 ;;
     --install-hook) mode="install-hook"; shift ;;
+    --install-pre-push) mode="install-pre-push"; shift ;;
     -h|--help) awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; exit 0 ;;
     *) echo "✗ 未知參數：$1" >&2; exit 2 ;;
   esac
 done
 
 # ── 安裝 Git Hook ─────────────────────────────────────
+# hooks 目錄以 git rev-parse --git-path hooks 為準（支援 worktree 與 core.hooksPath）。
+# 既有的非本 repo hook 會備份成 <name>.agreements-bak，並在守門檢查通過後接著執行。
 
-if [ "$mode" = "install-hook" ]; then
-  git_root="$(git rev-parse --show-toplevel 2>/dev/null || echo "$ROOT")"
-  HOOK_DIR="$git_root/.git/hooks"
-  [ -d "$HOOK_DIR" ] || { echo "✗ 找不到 .git/hooks 目錄" >&2; exit 1; }
-  HOOK_FILE="$HOOK_DIR/pre-commit"
-  cat <<'EOF' > "$HOOK_FILE"
+HOOK_MARK="由 agent-working-agreements 安裝"
+
+resolve_hooks_dir() {
+  local top rel
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
+  rel="$(cd "$top" && git rev-parse --git-path hooks 2>/dev/null)" || return 1
+  (cd "$top" && mkdir -p "$rel" && cd "$rel" && pwd -P)
+}
+
+# write_hook <hooks 目錄> <hook 名稱> <內容>
+write_hook() {
+  local file="$1/$2" bak="$1/$2.agreements-bak"
+  if [ -f "$file" ] && ! grep -q "$HOOK_MARK" "$file"; then
+    [ -e "$bak" ] && mv "$bak" "$bak.$(date +%Y%m%d%H%M%S)"
+    mv "$file" "$bak"
+    echo "ℹ 既有的 $2 hook 已備份為 $(basename "$bak")，守門檢查通過後會接著執行它"
+  fi
+  printf '%s\n' "$3" > "$file"
+  chmod +x "$file"
+}
+
+pre_commit_body() {
+  local self
+  self="$(printf '%q' "$ROOT/scripts/audit.sh")"
+  cat <<EOF
 #!/usr/bin/env bash
-# 由 agent-working-agreements 安裝的 pre-commit 守門檢查
-exec bash scripts/audit.sh --staged
+# ${HOOK_MARK}的 pre-commit 守門檢查（scripts/audit.sh --staged），會串接執行 pre-commit.agreements-bak
+hook_dir="\$(cd "\$(dirname "\$0")" && pwd)"
+audit=""
+for cand in "\$(git rev-parse --show-toplevel)/scripts/audit.sh" ${self}; do
+  if [ -f "\$cand" ]; then audit="\$cand"; break; fi
+done
+if [ -n "\$audit" ]; then
+  bash "\$audit" --staged || exit \$?
+else
+  echo "⚠ [agent-agreements] 找不到 scripts/audit.sh，略過 pre-commit 稽核（可執行 /agreements:doctor fix 重新安裝 hook）" >&2
+fi
+if [ -x "\$hook_dir/pre-commit.agreements-bak" ]; then
+  exec "\$hook_dir/pre-commit.agreements-bak" "\$@"
+fi
+exit 0
 EOF
-  chmod +x "$HOOK_FILE"
-  echo "✓ 已成功安裝 pre-commit hook：$HOOK_FILE"
+}
+
+pre_push_body() {
+  cat <<EOF
+#!/usr/bin/env bash
+# ${HOOK_MARK}的 pre-push 守門防線：擋下非 fast-forward 的 force push，會串接執行 pre-push.agreements-bak
+set -uo pipefail
+hook_dir="\$(cd "\$(dirname "\$0")" && pwd)"
+input="\$(cat)"
+EOF
+  cat <<'EOF'
+
+prohibit_disable=0
+for cand in ".agreements.json" ".agreementsrc"; do
+  if [ -f "$cand" ] && tr '\n' ' ' < "$cand" | grep -qE '"prohibit_disable_hooks"[[:space:]]*:[[:space:]]*true([^A-Za-z0-9_]|$)'; then
+    prohibit_disable=1; break
+  fi
+done
+
+guard_enabled=1
+if [ "$prohibit_disable" -eq 0 ] && [ -n "${AGREEMENTS_HOOKS_DISABLE:-}" ] && [ "$AGREEMENTS_HOOKS_DISABLE" != "0" ]; then
+  guard_enabled=0
+fi
+
+zero="0000000000000000000000000000000000000000"
+if [ "$guard_enabled" -eq 1 ]; then
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -z "${local_ref:-}" ] && continue
+    [ "${local_sha:-}" = "$zero" ] && continue
+    [ -n "${remote_sha:-}" ] && [ "$remote_sha" != "$zero" ] || continue
+    if ! git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
+      echo "🛑 [agent-agreements] 觸發 git-safety 守則攔截：本機沒有遠端分支 ${remote_ref:-} 目前的 commit，無法確認這次推送不會覆寫別人的提交。" >&2
+      echo "💡 請先 git fetch 並整合遠端變更後再推送。" >&2
+      exit 1
+    fi
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+      echo "🛑 [agent-agreements] 觸發 git-safety 守則攔截：偵測到非快進 (Force Push) 覆蓋遠端分支 ${remote_ref:-}！" >&2
+      echo "💡 這個 hook 看不到 --force-with-lease 等旗標，任何覆寫遠端都會擋。確實需要（例如 rebase 後）請先取得團隊同意，再以 AGREEMENTS_HOOKS_DISABLE=1 git push … 執行（團隊策略設 prohibit_disable_hooks 時無法略過）。" >&2
+      exit 1
+    fi
+  done <<< "$input"
+fi
+
+if [ -x "$hook_dir/pre-push.agreements-bak" ]; then
+  # 用 here-string 而不是管線：被串接的 hook 不讀 stdin 就結束時，管線可能收到 SIGPIPE 而誤判失敗
+  if [ -n "$input" ]; then
+    "$hook_dir/pre-push.agreements-bak" "$@" <<< "$input"
+  else
+    "$hook_dir/pre-push.agreements-bak" "$@" < /dev/null
+  fi
+  exit $?
+fi
+exit 0
+EOF
+}
+
+if [ "$mode" = "install-hook" ] || [ "$mode" = "install-pre-push" ]; then
+  hooks_dir="$(resolve_hooks_dir)" || { echo "✗ 目前目錄不在 git repo 內，無法安裝 hook" >&2; exit 1; }
+  if [ "$mode" = "install-hook" ]; then
+    write_hook "$hooks_dir" pre-commit "$(pre_commit_body)"
+    echo "✓ 已成功安裝 pre-commit hook：$hooks_dir/pre-commit"
+  else
+    write_hook "$hooks_dir" pre-push "$(pre_push_body)"
+    echo "✓ 已成功安裝 pre-push hook (防 Force Push)：$hooks_dir/pre-push"
+  fi
   exit 0
 fi
 
