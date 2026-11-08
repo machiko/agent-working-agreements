@@ -20,7 +20,14 @@ if [ "${1:-}" = "--install-git-hooks" ]; then
 # 嚴禁對任何遠端分支進行非 fast-forward 的 force push
 set -euo pipefail
 
-if [ -n "${AGREEMENTS_HOOKS_DISABLE:-}" ] && [ "$AGREEMENTS_HOOKS_DISABLE" != "0" ]; then
+prohibit_disable=0
+for cand in ".agreements.json" ".agreementsrc"; do
+  if [ -f "$cand" ] && grep -qE '"prohibit_disable_hooks"[[:space:]]*:[[:space:]]*true' "$cand" 2>/dev/null; then
+    prohibit_disable=1; break
+  fi
+done
+
+if [ "$prohibit_disable" -eq 0 ] && [ -n "${AGREEMENTS_HOOKS_DISABLE:-}" ] && [ "$AGREEMENTS_HOOKS_DISABLE" != "0" ]; then
   exit 0
 fi
 
@@ -51,7 +58,14 @@ EOF
   exit 0
 fi
 
-if [ -n "${AGREEMENTS_HOOKS_DISABLE:-}" ] && [ "$AGREEMENTS_HOOKS_DISABLE" != "0" ]; then
+prohibit_disable=0
+for cand in ".agreements.json" ".agreementsrc"; do
+  if [ -f "$cand" ] && grep -qE '"prohibit_disable_hooks"[[:space:]]*:[[:space:]]*true' "$cand" 2>/dev/null; then
+    prohibit_disable=1; break
+  fi
+done
+
+if [ "$prohibit_disable" -eq 0 ] && [ -n "${AGREEMENTS_HOOKS_DISABLE:-}" ] && [ "$AGREEMENTS_HOOKS_DISABLE" != "0" ]; then
   exit 0
 fi
 

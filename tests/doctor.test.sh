@@ -77,6 +77,24 @@ bash "$ROOT/scripts/install.sh" --target "$T_EMPTY/.claude/rules/agent-agreement
 out_drift_policy="$("$DOCTOR" --check-drift "$T_EMPTY")"
 check "--check-drift 補齊團隊強制守則後通過" 'printf "%s" "$out_drift_policy" | grep -q "符合團隊策略檔"'
 
+echo "▸ doctor.sh --init-policy 生成策略檔"
+T_INIT_POLICY="$TMP/init-policy-proj"
+mkdir -p "$T_INIT_POLICY"
+(cd "$T_INIT_POLICY" && git init -q)
+# 先安裝一些守則 (core + tenant-isolation)
+bash "$ROOT/scripts/install.sh" --target "$T_INIT_POLICY/.claude/rules/agent-agreements" --select "security/tenant-isolation" >/dev/null 2>&1
+
+# 執行 --init-policy
+out_init="$("$DOCTOR" --init-policy "$T_INIT_POLICY")"
+check "--init-policy 成功產出 .agreements.json" '[ -f "$T_INIT_POLICY/.agreements.json" ]'
+check "--init-policy 包含 schema 引用" 'grep -q "schema/v1.json" "$T_INIT_POLICY/.agreements.json"'
+check "--init-policy 包含已安裝守則" 'grep -q "security/tenant-isolation" "$T_INIT_POLICY/.agreements.json"'
+check "--init-policy 包含 prohibit_disable_hooks" 'grep -q "prohibit_disable_hooks" "$T_INIT_POLICY/.agreements.json"'
+
+# 再次執行 --init-policy 應提示已存在而不覆蓋
+out_init_again="$("$DOCTOR" --init-policy "$T_INIT_POLICY" 2>&1 || true)"
+check "--init-policy 遇到已存在檔案不覆蓋" 'printf "%s" "$out_init_again" | grep -q "已存在"'
+
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"
 [ "$fail" -eq 0 ]

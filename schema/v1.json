@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/machiko/agent-working-agreements/main/schema/v1.json",
+  "title": "Agent Working Agreements Policy Schema v1",
+  "description": "團隊 Agent 工作守則策略設定檔規範 (v1)",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema 定義 URL"
+    },
+    "version": {
+      "type": "string",
+      "description": "設定檔版本號",
+      "default": "1.0"
+    },
+    "preset": {
+      "type": "string",
+      "enum": ["smart", "full", "core"],
+      "description": "預設套裝方案：smart (智慧推薦)、full (全套防禦)、core (極簡核心)",
+      "default": "smart"
+    },
+    "enforce_rules": {
+      "type": "array",
+      "description": "團隊強制必備守則清單（不可被使用者取消）",
+      "items": {
+        "type": "string",
+        "enum": [
+          "ai/pitfalls",
+          "api/pitfalls",
+          "async/pitfalls",
+          "backend/pitfalls",
+          "cloud/pitfalls",
+          "collaboration/communication",
+          "collaboration/design-judgment",
+          "collaboration/git-safety",
+          "collaboration/honesty",
+          "collaboration/memory-hygiene",
+          "collaboration/sdlc-lifecycle",
+          "collaboration/test-integrity",
+          "collaboration/verification",
+          "container/pitfalls",
+          "database/pitfalls",
+          "frontend/pitfalls",
+          "security/dangerous-operations",
+          "security/data-files",
+          "security/sast-safe-patterns",
+          "security/supply-chain",
+          "security/tenant-isolation",
+          "testing/pitfalls",
+          "writing/changelog",
+          "writing/commit-messages",
+          "writing/docs-and-cards",
+          "writing/lean-instructions",
+          "writing/taiwan-terminology",
+          "writing/test-naming"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "prohibit_disable_hooks": {
+      "type": "boolean",
+      "description": "是否強制禁止透過環境變數 (AGREEMENTS_HOOKS_DISABLE) 跳過執行期防護",
+      "default": false
+    },
+    "description": {
+      "type": "string",
+      "description": "策略設定檔描述或備註"
+    }
+  },
+  "additionalProperties": true
+}

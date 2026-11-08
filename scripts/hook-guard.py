@@ -42,8 +42,21 @@ def is_destructive_system(cmd: str) -> tuple[bool, str]:
     return False, ""
 
 
+def check_prohibit_disable() -> bool:
+    for candidate in [".agreements.json", ".agreementsrc"]:
+        if os.path.isfile(candidate):
+            try:
+                with open(candidate, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                return bool(data.get("prohibit_disable_hooks", False))
+            except (json.JSONDecodeError, OSError):
+                continue
+    return False
+
+
 def main():
-    if os.environ.get("AGREEMENTS_HOOKS_DISABLE") not in (None, "", "0"):
+    prohibit_disable = check_prohibit_disable()
+    if not prohibit_disable and os.environ.get("AGREEMENTS_HOOKS_DISABLE") not in (None, "", "0"):
         sys.exit(0)
 
     try:
