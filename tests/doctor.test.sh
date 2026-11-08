@@ -2,6 +2,7 @@
 # doctor.test.sh — 驗證 doctor.sh 診斷與 --fix 自動修復功能。
 
 set -euo pipefail
+export PATH="/usr/bin:/bin:$PATH"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DOCTOR="$ROOT/scripts/doctor.sh"

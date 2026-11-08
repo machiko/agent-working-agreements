@@ -2,6 +2,7 @@
 # review.test.sh — 驗證 review.sh 自省審查工具之行為。
 
 set -euo pipefail
+export PATH="/usr/bin:/bin:$PATH"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REVIEW="$ROOT/scripts/review.sh"

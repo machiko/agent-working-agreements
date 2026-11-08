@@ -335,6 +335,15 @@ if [ "$mode" = "detect" ]; then
     printf 'testing/pitfalls\t偵測到自動化測試目錄 (tests/test) 或測試設定檔\n'
   fi
 
+  # 9. AI 與 LLM 應用特徵
+  if find "$dir" -maxdepth 3 -type f \( -name '*prompt*' -o -name '*agent*' -o -name '*rag*' \) 2>/dev/null | grep -q . \
+    || { [ -f "$dir/package.json" ] && grep -qiE '"(openai|@anthropic-ai|anthropic|@google/genai|langchain|@langchain|llamaindex|chromadb|pinecone|@pinecone-database|weaviate-client|qdrant|tiktoken)"' "$dir/package.json" 2>/dev/null; } \
+    || { [ -f "$dir/requirements.txt" ] && grep -qiE '(openai|anthropic|google-generativeai|langchain|llama-index|chromadb|pinecone-client|qdrant-client|weaviate-client|tiktoken|litellm)' "$dir/requirements.txt" 2>/dev/null; } \
+    || { [ -f "$dir/pyproject.toml" ] && grep -qiE '(openai|anthropic|google-generativeai|langchain|llama-index|chromadb|pinecone|qdrant|weaviate|litellm)' "$dir/pyproject.toml" 2>/dev/null; } \
+    || { [ -f "$dir/go.mod" ] && grep -qiE '(sashabaranov/go-openai|tmc/langchaingo)' "$dir/go.mod" 2>/dev/null; }; then
+    printf 'ai/pitfalls\t偵測到 AI / LLM 或向量資料庫依賴與模組\n'
+  fi
+
   exit 0
 fi
 
