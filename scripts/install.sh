@@ -57,6 +57,8 @@ ci_dir=""
 ci_platform=""
 detect_dir=""
 select_ids=""
+policy_file=""
+active_policy=""
 dry_run=0
 force=0
 status=0
@@ -96,6 +98,7 @@ while [ $# -gt 0 ]; do
       done
       ;;
     --select) [ $# -ge 2 ] || die "--select 需要規則 id"; select_ids="$2"; shift 2 ;;
+    --policy) [ $# -ge 2 ] || die "--policy 需要檔案路徑"; policy_file="$2"; shift 2 ;;
     --dry-run) dry_run=1; shift ;;
     --force) force=1; shift ;;
     --uninstall) mode="uninstall"; shift ;;
@@ -165,6 +168,40 @@ version() {
 }
 
 contains() { printf '%s\n' "$1" | grep -Fxq -- "$2"; }
+
+find_policy_file() {
+  local dir="$1"
+  [ -d "$dir" ] || return 1
+  if [ -f "$dir/.agreements.json" ]; then echo "$dir/.agreements.json"; return 0; fi
+  if [ -f "$dir/.agreementsrc" ]; then echo "$dir/.agreementsrc"; return 0; fi
+  local git_toplevel
+  git_toplevel="$(cd "$dir" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -n "$git_toplevel" ] && [ -d "$git_toplevel" ]; then
+    if [ -f "$git_toplevel/.agreements.json" ]; then echo "$git_toplevel/.agreements.json"; return 0; fi
+    if [ -f "$git_toplevel/.agreementsrc" ]; then echo "$git_toplevel/.agreementsrc"; return 0; fi
+  fi
+  return 1
+}
+
+parse_policy_enforce_rules() {
+  local pfile="$1"
+  [ -f "$pfile" ] || return 0
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c '
+import json, sys
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as f:
+        d = json.load(f)
+    for r in d.get("enforce_rules", []):
+        if isinstance(r, str) and r.strip():
+            print(r.strip())
+except Exception:
+    pass
+' "$pfile"
+  else
+    sed -n '/"enforce_rules"/,/]/p' "$pfile" | sed -n 's/.*"\([^"]*\)".*/\1/p' | grep -v 'enforce_rules' || true
+  fi
+}
 
 # frontmatter 的 paths 清單，以「, 」串起來
 paths_of() {
@@ -529,6 +566,43 @@ if [ "$mode" = "install" ]; then
       contains "$desired" "$id" || desired="$desired$id"$'\n'
     done
   fi
+
+  # 團隊策略檔處理
+  if [ -n "$policy_file" ]; then
+    case "$policy_file" in "~"/*) policy_file="$HOME/${policy_file#\~/}" ;; esac
+    [ -f "$policy_file" ] || die "找不到團隊策略檔：$policy_file"
+    active_policy="$policy_file"
+  else
+    for sd in "${target:-}" "${cursor_dir:-}" "${agents_md:-}" .; do
+      [ -z "$sd" ] && continue
+      case "$sd" in "~"/*) sd="$HOME/${sd#\~/}" ;; esac
+      [ -f "$sd" ] && sd="$(dirname "$sd")"
+      p="$(find_policy_file "$sd" || true)"
+      if [ -n "$p" ] && [ -f "$p" ]; then
+        active_policy="$p"
+        break
+      fi
+    done
+  fi
+
+  if [ -n "$active_policy" ]; then
+    enforced="$(parse_policy_enforce_rules "$active_policy")"
+    if [ -n "$enforced" ]; then
+      for enf_id in $enforced; do
+        id="$(alias_id "$enf_id")"
+        [ -f "$RULES/$id.md" ] || die "策略檔指定的強制規則不存在：${enf_id}"
+        contains "$desired" "$id" || desired="$desired$id"$'\n'
+        if [ "$(field "$RULES/$id.md" tier)" != "core" ]; then
+          if [ -z "$select_ids" ]; then
+            select_ids="$id"
+          elif ! printf '%s' ",$select_ids," | grep -q ",$id,"; then
+            select_ids="${select_ids},${id}"
+          fi
+        fi
+      done
+      echo "🔒 依據團隊策略檔（$(basename "$active_policy")）強制套用守則：$(printf '%s ' $enforced)"
+    fi
+  fi
   desired="$(printf '%s' "$desired" | sed '/^$/d' | sort)"
 fi
 
@@ -556,8 +630,12 @@ if [ -n "$agents_md" ]; then
     # 區塊只讀一次存進變數：用管線餵 section 時，awk 提早 exit 會讓上游收到 SIGPIPE，大區塊下整個 --status 失敗
     blk="$(sed -n "${start_ln},${end_ln}p" "$agents_md")"
     installed_v="$(sed -n "${start_ln}s/^<!-- agent-agreements:start v\([^ ]*\) -->.*/\1/p" "$agents_md")"
+    schema_v="$(sed -n "${start_ln},\$s/^<!-- agent-agreements:schema=\([^ ]*\) -->/\1/p" "$agents_md" | head -n 1)"
+    policy_v="$(sed -n "${start_ln},\$s/^<!-- agent-agreements:policy=\([^ ]*\) -->/\1/p" "$agents_md" | head -n 1)"
     echo "安裝位置：${agents_md}"
     echo "安裝版本：${installed_v:-未記錄}｜目前版本：$(version)"
+    [ -n "$schema_v" ] && echo "規範結構：Schema v${schema_v}"
+    [ -n "$policy_v" ] && echo "團隊策略：${policy_v}"
     for id in $(printf '%s\n' "$blk" | sed -n 's/^<!-- rule: \([^ ]*\) -->$/\1/p' | sort); do
       sec="$(section "$id" - <<< "$blk")"
       lines=0; [ -n "$sec" ] && lines="$(printf '%s\n' "$sec" | grep -c '')"
@@ -584,6 +662,8 @@ if [ -n "$agents_md" ]; then
   if [ "$mode" = "install" ]; then
     {
       echo "<!-- agent-agreements:start v$(version) -->"
+      echo "<!-- agent-agreements:schema=1 -->"
+      [ -n "$active_policy" ] && echo "<!-- agent-agreements:policy=$(basename "$active_policy") -->"
       echo "<!-- agent-agreements:selected=$(printf '%s' "$select_ids" | tr -d ' ') -->"
       echo "<!-- 由 agent-working-agreements 的 install.sh 產生，請勿手動編輯；重跑 install.sh --agents-md 即可更新 -->"
       for id in $desired; do
@@ -705,8 +785,12 @@ if [ "$mode" = "status" ]; then
     exit 0
   fi
   installed_v="$(sed -n 's/^version=//p' "$profile" | head -n 1)"
+  schema_v="$(sed -n 's/^schema_version=//p' "$profile" | head -n 1)"
+  policy_v="$(sed -n 's/^policy=//p' "$profile" | head -n 1)"
   echo "安裝位置：${target}"
   echo "安裝版本：${installed_v:-未記錄}｜目前版本：$(version)"
+  [ -n "$schema_v" ] && echo "規範結構：Schema v${schema_v}"
+  [ -n "$policy_v" ] && echo "團隊策略：${policy_v}"
   for id in $installed; do
     src="$RULES/$id.md"; dest="$target/$id.$ext"; rec="$(recorded_sha "$id")"
     if [ ! -f "$dest" ]; then st="檔案遺失"
@@ -825,8 +909,10 @@ else
   mkdir -p "$target"
   {
     echo "# agent-working-agreements 安裝紀錄（由 install.sh 維護，請勿手動編輯）"
+    echo "schema_version=1"
     echo "version=$(version)"
     [ "$is_cursor" -eq 1 ] && echo "format=cursor"
+    [ -n "$active_policy" ] && echo "policy=$(basename "$active_policy")"
     echo "selected=$(printf '%s' "$select_ids" | tr -d ' ')"
     printf '%s' "$new_profile"
   } > "$profile"

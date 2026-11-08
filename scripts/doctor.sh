@@ -12,14 +12,17 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 fix_mode=0
+check_drift=0
 target_dir="."
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --fix) fix_mode=1; shift ;;
+    --check-drift) check_drift=1; shift ;;
     -h|--help)
-      echo "用法：scripts/doctor.sh [--fix] [專案目錄]"
-      echo "  --fix  自動修復缺失之 Git pre-commit 防線、CI 工作流或過期守則"
+      echo "用法：scripts/doctor.sh [--fix] [--check-drift] [專案目錄]"
+      echo "  --fix          自動修復缺失之 Git pre-commit 防線、CI 工作流或過期守則"
+      echo "  --check-drift  CI 專用：驗證守則未遭篡改、核心規則完整且符合團隊策略（若漂移則 exit 1）"
       exit 0
       ;;
     *) target_dir="$1"; shift ;;
@@ -29,10 +32,101 @@ done
 case "$target_dir" in "~"/*) target_dir="$HOME/${target_dir#\~/}" ;; esac
 [ -d "$target_dir" ] || { echo "✗ 目錄不存在：$target_dir" >&2; exit 2; }
 
+git_root="$(cd "$target_dir" && git rev-parse --show-toplevel 2>/dev/null || echo "$target_dir")"
+
+# ── --check-drift CI 防漂移檢驗模式 ─────────────────────
+if [ "$check_drift" -eq 1 ]; then
+  echo "▸ 執行 Agent 工作守則 CI 防漂移檢驗 (--check-drift)"
+  echo "──"
+
+  rule_target=""
+  is_agents_md=0
+  is_cursor=0
+
+  if [ -d "$target_dir/.claude/rules/agent-agreements" ]; then
+    rule_target="$target_dir/.claude/rules/agent-agreements"
+  elif [ -d "$target_dir/.cursor/rules" ]; then
+    rule_target="$target_dir/.cursor/rules"
+    is_cursor=1
+  elif [ -f "$target_dir/AGENTS.md" ]; then
+    rule_target="$target_dir/AGENTS.md"
+    is_agents_md=1
+  elif [ -d "$HOME/.claude/rules/agent-agreements" ]; then
+    rule_target="$HOME/.claude/rules/agent-agreements"
+  fi
+
+  if [ -z "$rule_target" ]; then
+    echo "✗ [DRIFT] 未偵測到已安裝之 Agent 工作守則，無法通過 CI 漂移檢驗。" >&2
+    exit 1
+  fi
+
+  # 取得 status
+  if [ "$is_agents_md" -eq 1 ]; then
+    status_out="$(bash "$ROOT/scripts/install.sh" --agents-md "$rule_target" --status 2>/dev/null)"
+  elif [ "$is_cursor" -eq 1 ]; then
+    status_out="$(bash "$ROOT/scripts/install.sh" --cursor "$rule_target" --status 2>/dev/null)"
+  else
+    status_out="$(bash "$ROOT/scripts/install.sh" --target "$rule_target" --status 2>/dev/null)"
+  fi
+
+  # 檢查核心守則是否完整無損
+  drift_core=0
+  for core_f in $(find "$ROOT/rules" -type f -name '*.md' -exec grep -l "^tier: core" {} +); do
+    core_id="$(echo "$core_f" | sed -e "s#^$ROOT/rules/##" -e 's#\.md$##')"
+    rule_line="$(printf '%s\n' "$status_out" | grep -E "^[[:space:]]*${core_id}[[:space:]—]" || true)"
+    if [ -z "$rule_line" ]; then
+      echo "  ✗ [DRIFT] 缺少核心守則：${core_id}" >&2
+      drift_core=1
+    elif printf '%s\n' "$rule_line" | grep -qE "(已手動修改|檔案遺失|來源已移除)"; then
+      echo "  ✗ [DRIFT] 核心守則狀態異常 (${core_id})：$(printf '%s\n' "$rule_line" | awk -F'｜' '{print $NF}')" >&2
+      drift_core=1
+    fi
+  done
+
+  if [ "$drift_core" -eq 1 ]; then
+    echo "✗ [DRIFT] 核心守則完整性受損，請重新執行 /agreements:setup 或 install.sh 更新還原。" >&2
+    exit 1
+  fi
+
+  # 檢查團隊策略檔 (.agreements.json / .agreementsrc)
+  policy_file=""
+  if [ -f "$target_dir/.agreements.json" ]; then policy_file="$target_dir/.agreements.json";
+  elif [ -f "$target_dir/.agreementsrc" ]; then policy_file="$target_dir/.agreementsrc";
+  elif [ -f "$git_root/.agreements.json" ]; then policy_file="$git_root/.agreements.json";
+  elif [ -f "$git_root/.agreementsrc" ]; then policy_file="$git_root/.agreementsrc"; fi
+
+  if [ -n "$policy_file" ]; then
+    enforced=""
+    if command -v python3 >/dev/null 2>&1; then
+      enforced="$(python3 -c '
+import json, sys
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as f:
+        d = json.load(f)
+    for r in d.get("enforce_rules", []):
+        if isinstance(r, str) and r.strip():
+            print(r.strip())
+except Exception:
+    pass
+' "$policy_file")"
+    else
+      enforced="$(sed -n '/"enforce_rules"/,/]/p' "$policy_file" | sed -n 's/.*"\([^"]*\)".*/\1/p' | grep -v 'enforce_rules' || true)"
+    fi
+    for enf in $enforced; do
+      if ! printf '%s\n' "$status_out" | grep -q -E "^[[:space:]]*${enf}[[:space:]—]"; then
+        echo "  ✗ [DRIFT] 違反團隊策略（$(basename "$policy_file")）：強制守則 ${enf} 尚未安裝！" >&2
+        exit 1
+      fi
+    done
+    echo "  ✓ 符合團隊策略檔（$(basename "$policy_file")）之全部強制守則要求"
+  fi
+
+  echo "✓ [PASS] 守則合規無漂移 (No Drift Detected)：核心防線完整且與來源一致"
+  exit 0
+fi
+
 echo "▸ 執行 Agent 工作守則全面健康診斷 (Doctor)$([ "$fix_mode" -eq 1 ] && echo " [自動修復模式]")"
 echo "──"
-
-git_root="$(cd "$target_dir" && git rev-parse --show-toplevel 2>/dev/null || echo "$target_dir")"
 
 # ── 自動修復預處理 ──────────────────────────────────────
 if [ "$fix_mode" -eq 1 ]; then
@@ -42,7 +136,13 @@ if [ "$fix_mode" -eq 1 ]; then
     echo "  ⚙ [AUTO-FIX] 已自動安裝 Git pre-commit 主動稽核防線"
   fi
 
-  # 2. 自動安裝 CI/CD 守門工作流（若尚未配置）
+  # 2. 自動安裝 Git pre-push hook (防 Force Push)
+  if [ -d "$git_root/.git" ] && [ ! -x "$git_root/.git/hooks/pre-push" ]; then
+    (cd "$git_root" && bash "$ROOT/scripts/hook-guard.sh" --install-git-hooks "$git_root" >/dev/null 2>&1) || true
+    echo "  ⚙ [AUTO-FIX] 已自動安裝 Git pre-push 破壞性操作防線"
+  fi
+
+  # 3. 自動安裝 CI/CD 守門工作流（若尚未配置）
   if [ ! -f "$git_root/.github/workflows/agent-audit.yml" ] && [ ! -f "$git_root/.gitlab-ci.yml" ] && [ ! -f "$git_root/bitbucket-pipelines.yml" ] && [ ! -f "$git_root/.pre-commit-config.yaml" ]; then
     bash "$ROOT/scripts/install.sh" --ci "$git_root" >/dev/null 2>&1 || true
     echo "  ⚙ [AUTO-FIX] 已自動配置專案 CI/CD 守門工作流"
