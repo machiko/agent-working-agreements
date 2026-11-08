@@ -504,6 +504,32 @@ EOF
 check "Monorepo 子目錄向上找到根目錄策略檔並安裝 tenant-isolation" '[ -f "$T_MONO/packages/backend/security/tenant-isolation.md" ]'
 check "Monorepo 子目錄 profile 記錄根目錄 policy" 'grep -q "^policy=.agreements.json" "$T_MONO/packages/backend/.agreements-profile"'
 
+# 首次安裝到還不存在的目錄：仍要找到上層的策略檔
+T_FRESH="$TMP/fresh-proj"
+mkdir -p "$T_FRESH"
+cat <<'EOF' > "$T_FRESH/.agreements.json"
+{ "enforce_rules": ["security/tenant-isolation"] }
+EOF
+(cd "$TMP" && "$INSTALL" --target "$T_FRESH/.claude/rules/agent-agreements" > /dev/null)
+check "目標目錄還不存在時仍套用上層策略檔" '[ -f "$T_FRESH/.claude/rules/agent-agreements/security/tenant-isolation.md" ]'
+
+# v0 → v1 遷移：選項與檔案記錄要保留
+T_MIGRATE="$TMP/migrate-fixture"
+mkdir -p "$T_MIGRATE/collaboration" "$T_MIGRATE/writing"
+cp "$ROOT/rules/collaboration/git-safety.md" "$T_MIGRATE/collaboration/"
+cp "$ROOT/rules/writing/changelog.md" "$T_MIGRATE/writing/"
+cat <<EOF > "$T_MIGRATE/.agreements-profile"
+# legacy
+version=0.9.0
+selected=writing/changelog
+file=collaboration/git-safety sha256=$(sha "$T_MIGRATE/collaboration/git-safety.md")
+file=writing/changelog sha256=$(sha "$T_MIGRATE/writing/changelog.md")
+EOF
+"$INSTALL" --target "$T_MIGRATE" --update > /dev/null
+check "遷移後保留 selected 選項" 'grep -q "^selected=.*writing/changelog" "$T_MIGRATE/.agreements-profile"'
+check "遷移後保留選擇的規則檔記錄與雜湊" 'grep -qE "^file=writing/changelog sha256=[0-9a-f]{64}" "$T_MIGRATE/.agreements-profile"'
+check "遷移後 core 規則記錄附雜湊" 'grep -qE "^file=collaboration/git-safety sha256=[0-9a-f]{64}" "$T_MIGRATE/.agreements-profile"'
+
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"
 [ "$fail" -eq 0 ]

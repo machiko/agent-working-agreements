@@ -47,6 +47,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RULES="$ROOT/rules"
 PROFILE_NAME=".agreements-profile"
+# shellcheck source=lib/policy.sh
+. "$ROOT/scripts/lib/policy.sh"
 
 target=""
 cursor_dir=""
@@ -168,45 +170,6 @@ version() {
 }
 
 contains() { printf '%s\n' "$1" | grep -Fxq -- "$2"; }
-
-find_policy_file() {
-  local dir="$1"
-  [ -d "$dir" ] || return 1
-  local cur="$dir"
-  while [ -n "$cur" ] && [ "$cur" != "/" ]; do
-    if [ -f "$cur/.agreements.json" ]; then echo "$cur/.agreements.json"; return 0; fi
-    if [ -f "$cur/.agreementsrc" ]; then echo "$cur/.agreementsrc"; return 0; fi
-    [ "$cur" = "." ] && break
-    cur="$(dirname "$cur")"
-  done
-  local git_toplevel
-  git_toplevel="$(cd "$dir" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null || true)"
-  if [ -n "$git_toplevel" ] && [ -d "$git_toplevel" ]; then
-    if [ -f "$git_toplevel/.agreements.json" ]; then echo "$git_toplevel/.agreements.json"; return 0; fi
-    if [ -f "$git_toplevel/.agreementsrc" ]; then echo "$git_toplevel/.agreementsrc"; return 0; fi
-  fi
-  return 1
-}
-
-parse_policy_enforce_rules() {
-  local pfile="$1"
-  [ -f "$pfile" ] || return 0
-  if command -v python3 >/dev/null 2>&1; then
-    python3 -c '
-import json, sys
-try:
-    with open(sys.argv[1], "r", encoding="utf-8") as f:
-        d = json.load(f)
-    for r in d.get("enforce_rules", []):
-        if isinstance(r, str) and r.strip():
-            print(r.strip())
-except Exception:
-    pass
-' "$pfile"
-  else
-    sed -n '/"enforce_rules"/,/]/p' "$pfile" | sed -n 's/.*"\([^"]*\)".*/\1/p' | grep -v 'enforce_rules' || true
-  fi
-}
 
 # frontmatter 的 paths 清單，以「, 」串起來
 paths_of() {
@@ -580,9 +543,7 @@ if [ "$mode" = "install" ]; then
   else
     for sd in "${target:-}" "${cursor_dir:-}" "${agents_md:-}" .; do
       [ -z "$sd" ] && continue
-      case "$sd" in "~"/*) sd="$HOME/${sd#\~/}" ;; esac
-      [ -f "$sd" ] && sd="$(dirname "$sd")"
-      p="$(find_policy_file "$sd" || true)"
+      p="$(aw_find_policy "$sd" || true)"
       if [ -n "$p" ] && [ -f "$p" ]; then
         active_policy="$p"
         break
@@ -591,7 +552,7 @@ if [ "$mode" = "install" ]; then
   fi
 
   if [ -n "$active_policy" ]; then
-    enforced="$(parse_policy_enforce_rules "$active_policy")"
+    enforced="$(aw_policy_enforce_rules "$active_policy")"
     if [ -n "$enforced" ]; then
       for enf_id in $enforced; do
         id="$(alias_id "$enf_id")"

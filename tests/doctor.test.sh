@@ -90,10 +90,44 @@ check "--init-policy 成功產出 .agreements.json" '[ -f "$T_INIT_POLICY/.agree
 check "--init-policy 包含 schema 引用" 'grep -q "schema/v1.json" "$T_INIT_POLICY/.agreements.json"'
 check "--init-policy 包含已安裝守則" 'grep -q "security/tenant-isolation" "$T_INIT_POLICY/.agreements.json"'
 check "--init-policy 包含 prohibit_disable_hooks" 'grep -q "prohibit_disable_hooks" "$T_INIT_POLICY/.agreements.json"'
+if command -v python3 >/dev/null 2>&1; then
+  check "--init-policy 產出符合 schema" '"$ROOT/scripts/check-schema.sh" "$T_INIT_POLICY/.agreements.json" >/dev/null'
+fi
 
 # 再次執行 --init-policy 應提示已存在而不覆蓋
 out_init_again="$("$DOCTOR" --init-policy "$T_INIT_POLICY" 2>&1 || true)"
 check "--init-policy 遇到已存在檔案不覆蓋" 'printf "%s" "$out_init_again" | grep -q "已存在"'
+
+echo "▸ doctor.sh --fix 在已有 CI 設定的專案（不會複製 scripts/audit.sh）"
+T_HAS_CI="$TMP/has-ci-proj"
+mkdir -p "$T_HAS_CI"
+(cd "$T_HAS_CI" && git init -q && git config user.email t@example.com && git config user.name T && git checkout -q -b feature/x)
+echo "stages: [test]" > "$T_HAS_CI/.gitlab-ci.yml"
+"$DOCTOR" --fix "$T_HAS_CI" > /dev/null
+check "專案內沒有 scripts/audit.sh（前提）" '[ ! -f "$T_HAS_CI/scripts/audit.sh" ]'
+check "pre-commit hook 已安裝" '[ -x "$T_HAS_CI/.git/hooks/pre-commit" ]'
+(cd "$T_HAS_CI" && echo "x" > a.txt && git add a.txt)
+check "沒有專案內 audit.sh 時 commit 仍成功（hook 改用 plugin 內的稽核腳本）" '(cd "$T_HAS_CI" && git commit -q -m "add a" >/dev/null 2>&1)'
+
+echo "▸ doctor.sh 在 git worktree 中"
+T_WT="$TMP/wt-proj"
+(cd "$T_HAS_CI" && git worktree add -q "$T_WT" -b wt-branch >/dev/null 2>&1)
+rm -f "$T_HAS_CI/.git/hooks/pre-commit" "$T_HAS_CI/.git/hooks/pre-push"
+"$DOCTOR" --fix "$T_WT" > /dev/null
+check "worktree 中 --fix 安裝 pre-commit 到共用 hooks 目錄" '[ -x "$T_HAS_CI/.git/hooks/pre-commit" ]'
+check "worktree 中 --fix 安裝 pre-push 到共用 hooks 目錄" '[ -x "$T_HAS_CI/.git/hooks/pre-push" ]'
+out_wt="$("$DOCTOR" "$T_WT")"
+check "worktree 中診斷認得已安裝的 pre-commit" 'printf "%s" "$out_wt" | grep -q "pre-commit 主動稽核防線已啟動"'
+
+echo "▸ doctor.sh --check-drift 在 Monorepo 子目錄"
+T_MONO="$TMP/mono-proj"
+mkdir -p "$T_MONO/packages/api"
+(cd "$T_MONO" && git init -q)
+printf '{ "enforce_rules": ["security/tenant-isolation"] }' > "$T_MONO/.agreements.json"
+bash "$ROOT/scripts/install.sh" --target "$T_MONO/packages/api/.claude/rules/agent-agreements" >/dev/null 2>&1
+check "子目錄安裝齊全時通過" '"$DOCTOR" --check-drift "$T_MONO/packages/api" >/dev/null 2>&1'
+rm -f "$T_MONO/packages/api/.claude/rules/agent-agreements/security/tenant-isolation.md"
+check "子目錄中策略強制守則檔案遺失時回傳非零" '! "$DOCTOR" --check-drift "$T_MONO/packages/api" >/dev/null 2>&1'
 
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"

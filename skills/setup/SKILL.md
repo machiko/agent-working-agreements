@@ -106,7 +106,7 @@ install.sh --status --target <目標目錄>
 
 - 若輸出包含「！ 保留」，代表該檔案曾被手動修改過而予以保留；提示使用者若要強制還原可加 `--force` 重新執行。
 - **主動工程防線診斷提示**：
-  檢查本專案是否具備 Git pre-commit 守門機制（`.git/hooks/pre-commit`）或 CI 工作流。若尚未配置，給予貼心提醒：
+  檢查本專案是否具備 Git pre-commit 守門機制（`git rev-parse --git-path hooks` 所指目錄下的 `pre-commit`）或 CI 工作流。若尚未配置，給予貼心提醒：
   「💡 **守則已成功就緒！** 建議執行 `/agreements:doctor fix` 可一鍵安裝 Git Commit 守門與 CI 檢查，建立主動防護。」
 - 提醒使用者：規則會在**下一個 session** 開始生效；之後若專案技術棧擴充，隨時執行 `/agreements:setup` 即可一鍵同步。
 

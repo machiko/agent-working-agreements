@@ -9,11 +9,9 @@ disable-model-invocation: true
 
 執行主動合規稽核，檢查當前工作區或提交內容是否踩中靜默吞錯誤、弱化測試、提交機敏檔、破壞 Tailwind 或直接在主分支修改等違規。
 
-稽核腳本優先使用工作區或 Plugin 內的腳本：
+稽核腳本優先使用 Plugin 內的版本（最新、且不會誤跑專案裡同名的其他腳本），沒有才用 `install.sh --ci` 複製到專案的那份：
 ```bash
-if [ -f "./scripts/audit.sh" ]; then
-  AUDIT_BIN="./scripts/audit.sh"
-elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/scripts/audit.sh" ]; then
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/scripts/audit.sh" ]; then
   AUDIT_BIN="${CLAUDE_PLUGIN_ROOT}/scripts/audit.sh"
 else
   AUDIT_BIN="scripts/audit.sh"
