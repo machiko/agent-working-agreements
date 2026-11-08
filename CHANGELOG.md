@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 規格化 Profile Schema v1：`.agreements-profile` 升級為 Schema v1，記錄 `schema_version`、安裝版本、安裝時各規則 SHA256 雜湊與團隊策略來源，實作舊版 v0 profile 自動平滑遷移機制
+- 新增 團隊策略檔支援（Team Policy）：新增 `templates/agreements.json`，支援於專案根目錄配置 `.agreements.json` 或 `.agreementsrc` 強制鎖定團隊必備守則（`enforce_rules`），`install.sh` 與 setup 自動強制套用
+- 新增 CI 守則防漂移檢驗（Anti-Drift）：`scripts/doctor.sh` 新增 `--check-drift` 模式，在 CI 流程中嚴格檢驗核心守則完整性與團隊強制守則安裝狀態，若遭手動篡改或缺失直接非零退出阻擋 PR 合併
+- 新增 跨工具通用 Git Hook 防護網：`scripts/hook-guard.sh --install-git-hooks` 支援為專案安裝 Git `pre-push`（精準攔截非快進 force push）與 `pre-commit` 稽核防線，讓 Cursor、Windsurf、Copilot 與終端開發者同享防護
+- 擴充 CI 測試矩陣：在 GitHub Actions 雙平台（Ubuntu 與 macOS）矩陣補齊 `tests/hook-guard.test.sh` 與防漂移、團隊策略單元測試
+
 ## [0.10.0] - 2026-11-08
 
 ### Added

@@ -21,7 +21,18 @@
 
 ---
 
-## 🚀 跨 Agent 快速安裝
+## 🚀 跨 Agent 支援矩陣與安裝指南
+
+| 支援等級 | 工具環境 | 支援特性 | 安裝方式 |
+|---------|---------|---------|---------|
+| **Tier 1 (原生全功能)** | **Claude Code** | 完整 Skills、PreToolUse 即時指令阻擋 Hooks、單層問答配置、體檢與自省 | `/plugin install agreements@agent-working-agreements` |
+| **Tier 2 (深度適配)** | **Cursor IDE** | 原生 `.cursor/rules/*.mdc`，精準支援 `globs` 按需載入與 `alwaysApply` | `bash scripts/install.sh --cursor .cursor/rules` |
+| **Tier 2 (指令檔案適配)** | **GitHub Copilot** | 原生 `.github/copilot-instructions.md` 區塊插入與乾淨更新 | `bash scripts/install.sh --copilot` |
+| **Tier 2 (規則適配)** | **Windsurf** | 原生 `.windsurfrules` 區塊管理 | `bash scripts/install.sh --windsurf` |
+| **Tier 3 (通用規範輸出)** | **AGENTS.md / Codex / Aider** | 符合通用規範之標記區塊，全語言與各 Agent 皆可載入 | `bash scripts/install.sh --agents-md AGENTS.md` |
+| **通用防護網** | **任何終端與 IDE** | Git `pre-push` 防 Force Push、Git `pre-commit` 敏感憑證外洩攔截 | `bash scripts/hook-guard.sh --install-git-hooks` |
+
+---
 
 先複製本專案（或直接使用安裝腳本）：
 
@@ -119,8 +130,8 @@ scripts/audit.sh --install-hook
 
 本專案不僅包含靜態 Prompt 守則，還附帶全套主動稽核與體檢工具：
 
-### 🩺 守則健康度體檢與自動修復 (`scripts/doctor.sh`)
-一鍵診斷專案的守則設定、版本新鮮度、Git 守門機制與 CI 工作流就緒度，產出 0–100 分綜合評分，支援 `--fix` 自動補齊修復：
+### 🩺 守則健康度體檢、自動修復與 CI 防漂移 (`scripts/doctor.sh`)
+一鍵診斷專案的守則設定、版本新鮮度、Git 守門機制與 CI 工作流就緒度，產出 0–100 分綜合評分，支援 `--fix` 自動補齊修復，並支援 CI 防漂移檢驗：
 
 ```bash
 # 體檢目前專案
@@ -128,6 +139,9 @@ scripts/doctor.sh
 
 # 一鍵自動修復缺失之 Git hook、CI 檔案與過期守則
 scripts/doctor.sh --fix
+
+# CI 專用：檢驗守則無篡改、核心規則完整且符合團隊策略（若漂移 exit 1 阻擋 PR）
+scripts/doctor.sh --check-drift
 
 # Claude Code 專屬指令
 /agreements:doctor
@@ -145,13 +159,37 @@ scripts/review.sh --staged     # 審查暫存區變更
 /agreements:review
 ```
 
-### 🛡️ 執行期主動防護 (Runtime Hooks)
+### 🏢 團隊策略設定檔與強制治理 (`.agreements.json`)
+支援在專案根目錄放置 `.agreements.json` 或 `.agreementsrc` 鎖定團隊規範，在開發者或 Agent 執行安裝時自動強制套用：
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/machiko/agent-working-agreements/main/schema/v1.json",
+  "version": "1.0",
+  "preset": "smart",
+  "enforce_rules": [
+    "security/dangerous-operations",
+    "collaboration/git-safety",
+    "security/tenant-isolation"
+  ],
+  "prohibit_disable_hooks": false
+}
+```
+* 執行 `install.sh` 或 `/agreements:setup` 時，會自動識別專案策略檔並鎖定強制守則，避免個人環境設置歧異。
+* CI 執行 `scripts/doctor.sh --check-drift` 時，會自動檢核專案是否嚴格安裝策略檔指定之全部守則。
+
+### 🛡️ 執行期主動防護 (Runtime Hooks & Universal Git Hooks)
 透過 Claude Code 的 Plugin Hook 機制，在 Agent 執行高危破壞性指令的當下直接阻擋：
 - 🛑 **禁止 Force Push**：即時攔截 `git push --force` 或 `-f`
 - 🛑 **防範無預警清空代碼**：阻擋未指定目錄之 `git reset --hard` 與 `git clean -f`
 - 🛑 **禁止根目錄毀滅性指令**：阻擋 `rm -rf /` 與 `chmod -R 777`
 - 🛑 **防範憑證外洩**：即時攔截包含 `.env` 之網路傳輸指令
 - 💡 可透過環境變數 `AGREEMENTS_HOOKS_DISABLE=1` 暫時跳過攔截
+
+**為 Cursor、Windsurf 或一般終端機安裝跨工具通用防線：**
+```bash
+scripts/hook-guard.sh --install-git-hooks
+```
+自動配置 Git `pre-push`（攔截非快進 Force Push）與 `pre-commit`（主動變更稽核），讓所有編輯器享有相同安全防線。
 
 ### 🔍 主動變更稽核 (`scripts/audit.sh`)
 主動掃描 Git Staged、Diff 或指定 Commit，攔截常見高危變更：
@@ -241,6 +279,10 @@ scripts/install.sh --agents-md AGENTS.md --update
 scripts/install.sh --copilot --update
 scripts/install.sh --windsurf --update
 ```
+
+### 規格化安裝紀錄 (Profile Schema v1)
+安裝目錄下的 `.agreements-profile` 採用嚴格的 **Schema v1** 規格維護，包含安裝版本、各規則安裝時之 SHA256 雜湊與團隊策略設定。
+* 若從 0.x 升級，系統在執行 `--update` 或 `/agreements:setup` 時會自動進行**無痛向下相容平滑遷移**，使用者無須任何手動操作。
 
 ### 檢視安裝狀態
 隨時檢查已安裝守則的標題、載入條件與最新版本狀態：

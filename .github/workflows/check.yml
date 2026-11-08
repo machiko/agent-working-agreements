@@ -26,6 +26,9 @@ jobs:
       - name: 主動稽核防線測試
         run: bash tests/audit.test.sh
 
+      - name: 執行期主動防線 Hook 測試
+        run: bash tests/hook-guard.test.sh
+
       - name: 守則體檢與修復測試
         run: bash tests/doctor.test.sh
 
