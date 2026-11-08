@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-08
+
 ### Added
 
 - 新增 執行期主動防線（Runtime Hooks）：新增 `hooks/hooks.json`、`scripts/hook-guard.sh` 與 `scripts/hook-guard.py`，透過 Claude Code `PreToolUse` 機制，在 Agent 敲下 `git push --force`、未授權 `git reset --hard`、`git clean -f`、`rm -rf /` 或洩漏 `.env` 傳輸時即時攔截，支援 `AGREEMENTS_HOOKS_DISABLE=1` 停用開關
