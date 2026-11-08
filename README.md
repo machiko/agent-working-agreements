@@ -34,71 +34,76 @@
 
 ---
 
-先複製本專案（或直接使用安裝腳本）：
+## 🚀 選擇你的 AI Agent 進行安裝
+
+### 1. Claude Code（Tier 1 原生全功能，最推薦）
+
+**無需手動 clone 本專案，亦無需手動執行偵測腳本**。在你的專案目錄直接透過 Claude Code 終端執行：
+
+```bash
+# 1. 加入 Marketplace 並安裝 Plugin
+/plugin marketplace add machiko/agent-working-agreements
+/plugin install agreements@agent-working-agreements
+
+# 2. 啟動互動式設定（自動偵測當前專案技術棧並推薦最佳守則組合）
+/agreements:setup
+```
+
+> [!TIP]
+> 執行 `/agreements:setup` 時，Claude Code 會自動在目前專案背景執行技術棧特徵掃描，並在交談中呈現「⚡ 智慧專案推薦」方案，一鍵即完成安裝！
+
+---
+
+### 2. Cursor、Copilot、Windsurf、AGENTS.md 或 CLI 腳本安裝
+
+若使用其他編輯器或想透過本機 Bash 腳本直接部署守則，請先複製本專案：
 
 ```bash
 git clone https://github.com/machiko/agent-working-agreements.git
 cd agent-working-agreements
 ```
 
-### 1. 自動偵測專案技術棧（推薦先執行）
-執行自動偵測，分析目前專案特徵並取得建議的規則清單：
-
+#### 步驟 A：自動偵測目標專案技術棧（取得推薦守則清單）
+傳入**目標專案之路徑**（例如 `../my-project`），分析該專案特徵：
 ```bash
-scripts/install.sh --detect
+scripts/install.sh --detect /path/to/your-project
 ```
+*(若直接在目標專案目錄執行，亦可傳入 `.` 或省略路徑)*
 
----
+#### 步驟 B：依目標編輯器套用至目標專案
 
-### 2. 選擇你的 AI Agent 進行安裝
-
-#### 🔹 Claude Code
-支援以官方 Plugin 或 CLI 腳本安裝：
-```bash
-# 方式 A：透過 Plugin Marketplace（推薦）
-/plugin marketplace add machiko/agent-working-agreements
-/plugin install agreements@agent-working-agreements
-/agreements:setup
-
-# 方式 B：透過 CLI 腳本直接安裝至全域或專案規則目錄
-scripts/install.sh --target ~/.claude/rules/agent-agreements --select frontend/pitfalls,database/pitfalls
-```
-
-#### 🔹 Cursor IDE (`.cursor/rules/*.mdc`)
+##### 🔹 Cursor IDE (`.cursor/rules/*.mdc`)
 自動轉譯為 Cursor 原生 `.mdc` 規格，Core 守則標註 `alwaysApply: true`，特定技術棧守則自動轉換為 `globs` 條件：
 ```bash
 # 預覽安裝
-scripts/install.sh --cursor .cursor/rules --select frontend/pitfalls,database/pitfalls --dry-run
+scripts/install.sh --cursor /path/to/your-project/.cursor/rules --select frontend/pitfalls,database/pitfalls --dry-run
 
-# 正式套用
-scripts/install.sh --cursor .cursor/rules --select frontend/pitfalls,database/pitfalls
+# 正式套用至目標專案
+scripts/install.sh --cursor /path/to/your-project/.cursor/rules --select frontend/pitfalls,database/pitfalls
 ```
 
-#### 🔹 GitHub Copilot (`.github/copilot-instructions.md`)
+##### 🔹 GitHub Copilot (`.github/copilot-instructions.md`)
 透過 HTML 標記區塊安全注入，**完全保留檔案中原有的其他指令**：
 ```bash
-# 注入至專案的 .github/copilot-instructions.md
-scripts/install.sh --copilot --select frontend/pitfalls,backend/pitfalls
+scripts/install.sh --copilot /path/to/your-project/.github/copilot-instructions.md --select frontend/pitfalls,backend/pitfalls
 ```
 
-#### 🔹 Windsurf IDE (`.windsurfrules`)
-透過安全標記區塊注入專案根目錄的 `.windsurfrules`：
+##### 🔹 Windsurf IDE (`.windsurfrules`)
+透過安全標記區塊注入目標專案根目錄的 `.windsurfrules`：
 ```bash
-# 注入至專案的 .windsurfrules
-scripts/install.sh --windsurf --select frontend/pitfalls,security/supply-chain
+scripts/install.sh --windsurf /path/to/your-project/.windsurfrules --select frontend/pitfalls,security/supply-chain
 ```
 
-#### 🔹 OpenAI Codex / Aider / 支援 `AGENTS.md` 的 Agent
+##### 🔹 OpenAI Codex / Aider / 支援 `AGENTS.md` 的 Agent
 注入至專案根目錄的 `AGENTS.md`，自動移除 Frontmatter 並保留前後原有文字，內建 Codex 32 KiB 讀取上限警示：
 ```bash
-# 注入至 AGENTS.md
-scripts/install.sh --agents-md AGENTS.md --select database/pitfalls,api/pitfalls
+scripts/install.sh --agents-md /path/to/your-project/AGENTS.md --select database/pitfalls,api/pitfalls
 ```
 
-#### 🔹 通用 CLI Agent 或自訂目錄（Antigravity、Aider 等）
+##### 🔹 通用 CLI Agent 或自訂目錄（Antigravity、Aider 等）
 若使用的工具支援自訂規則目錄或 Prompt 載入：
 ```bash
-scripts/install.sh --target ./my-rules-dir --select frontend/pitfalls
+scripts/install.sh --target /path/to/your-project/my-rules-dir --select frontend/pitfalls
 ```
 
 ---
