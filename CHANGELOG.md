@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-08
+
+### Added
+
+- 新增 執行期主動防線（Runtime Hooks）：新增 `hooks/hooks.json`、`scripts/hook-guard.sh` 與 `scripts/hook-guard.py`，透過 Claude Code `PreToolUse` 機制，在 Agent 敲下 `git push --force`、未授權 `git reset --hard`、`git clean -f`、`rm -rf /` 或洩漏 `.env` 傳輸時即時攔截，支援 `AGREEMENTS_HOOKS_DISABLE=1` 停用開關
+- 新增 AI 與 LLM 應用地雷守則：`rules/ai/pitfalls.md`（Optional），防範外部 SDK 呼叫未設超時造成連線池雪崩、未切分角色導致 Prompt 注入與系統提示外洩、向量化與 RAG 檢索未脫敏 PII、串流未監聽 Client Abort 導致記憶體與 Token 洩漏、歷史對話未設滑動視窗預算擊穿
+- 擴充 智慧專案特徵偵測：`scripts/install.sh --detect` 支援辨識 OpenAI、Anthropic、LangChain、LlamaIndex 與向量資料庫（Pinecone/Chroma/Qdrant/Weaviate）依賴，自動推薦安裝 `ai/pitfalls`
+- 新增 Hook 主動防線單元測試：`tests/hook-guard.test.sh` 涵蓋各類破壞性 Git 指令、系統高危操作攔截與停用開關驗證
+
 ## [0.9.6] - 2026-11-08
 
 ### Changed

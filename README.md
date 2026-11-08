@@ -145,6 +145,14 @@ scripts/review.sh --staged     # 審查暫存區變更
 /agreements:review
 ```
 
+### 🛡️ 執行期主動防護 (Runtime Hooks)
+透過 Claude Code 的 Plugin Hook 機制，在 Agent 執行高危破壞性指令的當下直接阻擋：
+- 🛑 **禁止 Force Push**：即時攔截 `git push --force` 或 `-f`
+- 🛑 **防範無預警清空代碼**：阻擋未指定目錄之 `git reset --hard` 與 `git clean -f`
+- 🛑 **禁止根目錄毀滅性指令**：阻擋 `rm -rf /` 與 `chmod -R 777`
+- 🛑 **防範憑證外洩**：即時攔截包含 `.env` 之網路傳輸指令
+- 💡 可透過環境變數 `AGREEMENTS_HOOKS_DISABLE=1` 暫時跳過攔截
+
 ### 🔍 主動變更稽核 (`scripts/audit.sh`)
 主動掃描 Git Staged、Diff 或指定 Commit，攔截常見高危變更：
 - 🚫 **靜默吞噬錯誤**：攔截程式碼中空的 `catch (e) {}` 或 `except: pass`
@@ -193,6 +201,7 @@ scripts/audit.sh --install-hook
 
 | 類別 | 守則名稱 | 防範之真實地雷事故 |
 |------|---------|-------------------|
+| **AI 與 LLM 應用** | [`ai/pitfalls`](rules/ai/pitfalls.md) | 外部 LLM SDK 未設超時造成連線池雪崩、未切分角色導致 Prompt 注入越獄、向量資料庫檢索未脫敏 PII、串流未監聽 Client Abort 導致記憶體與 Token 洩漏、歷史對話未設滑動視窗預算擊穿 |
 | **自動化測試** | [`testing/pitfalls`](rules/testing/pitfalls.md) | Mock 全域外洩未重置導致跨測試污染、測試中使用靜態 sleep 導致 CI Flaky、整合測試未包覆 Transaction Rollback 造成資料庫髒污、過度 Mock 私有內部實作、非決定性時間與亂數斷言 |
 | **前端架構** | [`frontend/pitfalls`](rules/frontend/pitfalls.md) | Tailwind 動態字串拼接遭 Purge、組件 Unmount 監聽與定時器殘留外洩、SSR 預渲染階段存取 Window/Document 崩潰、直接修改 Props 破壞單向數據流、解構遺失響應性（Vue/Svelte） |
 | **後端服務** | [`backend/pitfalls`](rules/backend/pitfalls.md) | 空環境變數覆蓋安全預設值、Dev/Mock 依賴混入生產部署、建構階段密鑰殘留、資料大量匯出未分批造成記憶體 OOM、非標準 Primary Key ORM 存取錯誤 |

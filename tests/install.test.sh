@@ -418,6 +418,12 @@ mkdir -p "$TD/tests"
 out_test="$("$INSTALL" --detect "$TD")"
 check "detect 辨識出 testing/pitfalls" 'printf "%s" "$out_test" | grep -q "^testing/pitfalls"'
 
+echo "▸ --detect：AI 與 LLM 應用特徵"
+mkdir -p "$TD/openai-pkg"
+echo '{"dependencies":{"openai":"^4.0.0"}}' > "$TD/openai-pkg/package.json"
+out_ai="$("$INSTALL" --detect "$TD/openai-pkg")"
+check "detect 辨識出 ai/pitfalls" 'printf "%s" "$out_ai" | grep -q "^ai/pitfalls"'
+
 echo "▸ --ci 多平台：GitLab CI、Bitbucket Pipelines 與 pre-commit"
 T_CI_GL="$TMP/ci-gl"
 mkdir -p "$T_CI_GL"
