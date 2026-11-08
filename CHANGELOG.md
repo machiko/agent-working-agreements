@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+## [1.0.0-rc.2] - 2026-11-08
+
+### Added
+
+- 新增 JSON Schema 定義檔：`schema/v1.json`，提供完整的團隊策略檔（`.agreements.json` / `.agreementsrc`）結構約束與 28 條守則 ID 列舉，在 VS Code、Cursor 等現代 IDE 中提供原生自動補全與即時型別提示
+- 新增 守則安全防篡改機制：團隊策略檔支援 `prohibit_disable_hooks: true`，在 `scripts/hook-guard.sh`、`scripts/hook-guard.py` 及 Git `pre-push` Universal Hook 中強制忽略 `AGREEMENTS_HOOKS_DISABLE=1`，確保核心安全防線不可被 Agent 或外部環境變數繞過
+- 新增 一鍵策略檔生成功能：`scripts/doctor.sh --init-policy` 與 Claude Code 技能 `/agreements:doctor init-policy`，可將目前專案已安裝之守則自動固化導出為標準 `.agreements.json` 策略檔
+- 擴充 Monorepo 多套件支援：`scripts/install.sh` 與 `scripts/doctor.sh` 支援向上層層尋找根目錄 `.agreements.json` 策略檔，讓 Monorepo 子目錄安裝時能自動繼承團隊全域策略
+- 擴充 `/agreements:doctor` 技能指令：支援 `/agreements:doctor drift`（防漂移檢驗）與 `/agreements:doctor init-policy`（一鍵初始化策略檔）
+
+### Fixed
+
+- 修復 `skills/audit/SKILL.md` 過期守則引用：修正第 35 行 `core/test-invariants.md` 歷史路徑至現行標準路徑 `collaboration/test-integrity.md`
+
 ## [1.0.0-rc.1] - 2026-11-08
 
 ### Added

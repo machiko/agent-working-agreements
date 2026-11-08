@@ -13,16 +13,19 @@ export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 fix_mode=0
 check_drift=0
+init_policy=0
 target_dir="."
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --fix) fix_mode=1; shift ;;
     --check-drift) check_drift=1; shift ;;
+    --init-policy) init_policy=1; shift ;;
     -h|--help)
-      echo "用法：scripts/doctor.sh [--fix] [--check-drift] [專案目錄]"
+      echo "用法：scripts/doctor.sh [--fix] [--check-drift] [--init-policy] [專案目錄]"
       echo "  --fix          自動修復缺失之 Git pre-commit 防線、CI 工作流或過期守則"
       echo "  --check-drift  CI 專用：驗證守則未遭篡改、核心規則完整且符合團隊策略（若漂移則 exit 1）"
+      echo "  --init-policy  依據目前專案守則安裝現況，一鍵初始化 .agreements.json 團隊策略檔"
       exit 0
       ;;
     *) target_dir="$1"; shift ;;
@@ -33,6 +36,51 @@ case "$target_dir" in "~"/*) target_dir="$HOME/${target_dir#\~/}" ;; esac
 [ -d "$target_dir" ] || { echo "✗ 目錄不存在：$target_dir" >&2; exit 2; }
 
 git_root="$(cd "$target_dir" && git rev-parse --show-toplevel 2>/dev/null || echo "$target_dir")"
+
+# ── --init-policy 一鍵初始化團隊策略檔 ───────────────────
+if [ "$init_policy" -eq 1 ]; then
+  policy_target="$git_root/.agreements.json"
+  if [ -f "$policy_target" ]; then
+    echo "ℹ 專案已存在團隊策略檔：${policy_target}（未覆寫）"
+    exit 0
+  fi
+  inst_profile=""
+  if [ -f "$git_root/.claude/rules/agent-agreements/.agreements-profile" ]; then
+    inst_profile="$git_root/.claude/rules/agent-agreements/.agreements-profile"
+  elif [ -f "$target_dir/.claude/rules/agent-agreements/.agreements-profile" ]; then
+    inst_profile="$target_dir/.claude/rules/agent-agreements/.agreements-profile"
+  fi
+
+  rules_json='    "security/dangerous-operations",
+    "collaboration/git-safety"'
+
+  if [ -n "$inst_profile" ]; then
+    opt_rules="$(sed -n 's/^file=\([^ ]*\) .*/\1/p' "$inst_profile" | while read -r r; do
+      [ -f "$ROOT/rules/$r.md" ] || continue
+      [ "$(awk 'NR>1 && $0=="---"{exit} /tier:[ ]*core/{c=1} END{print c+0}' "$ROOT/rules/$r.md")" -eq 1 ] && continue
+      echo "$r"
+    done || true)"
+    for r in $opt_rules; do
+      [ -n "$r" ] && rules_json="${rules_json},
+    \"$r\""
+    done
+  fi
+
+  cat <<EOF > "$policy_target"
+{
+  "\$schema": "https://raw.githubusercontent.com/machiko/agent-working-agreements/main/schema/v1.json",
+  "version": "1.0",
+  "preset": "smart",
+  "enforce_rules": [
+${rules_json}
+  ],
+  "prohibit_disable_hooks": false,
+  "description": "團隊 Agent 工作守則策略設定檔。由 install.sh 與 doctor.sh 讀取並強制遵循。"
+}
+EOF
+  echo "✓ 已成功建立團隊策略檔：$policy_target"
+  exit 0
+fi
 
 # ── --check-drift CI 防漂移檢驗模式 ─────────────────────
 if [ "$check_drift" -eq 1 ]; then
@@ -90,10 +138,17 @@ if [ "$check_drift" -eq 1 ]; then
 
   # 檢查團隊策略檔 (.agreements.json / .agreementsrc)
   policy_file=""
-  if [ -f "$target_dir/.agreements.json" ]; then policy_file="$target_dir/.agreements.json";
-  elif [ -f "$target_dir/.agreementsrc" ]; then policy_file="$target_dir/.agreementsrc";
-  elif [ -f "$git_root/.agreements.json" ]; then policy_file="$git_root/.agreements.json";
-  elif [ -f "$git_root/.agreementsrc" ]; then policy_file="$git_root/.agreementsrc"; fi
+  cur_search="$target_dir"
+  while [ -n "$cur_search" ] && [ "$cur_search" != "/" ]; do
+    if [ -f "$cur_search/.agreements.json" ]; then policy_file="$cur_search/.agreements.json"; break; fi
+    if [ -f "$cur_search/.agreementsrc" ]; then policy_file="$cur_search/.agreementsrc"; break; fi
+    [ "$cur_search" = "." ] && break
+    cur_search="$(dirname "$cur_search")"
+  done
+  if [ -z "$policy_file" ]; then
+    if [ -f "$git_root/.agreements.json" ]; then policy_file="$git_root/.agreements.json";
+    elif [ -f "$git_root/.agreementsrc" ]; then policy_file="$git_root/.agreementsrc"; fi
+  fi
 
   if [ -n "$policy_file" ]; then
     enforced=""
