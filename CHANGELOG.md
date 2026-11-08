@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-rc.1] - 2026-11-08
+
 ### Added
 
 - 新增 規格化 Profile Schema v1：`.agreements-profile` 升級為 Schema v1，記錄 `schema_version`、安裝版本、安裝時各規則 SHA256 雜湊與團隊策略來源，實作舊版 v0 profile 自動平滑遷移機制
