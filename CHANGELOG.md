@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-rc.2] - 2026-11-08
+
 ### Added
 
 - 新增 JSON Schema 定義檔：`schema/v1.json`，提供完整的團隊策略檔（`.agreements.json` / `.agreementsrc`）結構約束與 28 條守則 ID 列舉，在 VS Code、Cursor 等現代 IDE 中提供原生自動補全與即時型別提示
