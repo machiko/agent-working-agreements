@@ -72,6 +72,32 @@ in10='{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command"
 out10="$(printf '%s' "$in10" | AGREEMENTS_HOOKS_DISABLE=1 bash "$GUARD")"
 check "啟用停用開關時不攔截" '[ -z "$out10" ]'
 
+echo "▸ hook-guard: --install-git-hooks Universal Git Hooks"
+TMP_REPO="$(mktemp -d /tmp/aw-hook-test.XXXXXX)"
+trap 'rm -rf "$TMP_REPO"' EXIT
+(cd "$TMP_REPO" && git init -q)
+
+out_install="$("$GUARD" --install-git-hooks "$TMP_REPO")"
+check "--install-git-hooks 建立 pre-push hook" '[ -x "$TMP_REPO/.git/hooks/pre-push" ]'
+check "--install-git-hooks 建立 pre-commit hook" '[ -x "$TMP_REPO/.git/hooks/pre-commit" ]'
+
+# 模擬 pre-push 攔截非快進 (Force Push)
+(cd "$TMP_REPO" && git config user.email "test@example.com" && git config user.name "Test" && echo "1" > a && git add a && git commit -n -m "init" -q)
+c1="$(cd "$TMP_REPO" && git rev-parse HEAD)"
+(cd "$TMP_REPO" && echo "2" > a && git commit -n -am "second" -q)
+c2="$(cd "$TMP_REPO" && git rev-parse HEAD)"
+(cd "$TMP_REPO" && git checkout -q -b branch2 "$c1" && echo "3" > b && git add b && git commit -n -m "branch2" -q)
+c3="$(cd "$TMP_REPO" && git rev-parse HEAD)"
+
+# local=c3, remote=c2 (c2 不是 c3 的祖先 -> force push 攔截)
+push_input="refs/heads/branch2 $c3 refs/heads/main $c2"
+out_pp="$(printf '%s\n' "$push_input" | (cd "$TMP_REPO" && bash .git/hooks/pre-push origin https://example.com) 2>&1 || true)"
+check "pre-push 攔截 force push 覆蓋" 'printf "%s" "$out_pp" | grep -q "git-safety"'
+
+# 正常快進推送
+ff_input="refs/heads/main $c2 refs/heads/main $c1"
+check "pre-push 放行快進推送" 'printf "%s\n" "$ff_input" | (cd "$TMP_REPO" && bash .git/hooks/pre-push origin https://example.com)'
+
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}"
 [ "$fail" -eq 0 ]

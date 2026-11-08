@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/machiko/agent-working-agreements/main/schema/v1.json",
+  "version": "1.0",
+  "preset": "smart",
+  "enforce_rules": [
+    "security/dangerous-operations",
+    "collaboration/git-safety"
+  ],
+  "prohibit_disable_hooks": false,
+  "description": "團隊 Agent 工作守則策略設定檔。由 install.sh 與 doctor.sh 讀取並強制遵循。"
+}

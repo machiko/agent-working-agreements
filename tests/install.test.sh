@@ -453,6 +453,45 @@ echo "▸ collaboration/communication：包含命中守則顯式標註規範"
 check "core 安裝後 communication.md 含命中守則標註" 'grep -q "🛡️ 命中守則：" "$T_SDLC/collaboration/communication.md"'
 check "templates/CLAUDE.md 含命中守則標註" 'grep -q "🛡️ 命中守則：" "$ROOT/templates/CLAUDE.md"'
 
+echo "▸ Schema v1 與團隊策略檔 (.agreements.json)"
+T_SCHEMA="$TMP/schema-fixture"
+"$INSTALL" --target "$T_SCHEMA" > /dev/null
+check "profile 寫入 schema_version=1" 'grep -q "^schema_version=1" "$T_SCHEMA/.agreements-profile"'
+
+out_schema_status="$("$INSTALL" --target "$T_SCHEMA" --status)"
+check "status 標註 Schema v1" 'printf "%s" "$out_schema_status" | grep -q "Schema v1"'
+
+# 舊版 profile (無 schema_version) 遷移測試
+T_LEGACY="$TMP/legacy-fixture"
+mkdir -p "$T_LEGACY/collaboration"
+cp "$ROOT/rules/collaboration/git-safety.md" "$T_LEGACY/collaboration/"
+c_sha="$(sha "$T_LEGACY/collaboration/git-safety.md")"
+cat <<EOF > "$T_LEGACY/.agreements-profile"
+# legacy
+version=0.9.0
+selected=
+file=collaboration/git-safety sha256=$c_sha
+EOF
+out_leg_stat="$("$INSTALL" --target "$T_LEGACY" --status)"
+check "legacy profile 讀取時不報錯" '[ -n "$out_leg_stat" ]'
+
+# 執行 update 後升級至 schema_version=1
+"$INSTALL" --target "$T_LEGACY" --update > /dev/null
+check "update 後升級為 schema_version=1" 'grep -q "^schema_version=1" "$T_LEGACY/.agreements-profile"'
+
+# 團隊策略檔讀取測試
+T_POLICY="$TMP/policy-fixture"
+mkdir -p "$T_POLICY"
+cat <<'EOF' > "$T_POLICY/.agreements.json"
+{
+  "enforce_rules": ["security/tenant-isolation", "security/supply-chain"]
+}
+EOF
+"$INSTALL" --target "$T_POLICY" > /dev/null
+check "依團隊策略強制安裝 tenant-isolation" '[ -f "$T_POLICY/security/tenant-isolation.md" ]'
+check "依團隊策略強制安裝 supply-chain" '[ -f "$T_POLICY/security/supply-chain.md" ]'
+check "profile 記錄 policy 檔名" 'grep -q "^policy=.agreements.json" "$T_POLICY/.agreements-profile"'
+
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"
 [ "$fail" -eq 0 ]
