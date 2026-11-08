@@ -4,6 +4,31 @@
 
 ## [Unreleased]
 
+## [1.0.0-rc.3] - 2026-11-08
+
+### Added
+
+- 新增 schema 一致性檢查：`scripts/check-schema.sh` 比對 `schema/v1.json` 的守則清單與規則庫，並驗證策略檔範本與 `--init-policy` 產出，納入 CI
+
+### Changed
+
+- 更新 執行期攔截規則：攔截規則集中到 `scripts/lib/guard-rules.tsv`，有無 `python3` 行為一致；被擋時 Agent 會收到攔截原因；python 比對失敗時改走 bash 比對
+- 更新 `/agreements:doctor` 與 `/agreements:audit`：優先執行 Plugin 內的腳本，不再誤跑專案內同名的其他腳本
+- 更新 `schema/v1.json`：`preset` 標明為保留欄位，目前不生效
+- 更新 README：新增 marketplace 來源衝突（`source doesn't match its extraKnownMarketplaces entry`）疑難排解，修正攔截範圍、按需載入與測試清單的錯誤描述
+
+### Fixed
+
+- 修復 Git pre-commit hook 在專案沒有 `scripts/audit.sh` 時擋下所有 commit；找不到稽核腳本時改用 Plugin 內版本，都沒有只警告
+- 修復 安裝 Git hook 覆寫既有 hook（例如 husky）；改為備份成 `.agreements-bak` 並在守門檢查通過後串接執行
+- 修復 Git worktree 與設定 `core.hooksPath` 的專案無法安裝或偵測 hook
+- 修復 執行期攔截漏擋 `rm -fr /`、`git push -uf`、`+refspec`、`bash -c` 與 `$(…)` 包裝、`${HOME}`，以及誤擋 `--force-with-lease`、`git clean` 預覽與用 `&&` 串接的正常指令
+- 修復 沒有 `python3` 時的 bash 攔截漏擋 `git clean`、`chmod 777` 與 `.env` 外傳，並誤擋 `rm -rf /tmp/…`
+- 修復 團隊策略檔：首次安裝到新目錄時被略過、搜尋越過 git root 讀到家目錄、Monorepo 子目錄的 `prohibit_disable_hooks` 不生效、字串 `"false"` 被當成鎖定、沒有 `python3` 時單行 `enforce_rules` 只讀到最後一項
+- 修復 `--check-drift` 對策略強制守則只檢查有無安裝，檔案遺失或被修改仍判定通過
+- 修復 `/agreements:doctor fix`、`drift`、`init-policy` 參數沒有傳進腳本
+- 修復 pre-push 遇到本機沒有的遠端 commit 時誤判為 force push；改為提示先 `git fetch`
+
 ## [1.0.0-rc.2] - 2026-11-08
 
 ### Added
