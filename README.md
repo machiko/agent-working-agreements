@@ -52,6 +52,13 @@
 > [!TIP]
 > 執行 `/agreements:setup` 時，Claude Code 會自動在目前專案背景執行技術棧特徵掃描，並在交談中呈現「⚡ 智慧專案推薦」方案，一鍵即完成安裝！
 
+#### 疑難排解：`source doesn't match its extraKnownMarketplaces entry`
+
+執行 `/plugin marketplace add machiko/agent-working-agreements` 時出現這個錯誤，代表 `~/.claude/settings.json`（或組織的 managed settings）的 `extraKnownMarketplaces` 已經用**同一個名稱** `agent-working-agreements` 登記了別的來源，常見於曾經用本機目錄（`"source": "directory"`）開發或試裝過。二擇一：
+
+- **沿用已登記的來源**：不用再 `add`，直接 `/plugin install agreements@agent-working-agreements`。
+- **改用 GitHub 發行版**：把那筆 entry 改成 `{"source": {"source": "github", "repo": "machiko/agent-working-agreements"}}`，再執行 `/plugin marketplace remove agent-working-agreements` 與 `/plugin marketplace add machiko/agent-working-agreements`。
+
 ---
 
 ### 2. Cursor、Copilot、Windsurf、AGENTS.md 或 CLI 腳本安裝
@@ -128,6 +135,9 @@ scripts/install.sh --ci pre-commit      # 安裝 Python pre-commit 框架配置 
 scripts/audit.sh --install-hook
 ```
 任何在本地電腦執行的 Git 專案皆可使用，在 `git commit` 當下立即由本機攔截，避免錯誤代碼進入版本歷史。
+* hook 寫入 `git rev-parse --git-path hooks` 指向的目錄，git worktree 與設定 `core.hooksPath`（例如 husky）的專案都適用。
+* 已有的 pre-commit／pre-push（非本工具安裝）會備份成 `<名稱>.agreements-bak`，守門檢查通過後接著執行，原本的 hook 不會消失。
+* 專案內沒有 `scripts/audit.sh` 時改用安裝當下的稽核腳本；兩者都找不到只印警告，不會擋住 commit。
 
 ---
 
@@ -184,7 +194,8 @@ scripts/review.sh --staged     # 審查暫存區變更
   "prohibit_disable_hooks": false
 }
 ```
-* 執行 `install.sh` 或 `/agreements:setup` 時，會自動向上尋找專案或 Monorepo 根目錄策略檔並鎖定強制守則，避免個人環境設置歧異。
+* 執行 `install.sh` 或 `/agreements:setup` 時，會自動向上尋找專案或 Monorepo 根目錄策略檔並鎖定強制守則，避免個人環境設置歧異。搜尋到 git root 為止；不在 git repo 內時不讀家目錄的策略檔。
+* `preset` 為保留欄位，目前不生效；實際強制安裝的守則以 `enforce_rules` 為準。
 * 若設定 `"prohibit_disable_hooks": true`，將鎖死防護網，強制忽略 `AGREEMENTS_HOOKS_DISABLE=1`，防止 Agent 或腳本繞過安全攔截。
 * 具備完整 JSON Schema（[`schema/v1.json`](schema/v1.json)），在 VS Code 與 Cursor 等現代編輯器中支援全 28 條守則 ID 自動補齊與結構驗證。
 * 可透過 `scripts/doctor.sh --init-policy` 或 `/agreements:doctor init-policy` 一鍵從現有安裝生成標準策略檔。
@@ -192,17 +203,19 @@ scripts/review.sh --staged     # 審查暫存區變更
 
 ### 🛡️ 執行期主動防護 (Runtime Hooks & Universal Git Hooks)
 透過 Claude Code 的 Plugin Hook 機制，在 Agent 執行高危破壞性指令的當下直接阻擋：
-- 🛑 **禁止 Force Push**：即時攔截 `git push --force` 或 `-f`
-- 🛑 **防範無預警清空代碼**：阻擋未指定目錄之 `git reset --hard` 與 `git clean -f`
-- 🛑 **禁止根目錄毀滅性指令**：阻擋 `rm -rf /` 與 `chmod -R 777`
-- 🛑 **防範憑證外洩**：即時攔截包含 `.env` 之網路傳輸指令
-- 💡 可透過環境變數 `AGREEMENTS_HOOKS_DISABLE=1` 暫時跳過攔截
+- 🛑 **禁止 Force Push**：即時攔截 `git push --force`、`-f`（含 `-uf` 等合併寫法）與 `+refspec`；`--force-with-lease` 放行
+- 🛑 **防範無預警清空代碼**：阻擋所有 `git reset --hard` 與 `git clean -f`（`git clean -n` 預覽不受影響）
+- 🛑 **禁止根目錄毀滅性指令**：阻擋對 `/`、`~`、`$HOME` 遞迴刪除，以及遞迴 `chmod 777`
+- 🛑 **防範憑證外洩**：即時攔截以 `curl`、`wget`、`nc`、`scp` 等傳送 `.env` 的指令
+- 💡 被擋時 Agent 會收到攔截原因；可透過環境變數 `AGREEMENTS_HOOKS_DISABLE=1` 暫時跳過攔截（團隊策略設 `prohibit_disable_hooks` 時無效）
+- ⚙️ 攔截規則集中在 [`scripts/lib/guard-rules.tsv`](scripts/lib/guard-rules.tsv)。有 `python3` 時以 Python 解析指令；沒有時改用 Bash 比對同一份規則，行為一致
+- ⚠️ 已知限制：比對的是指令字串，只是在引號內「提到」這些指令（例如 `echo "git push --force"`）也會被擋
 
 **為 Cursor、Windsurf 或一般終端機安裝跨工具通用防線：**
 ```bash
 scripts/hook-guard.sh --install-git-hooks
 ```
-自動配置 Git `pre-push`（攔截非快進 Force Push）與 `pre-commit`（主動變更稽核），讓所有編輯器享有相同安全防線。
+自動配置 Git `pre-push`（攔截非快進 Force Push）與 `pre-commit`（主動變更稽核），讓所有編輯器享有相同安全防線。`pre-push` 看不到 `--force-with-lease` 等旗標，任何覆寫遠端都會擋；確實需要時，請在團隊同意後以 `AGREEMENTS_HOOKS_DISABLE=1 git push …` 執行。
 
 ### 🔍 主動變更稽核 (`scripts/audit.sh`)
 主動掃描 Git Staged、Diff 或指定 Commit，攔截常見高危變更：
@@ -248,7 +261,7 @@ scripts/audit.sh --install-hook
 ---
 
 ### 2. 領域與架構地雷守則（Optional，按需選擇安裝）
-具備 `paths` 條件，僅在碰觸相關檔案時才載入 Context：
+多數具備 `paths` 條件，僅在碰觸相關檔案時才載入 Context；`collaboration/sdlc-lifecycle`、`security/tenant-isolation` 與「風格慣例」類沒有 `paths`，安裝後常駐載入：
 
 | 類別 | 守則名稱 | 防範之真實地雷事故 |
 |------|---------|-------------------|
@@ -268,7 +281,7 @@ scripts/audit.sh --install-hook
 | **風格慣例** | [`writing/commit-messages`](rules/writing/commit-messages.md) | 規範化 Conventional Commits 格式（搭配繁體中文動詞） |
 | **風格慣例** | [`writing/changelog`](rules/writing/changelog.md) | 保持 CHANGELOG 維護粒度與語義清晰 |
 | **風格慣例** | [`writing/docs-and-cards`](rules/writing/docs-and-cards.md) | 撰寫卡片與文檔時以 TL;DR 為先之專業表達結構 |
-| **風格慣例** | [`writing/taiwan-terminology.md`](rules/writing/taiwan-terminology.md) | 台灣繁體資訊專業術語標準轉換對照表 |
+| **風格慣例** | [`writing/taiwan-terminology`](rules/writing/taiwan-terminology.md) | 台灣繁體資訊專業術語標準轉換對照表 |
 
 ---
 
@@ -326,10 +339,14 @@ scripts/install.sh --agents-md AGENTS.md --uninstall
 scripts/check-budget.sh      # 嚴格驗證 Core 守則行數小於 400 行
 scripts/sanitize-check.sh    # 機敏字串、私有 IP、金鑰與去識別化掃描
 scripts/check-version.sh     # 跨檔案版號一致性檢查
+scripts/check-schema.sh      # schema/v1.json 與規則庫、策略檔範本一致
 bash tests/install.test.sh   # 多 Agent 安裝與還原完整測試
 bash tests/audit.test.sh     # 主動防線攔截行為測試
+bash tests/hook-guard.test.sh  # 執行期攔截（python3 與 bash 兩種模式）與 Git hook 安裝測試
+bash tests/policy.test.sh    # 團隊策略檔搜尋與解析測試
 bash tests/doctor.test.sh    # 守則體檢與自動修復測試
 bash tests/review.test.sh    # Agent 自省審核測試
+bash tests/check-version.test.sh  # 版號檢查腳本測試
 ```
 
 ---
