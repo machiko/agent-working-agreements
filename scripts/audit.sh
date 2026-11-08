@@ -141,7 +141,7 @@ fi
 front_files="$(printf '%s\n' "$files" | grep -E '\.(vue|jsx|tsx|svelte|html)$' || true)"
 if [ -n "$front_files" ]; then
   front_diff="$($diff_cmd -- $front_files 2>/dev/null || true)"
-  dyn_classes="$(printf '%s\n' "$front_diff" | grep -E '^\+[^+]' | grep -E '(:class|className)=["\x27{][^"}\x27]*(\x27|\x22|\`)[a-z]+-[a-z0-9]*-?(\x27|\x22|\`)\s*(\+|\$)' || true)"
+  dyn_classes="$(printf '%s\n' "$front_diff" | grep -E '^\+[^+]' | grep -E '(:class|className)=["'\''{][^"'\''}]*['\''"`][a-z]+-[a-z0-9]*-?['\''"`][[:space:]]*(\+|\$)' || true)"
   if [ -n "$dyn_classes" ]; then
     warn "檢測到動態字串拼接 class（可能在生產 build 時被 Tailwind purge 移除，見 frontend/pitfalls）"
   else
