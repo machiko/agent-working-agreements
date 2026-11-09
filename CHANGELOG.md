@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-09
+
+### Added
+
+- 新增 團隊策略預設方案：`.agreements.json` 的 `preset`（`smart`、`full`、`core`）正式生效，專案安裝且未自訂 `--select` 時自動依方案展開預設守則，並更新 `schema/v1.json`
+- 新增 遠端免 Clone 一鍵安裝腳本：`scripts/remote-install.sh`，非 Claude Code 編輯器（Cursor、Copilot、Windsurf、AGENTS.md）可直接透過 `curl | bash` 一行完成部署與 Git hooks 安裝
+
+### Changed
+
+- 更新 README 支援矩陣與安裝指南：新增各 Agent 遠端一鍵安裝指引，並標明 Claude Code（終端即時攔截）與其他編輯器（Git 守門攔截）之防護層次邊界
+- 更新 README 核心差異化分析：新增客觀生態對比表格，釐清本專案三層立體防線與一般 Rules 庫、單點 Hook 工具之定位區隔
+
 ## [1.0.0] - 2026-11-09
 
 ### Added
