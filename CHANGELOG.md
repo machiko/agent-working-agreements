@@ -39,7 +39,7 @@
 - 更新 執行期攔截規則：攔截規則集中到 `scripts/lib/guard-rules.tsv`，有無 `python3` 行為一致；被擋時 Agent 會收到攔截原因；python 比對失敗時改走 bash 比對
 - 更新 `/agreements:doctor` 與 `/agreements:audit`：優先執行 Plugin 內的腳本，不再誤跑專案內同名的其他腳本
 - 更新 `schema/v1.json`：`preset` 標明為保留欄位，目前不生效
-- 更新 README：新增 marketplace 來源衝突（`source doesn't match its extraKnownMarketplaces entry`）疑難排解，修正攔截範圍、按需載入與測試清單的錯誤描述
+- 更新 README：修正攔截範圍、按需載入與測試清單的錯誤描述
 
 ### Fixed
 

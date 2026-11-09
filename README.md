@@ -21,6 +21,23 @@
 
 ---
 
+## 💡 為什麼需要本專案？（核心差異化）
+
+傳統社群的 Prompt / Rules 庫多為「靜態建議」，Agent 在面對長上下文或複雜情境時容易遺忘或繞過；而一般的執行期工具往往僅針對單一環境或僅能攔截少數終端指令，無法防禦架構與代碼地雷。
+
+本專案將「真實事故驅動的工程守則」與「多層主動防禦機制（Hooks + Policy + Schema + CI）」結合，建立完整的 Agent 協作治理防線：
+
+| 比較維度 | 市面一般 Rules / Prompt 收集庫 | 單點執行期 Hook 工具 | 本專案 (`agent-working-agreements`) |
+| :--- | :--- | :--- | :--- |
+| **防護縱深** | 僅提示詞層（被動建議） | 僅終端 Hook（單點阻擋） | **三層立體防線**：提示詞守則 ＋ 執行期 Hook ＋ CI 閘門 |
+| **跨 Agent 支援** | 需手動各自維護與複製 | 通常綁定單一工具環境 | **單一源頭編譯**：Claude Code、Cursor、Copilot、Windsurf、AGENTS.md 一鍵同步 |
+| **工程防禦深度** | 通用最佳實踐，缺乏事故針對性 | 僅過濾少數終端指令（如 rm、push） | **事故驅動守則庫**（針對死鎖、例外吞噬、Mock 污染、租戶隔離等具體事故） |
+| **Context 預算控制** | 缺乏限制，動輒膨脹耗盡 Window | 不涉及 Context | **嚴格預算控制**：Core 守則 < 400 行，其餘依 glob/路徑按需載入 |
+| **團隊治理機制** | 無規範，容易各自為政 | 通常僅為本機或個人設定 | **Policy as Code**：支援 `.agreements.json`、JSON Schema v1 與不可繞過防線 |
+| **體檢與防漂移** | 無檢驗機制，守則被改被刪無人知曉 | 僅單次狀態回報 | **自動化體檢修復**：`doctor.sh` 評分修復，CI `--check-drift` 阻擋 PR 漂移 |
+
+---
+
 ## 🚀 跨 Agent 支援矩陣與安裝指南
 
 | 支援等級 | 工具環境 | 支援特性 | 安裝方式 |
@@ -52,12 +69,6 @@
 > [!TIP]
 > 執行 `/agreements:setup` 時，Claude Code 會自動在目前專案背景執行技術棧特徵掃描，並在交談中呈現「⚡ 智慧專案推薦」方案，一鍵即完成安裝！
 
-#### 疑難排解：`source doesn't match its extraKnownMarketplaces entry`
-
-執行 `/plugin marketplace add machiko/agent-working-agreements` 時出現這個錯誤，代表 `~/.claude/settings.json`（或組織的 managed settings）的 `extraKnownMarketplaces` 已經用**同一個名稱** `agent-working-agreements` 登記了別的來源，常見於曾經用本機目錄（`"source": "directory"`）開發或試裝過。二擇一：
-
-- **沿用已登記的來源**：不用再 `add`，直接 `/plugin install agreements@agent-working-agreements`。
-- **改用 GitHub 發行版**：把那筆 entry 改成 `{"source": {"source": "github", "repo": "machiko/agent-working-agreements"}}`，再執行 `/plugin marketplace remove agent-working-agreements` 與 `/plugin marketplace add machiko/agent-working-agreements`。
 
 ---
 
