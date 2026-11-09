@@ -4,6 +4,30 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-09
+
+### Added
+
+- 新增 團隊策略檔規範（Team Policy as Code）：支援專案根目錄 `.agreements.json` / `.agreementsrc` 與 `schema/v1.json`，鎖定團隊必備守則（`enforce_rules`），支援 Monorepo 階層向上繼承與一鍵導出（`doctor.sh --init-policy`）
+- 新增 執行期主動防護網（Active Runtime Hooks）：透過 Claude Code `PreToolUse` 與 Git `pre-push`/`pre-commit` 通用 Hook，在 Agent 執行 `push --force`、未授權 `reset --hard`、`git clean -f`、`rm -rf /` 或外傳 `.env` 時即時攔截，集中管理於 `scripts/lib/guard-rules.tsv`
+- 新增 守則安全防篡改機制：團隊策略支援 `prohibit_disable_hooks: true`，強制忽略環境變數繞過開關（`AGREEMENTS_HOOKS_DISABLE`），確保 CI 與本地安全防線不可被 Agent 自行解除
+- 新增 Profile Schema v1 與規格化遷移：`.agreements-profile` 升級為 Schema v1，記錄安裝版本、規則 SHA256 雜湊與策略來源，支援舊版平滑升級
+- 新增 CI 守則防漂移檢驗（Anti-Drift）：`scripts/doctor.sh --check-drift` 於 CI 流程嚴格檢驗守查完整性與團隊強制守則安裝狀態，遭竄改或遺失直接阻擋 PR
+- 新增 Schema 一致性自動化 CI 檢查：`scripts/check-schema.sh` 比對 `schema/v1.json` 的守則清單與規則庫，並驗證策略檔範本與 `--init-policy` 產出，納入 CI
+- 新增 AI 與 LLM 應用地雷守則：`rules/ai/pitfalls.md`，防範 SDK 呼叫未設逾時、Prompt 注入、PII 洩漏、串流未監聽 Client Abort 與 Token 預算擊穿
+- 新增 一鍵更新機制：`scripts/install.sh --update` 與 `/agreements:setup`，自動沿用既有 profile 無須重新問答
+
+### Changed
+
+- 更新 `/agreements:setup` 引導流程：重構為方案驅動（Preset-Driven）體驗，支援智慧專案推薦、維持現狀更新、完整防禦套裝與極簡核心守則一鍵安裝
+- 更新 命中守則顯式提示機制：規範 Agent 於觸發防禦或協作動作時，以 `🛡️ 命中守則：[類別/名稱]` 單行徽章標註，提升防護透明度
+- 更新 跨編輯器與通用 Git Hook 相容性：相容 husky、worktree 與 `core.hooksPath`，已存在 hook 自動備份並串接執行
+
+### Fixed
+
+- 修復 執行期攔截規則漏洞與誤判：補齊 `rm -fr /`、`git push -uf`、`bash -c`、子 shell 包裝攔截，並修正 `--force-with-lease` 與 `git clean -n` 誤擋
+- 修復 跨平台相容性：支援 macOS（BSD）與 Linux（GNU）雙平台 `stat`、`date`、`shasum`/`sha256sum` 與無 `python3` 環境之 bash fallback
+
 ## [1.0.0-rc.3] - 2026-11-08
 
 ### Added
