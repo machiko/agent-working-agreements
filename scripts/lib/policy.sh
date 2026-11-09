@@ -36,6 +36,31 @@ aw_find_policy() {
   return 1
 }
 
+# aw_policy_preset <策略檔>：印出 preset 值（smart、full、core 之一），無或非合法值則回傳空字串
+aw_policy_preset() {
+  local pfile="$1"
+  [ -f "$pfile" ] || return 0
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$pfile" <<'PY'
+import json, sys
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as f:
+        d = json.load(f)
+except Exception:
+    sys.exit(0)
+preset = d.get("preset", "") if isinstance(d, dict) else ""
+if preset in ("smart", "full", "core"):
+    print(preset)
+PY
+  else
+    local val
+    val="$(sed -n 's/.*"preset"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p;q' "$pfile")"
+    case "$val" in
+      smart|full|core) echo "$val" ;;
+    esac
+  fi
+}
+
 # aw_policy_enforce_rules <策略檔>：每行印一個 enforce_rules 的規則 id
 aw_policy_enforce_rules() {
   local pfile="$1"

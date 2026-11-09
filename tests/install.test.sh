@@ -504,6 +504,31 @@ EOF
 check "Monorepo 子目錄向上找到根目錄策略檔並安裝 tenant-isolation" '[ -f "$T_MONO/packages/backend/security/tenant-isolation.md" ]'
 check "Monorepo 子目錄 profile 記錄根目錄 policy" 'grep -q "^policy=.agreements.json" "$T_MONO/packages/backend/.agreements-profile"'
 
+# 策略檔 preset=full 與 preset=smart 測試
+T_PRESET_FULL="$TMP/preset-full-fixture"
+mkdir -p "$T_PRESET_FULL"
+cat <<'EOF' > "$T_PRESET_FULL/.agreements.json"
+{
+  "preset": "full",
+  "enforce_rules": ["security/tenant-isolation"]
+}
+EOF
+"$INSTALL" --target "$T_PRESET_FULL" > /dev/null
+check "preset=full 自動安裝所有 optional 規則 (例如 database/pitfalls)" '[ -f "$T_PRESET_FULL/database/pitfalls.md" ]'
+check "preset=full 包含 frontend/pitfalls" '[ -f "$T_PRESET_FULL/frontend/pitfalls.md" ]'
+check "preset=full 包含 enforce_rules" '[ -f "$T_PRESET_FULL/security/tenant-isolation.md" ]'
+
+T_PRESET_SMART="$TMP/preset-smart-fixture"
+mkdir -p "$T_PRESET_SMART"
+echo '{"dependencies": {"react": "^18.0.0"}}' > "$T_PRESET_SMART/package.json"
+cat <<'EOF' > "$T_PRESET_SMART/.agreements.json"
+{
+  "preset": "smart"
+}
+EOF
+"$INSTALL" --target "$T_PRESET_SMART" > /dev/null
+check "preset=smart 依專案特徵自動安裝 frontend/pitfalls" '[ -f "$T_PRESET_SMART/frontend/pitfalls.md" ]'
+
 # 首次安裝到還不存在的目錄：仍要找到上層的策略檔
 T_FRESH="$TMP/fresh-proj"
 mkdir -p "$T_FRESH"

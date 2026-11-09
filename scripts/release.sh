@@ -39,6 +39,8 @@ bash "$ROOT/scripts/check-budget.sh" >/dev/null || die "check-budget.sh 未通�
 bash "$ROOT/scripts/sanitize-check.sh" >/dev/null || die "sanitize-check.sh 未通過"
 bash "$ROOT/tests/check-version.test.sh" >/dev/null || die "check-version.test.sh 未通過"
 bash "$ROOT/tests/install.test.sh" >/dev/null || die "install.test.sh 未通過"
+bash "$ROOT/tests/remote-install.test.sh" >/dev/null || die "remote-install.test.sh 未通過"
+bash "$ROOT/tests/policy.test.sh" >/dev/null || die "policy.test.sh 未通過"
 bash "$ROOT/tests/hook-guard.test.sh" >/dev/null || die "hook-guard.test.sh 未通過"
 bash "$ROOT/tests/audit.test.sh" >/dev/null || die "audit.test.sh 未通過"
 bash "$ROOT/tests/doctor.test.sh" >/dev/null || die "doctor.test.sh 未通過"
