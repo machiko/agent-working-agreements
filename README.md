@@ -40,14 +40,19 @@
 
 ## 🚀 跨 Agent 支援矩陣與安裝指南
 
-| 支援等級 | 工具環境 | 支援特性 | 安裝方式 |
-|---------|---------|---------|---------|
-| **Tier 1 (原生全功能)** | **Claude Code** | 完整 Skills、PreToolUse 即時指令阻擋 Hooks、單層問答配置、體檢與自省 | `/plugin install agreements@agent-working-agreements` |
-| **Tier 2 (深度適配)** | **Cursor IDE** | 原生 `.cursor/rules/*.mdc`，精準支援 `globs` 按需載入與 `alwaysApply` | `bash scripts/install.sh --cursor .cursor/rules` |
-| **Tier 2 (指令檔案適配)** | **GitHub Copilot** | 原生 `.github/copilot-instructions.md` 區塊插入與乾淨更新 | `bash scripts/install.sh --copilot` |
-| **Tier 2 (規則適配)** | **Windsurf** | 原生 `.windsurfrules` 區塊管理 | `bash scripts/install.sh --windsurf` |
-| **Tier 3 (通用規範輸出)** | **AGENTS.md / Codex / Aider** | 符合通用規範之標記區塊，全語言與各 Agent 皆可載入 | `bash scripts/install.sh --agents-md AGENTS.md` |
-| **通用防護網** | **任何終端與 IDE** | Git `pre-push` 防 Force Push、Git `pre-commit` 敏感憑證外洩攔截 | `bash scripts/hook-guard.sh --install-git-hooks` |
+| 支援等級 | 工具環境 | 防護層級 | 支援特性 | 推薦安裝方式（免手動 Clone） |
+|---|---|---|---|---|
+| **Tier 1 (原生全功能)** | **Claude Code** | 終端即時攔截 ＋ Git 守門 | 完整 Skills、PreToolUse 即時指令阻擋 Hooks、單層問答配置、體檢與自省 | `/plugin marketplace add machiko/agent-working-agreements`<br>`/plugin install agreements@agent-working-agreements` |
+| **Tier 2 (深度適配)** | **Cursor IDE** | Git 守門（Commit/Push） | 原生 `.cursor/rules/*.mdc`，精準支援 `globs` 按需載入與 `alwaysApply` | `curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh \| bash -s -- --cursor .cursor/rules` |
+| **Tier 2 (指令檔案適配)** | **GitHub Copilot** | Git 守門（Commit/Push） | 原生 `.github/copilot-instructions.md` 區塊插入與乾淨更新 | `curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh \| bash -s -- --copilot` |
+| **Tier 2 (規則適配)** | **Windsurf** | Git 守門（Commit/Push） | 原生 `.windsurfrules` 區塊管理 | `curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh \| bash -s -- --windsurf` |
+| **Tier 3 (通用規範輸出)** | **AGENTS.md / Codex / Aider** | Git 守門（Commit/Push） | 符合通用規範之標記區塊，全語言與各 Agent 皆可載入 | `curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh \| bash -s -- --agents-md AGENTS.md` |
+| **通用防護網** | **任何終端與 IDE** | Git 守門（Commit/Push） | Git `pre-push` 防 Force Push、Git `pre-commit` 敏感憑證外洩攔截 | `curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh \| bash -s -- --git-hooks` |
+
+> [!NOTE]
+> **防護層次邊界說明**：
+> - **終端即時攔截（Terminal-Level Interception）**：僅在支援 `PreToolUse` 事件的環境（如 Claude Code）生效，可在 Agent 敲下 `rm -rf /` 或外傳 `.env` 當下立即阻斷指令執行。
+> - **Git 階段守門（Git-Level Gatekeeper）**：在 Cursor、Copilot、Windsurf 與一般終端機中，防線以 Universal Git Hook（`pre-commit` 與 `pre-push`）為核心，確保在提交代碼與推送到遠端時攔截高危破壞與敏感資料外洩。
 
 ---
 
@@ -69,12 +74,35 @@
 > [!TIP]
 > 執行 `/agreements:setup` 時，Claude Code 會自動在目前專案背景執行技術棧特徵掃描，並在交談中呈現「⚡ 智慧專案推薦」方案，一鍵即完成安裝！
 
-
 ---
 
 ### 2. Cursor、Copilot、Windsurf、AGENTS.md 或 CLI 腳本安裝
 
-若使用其他編輯器或想透過本機 Bash 腳本直接部署守則，請先複製本專案：
+#### ⚡ 方式一：遠端一鍵安裝（免 clone，最推薦）
+
+在目標專案根目錄下，依據你的編輯器直接執行一行指令：
+
+```bash
+# 🔹 Cursor IDE (.cursor/rules/*.mdc)
+curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh | bash -s -- --cursor .cursor/rules
+
+# 🔹 GitHub Copilot (.github/copilot-instructions.md)
+curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh | bash -s -- --copilot
+
+# 🔹 Windsurf IDE (.windsurfrules)
+curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh | bash -s -- --windsurf
+
+# 🔹 AGENTS.md / Codex / Aider
+curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh | bash -s -- --agents-md AGENTS.md
+
+# 🔹 安裝通用 Git Hooks 防護網 (pre-push / pre-commit)
+curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh | bash -s -- --git-hooks
+```
+*(亦可隨時在尾端加上 `--select frontend/pitfalls,database/pitfalls` 指定特定守則)*
+
+#### 📦 方式二：本機複製（離線開發或進階自訂）
+
+若想在本機保存腳本庫進行自訂或審閱，可先複製本專案：
 
 ```bash
 git clone https://github.com/machiko/agent-working-agreements.git
@@ -206,7 +234,7 @@ scripts/review.sh --staged     # 審查暫存區變更
 }
 ```
 * 執行 `install.sh` 或 `/agreements:setup` 時，會自動向上尋找專案或 Monorepo 根目錄策略檔並鎖定強制守則，避免個人環境設置歧異。搜尋到 git root 為止；不在 git repo 內時不讀家目錄的策略檔。
-* `preset` 為保留欄位，目前不生效；實際強制安裝的守則以 `enforce_rules` 為準。
+* `preset` 支援指定團隊預設安裝方案（`"smart"` 智慧推薦、`"full"` 全套防禦、`"core"` 極簡核心）。當專案安裝且未明確指定 `--select` 時以此方案為基準展開，並自動疊加 `enforce_rules` 強制守則。
 * 若設定 `"prohibit_disable_hooks": true`，將鎖死防護網，強制忽略 `AGREEMENTS_HOOKS_DISABLE=1`，防止 Agent 或腳本繞過安全攔截。
 * 具備完整 JSON Schema（[`schema/v1.json`](schema/v1.json)），在 VS Code 與 Cursor 等現代編輯器中支援全 28 條守則 ID 自動補齊與結構驗證。
 * 可透過 `scripts/doctor.sh --init-policy` 或 `/agreements:doctor init-policy` 一鍵從現有安裝生成標準策略檔。

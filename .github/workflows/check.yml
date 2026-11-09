@@ -32,6 +32,9 @@ jobs:
       - name: 團隊策略檔搜尋與解析測試
         run: bash tests/policy.test.sh
 
+      - name: 遠端免 clone 安裝腳本測試
+        run: bash tests/remote-install.test.sh
+
       - name: 守則體檢與修復測試
         run: bash tests/doctor.test.sh
 

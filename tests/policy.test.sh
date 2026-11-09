@@ -63,6 +63,20 @@ check "沒有 python3 時 true 仍鎖定" 'PATH="$NOPY" aw_policy_prohibits_disa
 check "沒有 python3 時字串 \"false\" 不鎖定" '! PATH="$NOPY" aw_policy_prohibits_disable "$TMP/str.json"'
 check "沒有 python3 時不是 JSON 物件也採安全預設" 'PATH="$NOPY" aw_policy_prohibits_disable "$TMP/arr.json" 2>/dev/null'
 
+echo "▸ aw_policy_preset"
+printf '{ "preset": "full" }' > "$TMP/preset-full.json"
+printf '{ "preset": "core" }' > "$TMP/preset-core.json"
+printf '{ "preset": "smart" }' > "$TMP/preset-smart.json"
+printf '{ "preset": "invalid" }' > "$TMP/preset-bad.json"
+check "full 方案（python3）" '[ "$(aw_policy_preset "$TMP/preset-full.json")" = "full" ]'
+check "core 方案（python3）" '[ "$(aw_policy_preset "$TMP/preset-core.json")" = "core" ]'
+check "smart 方案（python3）" '[ "$(aw_policy_preset "$TMP/preset-smart.json")" = "smart" ]'
+check "非法方案忽略（python3）" '[ -z "$(aw_policy_preset "$TMP/preset-bad.json")" ]'
+check "full 方案（沒有 python3）" '[ "$(PATH="$NOPY" aw_policy_preset "$TMP/preset-full.json")" = "full" ]'
+check "core 方案（沒有 python3）" '[ "$(PATH="$NOPY" aw_policy_preset "$TMP/preset-core.json")" = "core" ]'
+check "smart 方案（沒有 python3）" '[ "$(PATH="$NOPY" aw_policy_preset "$TMP/preset-smart.json")" = "smart" ]'
+check "非法方案忽略（沒有 python3）" '[ -z "$(PATH="$NOPY" aw_policy_preset "$TMP/preset-bad.json")" ]'
+
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}"
 [ "$fail" -eq 0 ]

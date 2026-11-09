@@ -527,13 +527,6 @@ if [ "$mode" = "install" ]; then
   for id in $(all_ids); do
     [ "$(field "$RULES/$id.md" tier)" = "core" ] && desired="$desired$id"$'\n'
   done
-  if [ -n "$select_ids" ]; then
-    for raw_id in $(printf '%s' "$select_ids" | tr ',' ' '); do
-      id="$(alias_id "$raw_id")"
-      [ -f "$RULES/$id.md" ] || die "找不到規則：${raw_id}（用 --list 查看可用 id）"
-      contains "$desired" "$id" || desired="$desired$id"$'\n'
-    done
-  fi
 
   # 團隊策略檔處理
   if [ -n "$policy_file" ]; then
@@ -548,6 +541,43 @@ if [ "$mode" = "install" ]; then
         active_policy="$p"
         break
       fi
+    done
+  fi
+
+  # 若未自訂 --select，且策略檔有指定 preset，依 preset 展開預設規則
+  if [ -z "$select_ids" ] && [ -n "$active_policy" ]; then
+    policy_preset="$(aw_policy_preset "$active_policy")"
+    if [ -n "$policy_preset" ]; then
+      case "$policy_preset" in
+        full)
+          for id in $(all_ids); do
+            [ "$(field "$RULES/$id.md" tier)" != "core" ] && select_ids="${select_ids:+${select_ids},}$id"
+          done
+          echo "📋 依據團隊策略檔（$(basename "$active_policy")）套用方案：full（全套防禦）"
+          ;;
+        smart)
+          target_proj_dir="${target:-${cursor_dir:-${agents_md:-.}}}"
+          [ -f "$target_proj_dir" ] && target_proj_dir="$(dirname "$target_proj_dir")"
+          detected="$("$0" --detect "$target_proj_dir" 2>/dev/null | cut -f1 | tr '\n' ',' | sed 's/,$//' || true)"
+          if [ -n "$detected" ]; then
+            select_ids="$detected"
+            echo "📋 依據團隊策略檔（$(basename "$active_policy")）套用方案：smart（智慧推薦：${detected}）"
+          else
+            echo "📋 依據團隊策略檔（$(basename "$active_policy")）套用方案：smart（智慧推薦：未偵測到特定依賴）"
+          fi
+          ;;
+        core)
+          echo "📋 依據團隊策略檔（$(basename "$active_policy")）套用方案：core（極簡核心）"
+          ;;
+      esac
+    fi
+  fi
+
+  if [ -n "$select_ids" ]; then
+    for raw_id in $(printf '%s' "$select_ids" | tr ',' ' '); do
+      id="$(alias_id "$raw_id")"
+      [ -f "$RULES/$id.md" ] || die "找不到規則：${raw_id}（用 --list 查看可用 id）"
+      contains "$desired" "$id" || desired="$desired$id"$'\n'
     done
   fi
 
