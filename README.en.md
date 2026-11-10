@@ -377,7 +377,7 @@ scripts/install.sh --agents-md AGENTS.md --uninstall
 
 ## 🤝 Contributing and Quality Checks
 
-Issues and PRs sharing new pitfalls you've hit are welcome! Before submitting a rule, read the [rule quality standard](docs/rule-quality.md): every entry needs an incident basis (**Why**, or for pitfall rules **Symptom → Root cause → How**), the frontmatter must list `incidents` (incident sources) and `last_reviewed` (review date), and any real personal data, hosts, or company identifiers must be removed. Entries without an incident basis must be marked `<!-- 慣例 -->` or `<!-- 參考 -->` in the heading.
+Issues and PRs sharing new pitfalls you've hit are welcome! The full flow from incident report to rule PR is in [CONTRIBUTING.en.md](CONTRIBUTING.en.md). With Claude Code, `/agreements:record` can turn a captured incident into an incident report draft, which is only submitted after you confirm it. Before submitting a rule, read the [rule quality standard](docs/rule-quality.md): every entry needs an incident basis (**Why**, or for pitfall rules **Symptom → Root cause → How**), the frontmatter must list `incidents` (incident sources) and `last_reviewed` (review date), and any real personal data, hosts, or company identifiers must be removed. Entries without an incident basis must be marked `<!-- 慣例 -->` or `<!-- 參考 -->` in the heading.
 
 The rule source is written in Traditional Chinese under `rules/`. When you add or change a rule, update the English translation in `i18n/en/rules/` line by line, then run `scripts/check-i18n.sh --stamp en <id>`. If you can't write Chinese, feel free to open an issue or PR in English; the maintainers will help with the Chinese source.
 
@@ -404,6 +404,7 @@ bash tests/eval.test.sh           # Offline tests for the rule eval framework (s
 bash tests/deprecation.test.sh    # Rule deprecation and review-deadline warning tests
 bash tests/check-schema.test.sh   # Rule-to-machine-check linkage tests
 bash tests/i18n.test.sh           # Translation sync check and install.sh --lang tests
+bash tests/incident-draft.test.sh # Incident report draft and sanitization tests
 ```
 
 ---

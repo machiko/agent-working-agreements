@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # sanitize-check.sh — 發布前掃描會公開的檔案，找出識別資訊。
 #
-# 用法：scripts/sanitize-check.sh
+# 用法：scripts/sanitize-check.sh [檔案...]
+#   不帶參數：掃描本 repo 會公開的檔案
+#   帶檔案：只掃這些檔案（例如 incident-draft.sh 產生的事故回報草稿）
 #   AGREEMENTS_DENYLIST=<檔案>  私人禁用詞清單（預設 ~/.claude/agreements-harvest/denylist.txt）
 #
 # 禁用詞清單一行一個 extended regex（不分大小寫），# 開頭為註解。
 # 清單本身含識別資訊，絕不可放進 repo。
 #
-# 結束碼：0 通過；1 有命中。
+# 結束碼：0 通過；1 有命中；2 指定的檔案不存在。
 
 set -euo pipefail
 
@@ -19,10 +21,19 @@ BUILTIN='/Users/[A-Za-z0-9._-]+|/home/[A-Za-z0-9._-]+|(^|[^0-9.])(10\.[0-9]+\.[0
 EMAIL='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 EMAIL_ALLOWED='@users\.noreply\.github\.com$|@example\.(com|org|net)$'
 
+# 指定檔案時先轉成絕對路徑，因為下面會切到 ROOT
+ARGS=""
+for f in "$@"; do
+  [ -f "$f" ] || { echo "✗ 找不到檔案：$f" >&2; exit 2; }
+  ARGS="${ARGS}$(cd "$(dirname "$f")" && pwd)/$(basename "$f")"$'\n'
+done
+
 cd "$ROOT"
 
-# 掃描範圍：會公開的檔案（已追蹤，或未追蹤但沒被 .gitignore 排除）
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+# 掃描範圍：指定的檔案；沒指定時是會公開的檔案（已追蹤，或未追蹤但沒被 .gitignore 排除）
+if [ -n "$ARGS" ]; then
+  FILES="${ARGS%$'\n'}"
+elif git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   FILES="$(git ls-files -co --exclude-standard)"
 else
   FILES="$(find . -type f -not -path './.git/*' -not -path './.claude/PRPs/*' | sed 's#^\./##')"

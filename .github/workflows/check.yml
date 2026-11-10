@@ -71,6 +71,9 @@ jobs:
       - name: 翻譯同步與 --lang 安裝測試
         run: bash tests/i18n.test.sh
 
+      - name: 事故回報草稿與去識別化測試
+        run: bash tests/incident-draft.test.sh
+
       - name: 識別資訊掃描（CI 沒有私人禁用詞清單，只跑內建規則）
         run: scripts/sanitize-check.sh
 

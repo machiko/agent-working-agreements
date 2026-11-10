@@ -8,18 +8,25 @@ body:
       value: |
         感謝你提供真實事故！本 repo 的規則堅持 **規則 → 為什麼（事故佐證）→ 怎麼做** 結構。
         請確保內容已**去識別化**，不含任何專案名、公司、人名、私有 IP 或憑證密鑰。
+        用 Claude Code 的話，`/agreements:record` 記錄事故後可以直接整理成這份回報的草稿。事故怎麼變成守則，見 [CONTRIBUTING.md](https://github.com/machiko/agent-working-agreements/blob/main/CONTRIBUTING.md)。
   - type: dropdown
     id: category
     attributes:
       label: 建議分類
       description: 這條事故最適合歸入哪一個分類？
       options:
-        - "collaboration (協作/Git/驗證/溝通)"
-        - "security (資安/敏感資料/危險操作)"
-        - "writing (寫作/Commit/文件)"
-        - "laravel (Laravel 框架地雷)"
-        - "vue (Vue 3 / 前端地雷)"
-        - "docker (Docker / 容器 / 部署地雷)"
+        - "collaboration (協作：Git、驗證、誠實回報、溝通)"
+        - "security (資安：機敏資料、危險操作、供應鏈、多租戶)"
+        - "writing (寫作：commit、CHANGELOG、文件、用語)"
+        - "testing (測試)"
+        - "frontend (前端)"
+        - "backend (後端框架)"
+        - "api (API 與整合契約)"
+        - "database (資料庫與 ORM)"
+        - "async (佇列、排程、非同步)"
+        - "container (Docker、Kubernetes、部署)"
+        - "cloud (雲端與 IaC)"
+        - "ai (LLM 應用)"
         - "其他新分類"
     validations:
       required: true
