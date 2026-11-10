@@ -355,6 +355,9 @@ check "cursor dry-run 列出 .mdc 檔" 'grep -q "＋ 新增 $OPT_A.mdc" "$TMP/ou
 check "cursor 安裝產出 .mdc 檔" '[ -f "$TC/$FIRST_CORE.mdc" ] && [ -f "$TC/$OPT_A.mdc" ]'
 check "cursor core 檔標記 alwaysApply: true" 'grep -q "^alwaysApply: true$" "$TC/$FIRST_CORE.mdc"'
 check "cursor optional 檔含 globs 與 alwaysApply: false" 'grep -q "^globs:" "$TC/$OPT_A.mdc" && grep -q "^alwaysApply: false$" "$TC/$OPT_A.mdc"'
+fm_items() { awk 'NR == 1 { next } $0 == "---" { exit } /^[ ]+- / { n++ } END { print n + 0 }' "$1"; }
+paths_items() { awk 'NR == 1 { next } $0 == "---" { exit } /^paths:/ { on = 1; next } on && /^[ ]+- / { n++; next } on { on = 0 } END { print n + 0 }' "$1"; }
+check "cursor globs 只含 paths（incidents 等其他清單不混入）" '[ "$(fm_items "$TC/$OPT_A.mdc")" -eq "$(paths_items "$ROOT/rules/$OPT_A.md")" ]'
 check "cursor profile 記錄 format=cursor" 'grep -q "^format=cursor$" "$TC/.agreements-profile"'
 out="$("$INSTALL" --cursor "$TC" --status)"
 check "cursor --status 正常輸出且顯示最新" 'printf "%s" "$out" | grep -q "最新"'

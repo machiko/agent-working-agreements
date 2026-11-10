@@ -14,6 +14,11 @@ paths:
   - "**/api/**"
   - "**/services/**"
   - "**/*client*.*"
+incidents:
+  - "第三方服務變慢且呼叫沒設逾時，後端 Worker 被吃滿"
+  - "連點或 Webhook 重送沒有冪等，重複扣點與重複建立訂單"
+  - "API 欄位改了型別，未更新的 App 與合作方大批解析失敗"
+last_reviewed: 2026-11-10
 ---
 
 # API 與整合契約地雷

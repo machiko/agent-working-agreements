@@ -3,6 +3,10 @@ category: collaboration
 tier: core
 sources:
   - https://newsletter.kentbeck.com/p/augmented-coding-beyond-the-vibes
+incidents:
+  - "為了讓 CI 變綠，把新路由塞進守門測試的例外清單"
+  - "間歇性失敗被重試蓋掉，藏住了 session 回收與 ID 為 0 兩個 bug"
+last_reviewed: 2026-11-10
 ---
 
 # 測試完整性：不為了變綠而改測試
@@ -28,6 +32,6 @@ sources:
 
 **為什麼：** 一個間歇出現 302 的測試，最後查出兩個獨立的根因：file session 的回收機制在整套測試時隨機清掉 session，以及 factory 偶爾產生值為 0 的 ID，被當成「不存在」。加重試只會把這兩個 bug 一起藏起來。
 
-## 結構性變更和行為性變更分開
+## 結構性變更和行為性變更分開 <!-- 慣例 -->
 
 重構（不改行為）和功能修改分成不同的 commit。重構的 commit 不應該需要改任何測試的預期結果。如果需要改，就代表它其實改到了行為。

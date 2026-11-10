@@ -20,6 +20,11 @@ paths:
   - "go.mod"
   - "Cargo.toml"
   - "pom.xml"
+incidents:
+  - "環境變數設成空字串，預設值沒有生效，功能在特定環境悄悄停擺"
+  - "開發依賴洩漏到正式環境的程式路徑，上線後找不到模組"
+  - "大量匯出一次載入全部資料，程序被 OOM Killer 終止"
+last_reviewed: 2026-11-10
 ---
 
 # Web 後端與應用服務地雷
@@ -32,7 +37,7 @@ paths:
 - **根因：** 設定檔使用 `env('KEY', 'default_val')`、Node `process.env.KEY || 'default_val'` 或 Python `os.getenv('KEY', 'default_val')` 時，若 `.env` 或環境變數中定義了 `KEY=`（值為空字串 `""`），系統會認定「該變數存在」並返回空字串，而不是退回預設值。自動化腳本如果以空值填補缺少的 key，會全面覆蓋掉安全預設值。
 - **怎麼做：**
   - 在配置載入層對空字串與未定義做嚴格防護（例如 `process.env.KEY?.trim() || 'default'`，或設定 schema 驗證工具如 Zod / Pydantic）。
-  - `.env.example` 盡量提供真實有效的預設值，維護環境變數的腳本預設帶入範例值而非留空。
+  - `.env.example` 的每個 key 都填可以直接啟動的有效範例值，不留空；維護環境變數的腳本預設帶入範例值。
 
 ## 本機/開發依賴洩漏至正式環境 (Dev-dependencies Leakage)
 

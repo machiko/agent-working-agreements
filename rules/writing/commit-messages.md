@@ -3,6 +3,9 @@ category: writing
 tier: optional
 label: "Commit 格式"
 summary: "commit 訊息用「type: 動詞 敘述」格式，動詞固定用繁中。團隊已有自己的格式就不要選，或裝完再改"
+incidents:
+  - "commit 與 merge 訊息會交給 PM、客戶與稽核單位，用語太重被讀成事故通報"
+last_reviewed: 2026-11-10
 ---
 
 # Commit 訊息
@@ -49,7 +52,7 @@ summary: "commit 訊息用「type: 動詞 敘述」格式，動詞固定用繁�
 
 **怎麼做：** 對話裡分析問題時照實描述沒關係。要寫進會留存或交付的文字時，再換成中性詞。
 
-## 檢查清單
+## 檢查清單 <!-- 參考 -->
 
 - [ ] 第一行符合 `<type>: <動詞> <敘述>`
 - [ ] 目前分支和 type 相符（見 [`../collaboration/git-safety.md`](../collaboration/git-safety.md)）

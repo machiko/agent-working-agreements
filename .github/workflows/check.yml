@@ -44,6 +44,15 @@ jobs:
       - name: frontmatter 與 core 行數預算
         run: scripts/check-budget.sh
 
+      - name: frontmatter 預算檢查測試
+        run: bash tests/check-budget.test.sh
+
+      - name: 守則內容檢查（結構、空泛用語、重複、長度）
+        run: scripts/lint-rules.sh
+
+      - name: 守則內容檢查測試
+        run: bash tests/lint-rules.test.sh
+
       - name: schema 與規則庫、策略檔範本一致
         run: scripts/check-schema.sh
 

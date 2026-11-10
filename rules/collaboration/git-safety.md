@@ -1,9 +1,16 @@
 ---
 category: collaboration
 tier: core
+incidents:
+  - "沿用舊的分支資訊，把 feat commit 落在別人的 fix 分支上"
+  - "從錯的基底切 fix 分支，舊版 release 夾帶了另一條線的功能"
+  - "並行 session 共用 worktree，commit 落到別人的分支"
+last_reviewed: 2026-11-10
 ---
 
 # Git 安全：分支、暫存區、並行 session
+
+> 不可逆的 git 操作（force push、`reset --hard`、刪分支、改寫已 push 的歷史）要逐次確認，見 [`../security/dangerous-operations.md`](../security/dangerous-operations.md)。
 
 ## commit 前重新確認目前分支
 
@@ -46,7 +53,3 @@ tier: core
 - **防止並行資源碰撞**：多個 session 同時建立資料庫 migration 時，容易在不同 worktree 產生相同秒數前綴的檔名；merge 前檢查是否有 timestamp 衝突。並行的 local 服務（如 Docker container、Vite dev server）配置獨立 port，不要共用相同本機狀態。
 - 移除 worktree 用 `git worktree remove`，不要 `rm -rf`。有初始化過 submodule 的 worktree，git 不加 `--force` 一律拒絕。先確認 `git status` 乾淨、submodule 內也沒有未提交的改動，再加 `--force`。
 - 無法隔離時，開工前先跑 `git status` 和 `git branch --show-current`；commit 後立刻用 `git log --oneline <branch>` 確認 commit 落在自己的分支。
-
-## 不可逆的操作先確認
-
-`push --force`、`reset --hard`、刪分支、改寫已 push 的歷史，都要先取得使用者同意。同意只對當下那一件事有效，不會延伸到下一次。

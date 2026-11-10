@@ -371,11 +371,12 @@ scripts/install.sh --agents-md AGENTS.md --uninstall
 
 ## 🤝 參與貢獻與品質驗證
 
-歡迎提交 Issue 與 PR 分享您踩過的新地雷！提交守則時請務必維持 **規則 → 為什麼（事故）→ 怎麼做** 的完整結構，並去除任何真實個資、主機或企業標識。
+歡迎提交 Issue 與 PR 分享您踩過的新地雷！提交守則前請先讀 [守則品質標準](docs/rule-quality.md)：每個條目要有事故依據（**為什麼**，或地雷類的**症狀 → 根因 → 怎麼做**），frontmatter 要列 `incidents`（事故來源）與 `last_reviewed`（審查日期），並去除任何真實個資、主機或企業標識。沒有事故依據的條目要在標題標 `<!-- 慣例 -->` 或 `<!-- 參考 -->`。
 
 本專案在 CI 中執行嚴格的自動化驗證：
 ```bash
-scripts/check-budget.sh      # 嚴格驗證 Core 守則行數小於 400 行
+scripts/check-budget.sh      # frontmatter（含 incidents、last_reviewed）與 Core 守則行數小於 400 行
+scripts/lint-rules.sh        # 守則內容：條目結構、空泛用語、標題重複、條目長度
 scripts/sanitize-check.sh    # 機敏字串、私有 IP、金鑰與去識別化掃描
 scripts/check-version.sh     # 跨檔案版號一致性檢查
 scripts/check-schema.sh      # schema/v1.json 與規則庫、策略檔範本一致
@@ -386,6 +387,8 @@ bash tests/policy.test.sh    # 團隊策略檔搜尋與解析測試
 bash tests/doctor.test.sh    # 守則體檢與自動修復測試
 bash tests/review.test.sh    # Agent 自省審核測試
 bash tests/check-version.test.sh  # 版號檢查腳本測試
+bash tests/check-budget.test.sh   # frontmatter 預算檢查測試
+bash tests/lint-rules.test.sh     # 守則內容檢查測試
 ```
 
 ---

@@ -15,6 +15,11 @@ paths:
   - "**/langchain*"
   - "**/openai*"
   - "**/anthropic*"
+incidents:
+  - "LLM API 延遲或 429 時沒設逾時，Web Server 工作執行緒被卡死"
+  - "使用者用 Prompt 注入套出內部 System Prompt"
+  - "對話內容未去識別化就寫進向量庫，RAG 召回他人個資"
+last_reviewed: 2026-11-10
 ---
 
 # AI 與 LLM 應用地雷
