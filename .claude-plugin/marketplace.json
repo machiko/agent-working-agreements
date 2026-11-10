@@ -11,7 +11,7 @@
       "name": "agreements",
       "source": "./",
       "description": "Incident-backed working agreements for AI coding agents. Pick the rules you want with a short Q&A, re-run any time to adjust.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "license": "MIT",
       "category": "workflow"
     }
