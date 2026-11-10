@@ -8,6 +8,8 @@ sources:
 incidents:
   - "2025 年 Replit 事件：agent 在程式碼凍結期間刪除正式資料庫"
 last_reviewed: 2026-11-10
+enforced_by:
+  - guard:dangerous-operations
 ---
 
 # 危險操作與憑證

@@ -266,6 +266,26 @@ else
   info_item "未偵測到 .agreements-profile，略過版本比對"
 fi
 
+# 2b. 已安裝守則的生命週期：已淘汰（扣分）、超過審查期限（只提示）
+REVIEW_MAX_YEARS="${AGREEMENTS_REVIEW_MAX_YEARS:-1}"
+if [ -n "$installed_profile" ]; then
+  cutoff=$(( $(date +%Y%m%d) - REVIEW_MAX_YEARS * 10000 ))
+  for rid in $(sed -n 's/^file=\([^ ]*\) .*/\1/p' "$installed_profile"); do
+    src="$ROOT/rules/$rid.md"
+    [ -f "$src" ] || continue
+    fm="$(awk 'NR == 1 && $0 != "---" { exit } NR > 1 && $0 == "---" { exit } NR > 1 { print }' "$src")"
+    if printf '%s\n' "$fm" | grep -q '^deprecated:'; then
+      reason="$(printf '%s\n' "$fm" | sed -n 's/^deprecated:[ ]*//p' | sed -e 's/^"//' -e 's/"$//')"
+      replaced="$(printf '%s\n' "$fm" | sed -n 's/^replaced_by:[ ]*//p' | sed -e 's/^"//' -e 's/"$//')"
+      warn_item "守則 ${rid} 已淘汰：${reason}${replaced:+；改用 ${replaced}}（重新執行 setup 調整選擇）" 5
+    fi
+    reviewed="$(printf '%s\n' "$fm" | sed -n 's/^last_reviewed:[ ]*//p')"
+    if printf '%s' "$reviewed" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' && [ "$(printf '%s' "$reviewed" | tr -d '-')" -lt "$cutoff" ]; then
+      info_item "守則 ${rid} 上次審查是 ${reviewed}，超過 ${REVIEW_MAX_YEARS} 年未審查，內容可能過時"
+    fi
+  done
+fi
+
 # 3. 核心守門完整度 (Core Invariants)
 core_count="$(find "$ROOT/rules" -type f -name "*.md" -exec grep -l "^tier: core" {} + | wc -l | tr -d ' ')"
 pass_item "已具備完整核心守則庫 (${core_count} 條核心不變守則)"

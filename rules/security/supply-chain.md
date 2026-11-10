@@ -27,6 +27,8 @@ incidents:
   - "改了依賴卻沒同步 lock 檔，部署時拉到破壞性更新"
   - "私有 Token 殘留在映像歷史層，推送後被掃出"
 last_reviewed: 2026-11-10
+enforced_by:
+  - audit:wildcard-permissions
 ---
 
 # 供應鏈安全與依賴地雷

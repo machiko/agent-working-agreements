@@ -7,6 +7,8 @@ incidents:
   - "為了讓 CI 變綠，把新路由塞進守門測試的例外清單"
   - "間歇性失敗被重試蓋掉，藏住了 session 回收與 ID 為 0 兩個 bug"
 last_reviewed: 2026-11-10
+enforced_by:
+  - audit:assertions-removed
 ---
 
 # 測試完整性：不為了變綠而改測試

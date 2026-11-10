@@ -8,6 +8,8 @@ incidents:
   - "commit hook 只檢查主工作區，另一個 worktree 的改動被當成測試通過"
   - "測試指令後接管線吃掉結束碼，失敗也回報 0"
 last_reviewed: 2026-11-10
+enforced_by:
+  - audit:debug-statements
 ---
 
 # 驗證迴圈：完成要有證據

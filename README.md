@@ -377,11 +377,11 @@ scripts/install.sh --agents-md AGENTS.md --uninstall
 
 本專案在 CI 中執行嚴格的自動化驗證：
 ```bash
-scripts/check-budget.sh      # frontmatter（含 incidents、last_reviewed）與 Core 守則行數小於 400 行
+scripts/check-budget.sh      # frontmatter（含 incidents、last_reviewed、deprecated）與 Core 守則行數小於 400 行
 scripts/lint-rules.sh        # 守則內容：條目結構、空泛用語、標題重複、條目長度
 scripts/sanitize-check.sh    # 機敏字串、私有 IP、金鑰與去識別化掃描
 scripts/check-version.sh     # 跨檔案版號一致性檢查
-scripts/check-schema.sh      # schema/v1.json 與規則庫、策略檔範本一致
+scripts/check-schema.sh      # schema/v1.json 與規則庫、策略檔範本一致；守則 enforced_by 與 audit／guard 檢查對得上
 bash tests/install.test.sh   # 多 Agent 安裝與還原完整測試
 bash tests/audit.test.sh     # 主動防線攔截行為測試
 bash tests/hook-guard.test.sh  # 執行期攔截（python3 與 bash 兩種模式）與 Git hook 安裝測試
@@ -392,6 +392,8 @@ bash tests/check-version.test.sh  # 版號檢查腳本測試
 bash tests/check-budget.test.sh   # frontmatter 預算檢查測試
 bash tests/lint-rules.test.sh     # 守則內容檢查測試
 bash tests/eval.test.sh           # 守則評測框架離線測試（情境判定、執行器、報表）
+bash tests/deprecation.test.sh    # 守則淘汰與審查期限提示測試
+bash tests/check-schema.test.sh   # 守則與機器檢查連動測試
 ```
 
 ---

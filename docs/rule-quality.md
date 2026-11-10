@@ -6,6 +6,8 @@
 |------|------|---------|
 | frontmatter 欄位、core 行數預算 | `scripts/check-budget.sh` | 1、6 |
 | 條目結構、空泛用語、標題重複、條目長度 | `scripts/lint-rules.sh` | 2、3、4、5 |
+| 淘汰欄位 | `scripts/check-budget.sh` | 7 |
+| 守則與機器檢查連動 | `scripts/check-schema.sh` | 8 |
 
 其餘（根因是否說明機制、「怎麼做」是否真的可行）靠審查判斷。
 
@@ -75,3 +77,33 @@ commit 前要注意分支是否正確，盡量避免提交到錯誤的分支。
 ## 6. 常駐預算
 
 `tier: core` 的本文總行數不超過 400 行。新增 core 條目前，先確認它是不是每個 session 都需要；只跟特定檔案有關的，改成 optional 並設 `paths`。
+
+## 7. 淘汰守則
+
+守則過時或被其他守則取代時，不直接刪檔，先標淘汰，下一個 major 版再移除：
+
+```yaml
+deprecated: "已併入 database/pitfalls"
+replaced_by: database/pitfalls
+```
+
+`deprecated` 寫淘汰原因，不可空白；`replaced_by` 選填，必須是另一條存在且未淘汰的守則，而且只能跟 `deprecated` 一起寫。兩個欄位都不要加行內 `#` 註解，會被當成值的一部分。
+
+- `tier: core` 不可直接淘汰：先改成 optional 並在 CHANGELOG 的 Changed 說明，下一版再淘汰。core 一律安裝，直接淘汰會讓所有安裝者同時失去它。
+- 淘汰後的行為：`install.sh --list` 第 8 欄標 `deprecated`、第 9 欄是替代守則；`--detect` 不推薦、策略檔 `preset: full` 不安裝；`--select` 明確指定時照裝並警告；`doctor.sh` 對已安裝的淘汰守則扣分並提示替代守則。
+- CHANGELOG：標淘汰時寫在 `### Deprecated`，實際刪檔時寫在 `### Removed`，兩者都寫出替代守則。
+- `last_reviewed` 超過 1 年時 `doctor.sh` 會提示（`AGREEMENTS_REVIEW_MAX_YEARS` 可調整年數），提醒依本標準重新審查。
+
+## 8. 守則與機器檢查連動
+
+守則有對應的自動檢查時，在 frontmatter 用 `enforced_by` 列出，讓「文字守則」和「自動攔截」改動時不會脫節：
+
+```yaml
+enforced_by:
+  - audit:empty-catch
+  - guard:git-safety
+```
+
+`audit:<ID>` 對應 `scripts/audit.sh` 裡的 `# @check audit:<ID> <守則 id>`；`guard:<名稱>` 對應 `scripts/lib/guard-rules.tsv` 第 1 欄。只接受區塊清單寫法（每行 `  - `），項目後面不要加註解。
+
+`scripts/check-schema.sh` 雙向驗證：`enforced_by` 列的 ID 必須存在；`audit.sh` 每個 `@check` 都要被標示的守則列入；`guard-rules.tsv` 的每個名稱都要被同名守則列入。新增、改名或刪除檢查時，守則要一起改。
