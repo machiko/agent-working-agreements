@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-10
+
+### Added
+
+- 新增 英文版守則：28 條守則都有逐行對照的英文版（`i18n/en/rules/`），安裝時加 `--lang en` 即可；團隊可在 `.agreements.json` 設 `"lang": "en"` 統一語言
+- 新增 安裝語言記錄：`--update`、`--status` 沿用安裝時的語言，`/agreements:setup` 首次安裝時詢問語言，`doctor.sh --check-drift` 把安裝語言與策略檔不符視為漂移
+- 新增 翻譯同步檢查：`scripts/check-i18n.sh` 擋下中文改了但英文沒跟上、結構不一致或沒有逐行對齊的翻譯，納入 CI
+- 新增 英文版 README（`README.en.md`），與中文 README 互相連結
+
+### Changed
+
+- 守則品質標準新增第 9 節「翻譯」：逐行對照、哪些欄位原樣複製、哪些範例保留中文，以及改完中文後用 `--stamp` 更新雜湊
+
 ## [1.3.0] - 2026-11-10
 
 ### Added
