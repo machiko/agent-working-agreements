@@ -6,6 +6,9 @@ incidents:
   - "從錯的基底切 fix 分支，舊版 release 夾帶了另一條線的功能"
   - "並行 session 共用 worktree，commit 落到別人的分支"
 last_reviewed: 2026-11-10
+enforced_by:
+  - audit:main-branch
+  - guard:git-safety
 ---
 
 # Git 安全：分支、暫存區、並行 session

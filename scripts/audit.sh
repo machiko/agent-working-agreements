@@ -177,6 +177,8 @@ fi
 
 echo "▸ 執行 agent 守則合規稽核 [範圍：${scope_desc}]"
 
+# 每項檢查前的「@check audit:<ID> <守則 id>」是穩定 ID，守則 frontmatter 的 enforced_by 引用它；
+# scripts/check-schema.sh 驗證兩邊一致。改名或刪除檢查時要一併更新守則。
 fails=0
 warns=0
 
@@ -184,6 +186,7 @@ fail() { echo "  ✗ [FAIL] $1" >&2; fails=$((fails + 1)); }
 warn() { echo "  ! [WARN] $1"; warns=$((warns + 1)); }
 pass() { echo "  ✓ [PASS] $1"; }
 
+# @check audit:data-files-staged security/data-files
 # 1. 個資與資料檔案檢查 (rules/security/data-files.md)
 sensitive_files="$(printf '%s\n' "$files" | grep -E '\.(csv|xlsx|sql|env(\..+)?)$|^storage/|^data/' || true)"
 if [ -n "$sensitive_files" ]; then
@@ -193,6 +196,7 @@ else
   pass "無敏感或未審查的資料檔案暫存"
 fi
 
+# @check audit:empty-catch api/pitfalls
 # 2. 靜默吞噬例外檢查 (rules/api/pitfalls.md) — 排除 markdown 文件
 code_files="$(printf '%s\n' "$files" | grep -v -E '\.md$' | grep -E '\.(php|py|js|ts|jsx|tsx|vue|go|java|rb|rs|c|cpp|cs)$' || true)"
 if [ -n "$code_files" ]; then
@@ -221,6 +225,7 @@ else
   pass "未觸及程式碼檔案或無程式碼異動"
 fi
 
+# @check audit:assertions-removed collaboration/test-integrity
 # 3. 測試完整性檢查 (rules/collaboration/test-integrity.md)
 test_files="$(printf '%s\n' "$files" | grep -E 'test|spec' || true)"
 if [ -n "$test_files" ]; then
@@ -236,6 +241,7 @@ else
   pass "未觸及測試檔案或無測試異動"
 fi
 
+# @check audit:dynamic-tailwind-class frontend/pitfalls
 # 4. 動態 Tailwind Class Purge 檢查 (rules/frontend/pitfalls.md)
 front_files="$(printf '%s\n' "$files" | grep -E '\.(vue|jsx|tsx|svelte|html)$' || true)"
 if [ -n "$front_files" ]; then
@@ -250,6 +256,7 @@ else
   pass "無前端 template/樣式變更"
 fi
 
+# @check audit:debug-statements collaboration/verification
 # 5. 除錯語句殘留檢查 (rules/collaboration/verification.md)
 if [ -n "$code_files" ]; then
   debug_diff="$($diff_cmd -- $code_files 2>/dev/null || true)"
@@ -261,6 +268,7 @@ if [ -n "$code_files" ]; then
   fi
 fi
 
+# @check audit:wildcard-permissions security/supply-chain
 # 6. 高危權限與指令檢查 (rules/security/supply-chain.md)
 sec_diff="$($diff_cmd 2>/dev/null || true)"
 high_risk="$(printf '%s\n' "$sec_diff" | grep -E '^\+[^+]' | grep -E '\bchmod\s+777\b|"Action"\s*:\s*"\*"|"Resource"\s*:\s*"\*"' || true)"
@@ -270,6 +278,7 @@ else
   pass "無高危全開放權限變更"
 fi
 
+# @check audit:main-branch collaboration/git-safety
 # 7. Git 分支安全檢查 (rules/collaboration/git-safety.md)
 branch="$(git branch --show-current 2>/dev/null || true)"
 if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then

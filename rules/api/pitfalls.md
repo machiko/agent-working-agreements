@@ -19,6 +19,8 @@ incidents:
   - "連點或 Webhook 重送沒有冪等，重複扣點與重複建立訂單"
   - "API 欄位改了型別，未更新的 App 與合作方大批解析失敗"
 last_reviewed: 2026-11-10
+enforced_by:
+  - audit:empty-catch
 ---
 
 # API 與整合契約地雷

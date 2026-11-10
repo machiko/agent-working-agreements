@@ -4,6 +4,9 @@ tier: core
 incidents:
   - ".gitignore 只擋單一檔名，含個人資料的測試 CSV 在 squash 後被帶進 commit"
 last_reviewed: 2026-11-10
+enforced_by:
+  - audit:data-files-staged
+  - guard:data-files
 ---
 
 # 個資與機敏檔案不進版控

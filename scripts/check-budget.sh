@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # check-budget.sh — 驗證規則檔 frontmatter，並檢查常駐（tier: core）規則的本文總行數。
 # frontmatter 必填：category（與目錄一致）、tier、incidents（至少一項）、last_reviewed（YYYY-MM-DD）。
+# 淘汰守則：deprecated 要寫原因、不可是 core；replaced_by（選填）要指向存在的守則。
 # 欄位定義見 docs/rule-quality.md。
 #
 # 用法：scripts/check-budget.sh [--quiet]
@@ -28,6 +29,12 @@ list_count() {
     on && /^[ ]+- / { n++; next }
     on { on = 0 }
     END { print n + 0 }' "$1"
+}
+
+# has_key <檔案> <欄位>：frontmatter 有這個欄位（值可以是空的）就回傳 0
+has_key() {
+  awk -v key="$2" 'NR == 1 && $0 != "---" { exit 1 } NR > 1 && $0 == "---" { exit 1 }
+    NR > 1 && index($0, key ":") == 1 { found = 1; exit } END { exit !found }' "$1"
 }
 
 # 讀出單一 frontmatter 欄位的值（只支援 `key: value` 單行格式）
@@ -72,6 +79,30 @@ while IFS= read -r file; do
   elif ! printf '%s' "$reviewed" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
     echo "✗ ${rel}：last_reviewed「${reviewed}」格式要是 YYYY-MM-DD" >&2
     errors=$((errors + 1))
+  fi
+
+  if has_key "$file" deprecated; then
+    if [ -z "$(field "$file" deprecated | sed -e 's/^"//' -e 's/"$//')" ]; then
+      echo "✗ ${rel}：deprecated 要寫淘汰原因" >&2
+      errors=$((errors + 1))
+    fi
+    if [ "$tier" = "core" ]; then
+      echo "✗ ${rel}：core 守則不可直接淘汰，先改成 optional（常駐守則淘汰會讓所有安裝者失去它）" >&2
+      errors=$((errors + 1))
+    fi
+  fi
+  replaced="$(field "$file" replaced_by | sed -e 's/^"//' -e 's/"$//')"
+  if [ -n "$replaced" ]; then
+    if ! has_key "$file" deprecated; then
+      echo "✗ ${rel}：replaced_by 只能跟 deprecated 一起寫" >&2
+      errors=$((errors + 1))
+    elif ! printf '%s' "$replaced" | grep -Eq '^[a-z0-9-]+/[a-z0-9-]+$' || [ ! -f "$ROOT/rules/$replaced.md" ]; then
+      echo "✗ ${rel}：replaced_by「${replaced}」不存在" >&2
+      errors=$((errors + 1))
+    elif [ "rules/$replaced.md" = "$rel" ] || has_key "$ROOT/rules/$replaced.md" deprecated; then
+      echo "✗ ${rel}：replaced_by「${replaced}」必須是另一條未淘汰的守則" >&2
+      errors=$((errors + 1))
+    fi
   fi
 
   case "$tier" in

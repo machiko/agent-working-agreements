@@ -35,7 +35,7 @@
 #   --uninstall 只移除 profile 記錄的檔案，不碰目錄內其他檔案
 #   --status    唯讀：依 core／選擇的規則分組列出已安裝規則的標題、載入方式與狀態
 #               （最新、有新版、已手動修改、檔案遺失、來源已移除）；不能搭配其他選項
-#   --list      列出所有規則：id、tier、stack、是否按需載入、本文行數、選項名稱、說明（以 tab 分隔）
+#   --list      列出所有規則：id、tier、stack、是否按需載入、本文行數、選項名稱、說明、是否淘汰（以 tab 分隔）
 #   --detect    自動掃描專案特徵並列出推薦的 optional 規則（以 tab 分隔 id 與推薦原因）
 #
 #   環境變數 AGENTS_MD_MAX_BYTES：AGENTS.md 大小警告門檻（預設 32768，Codex project_doc_max_bytes 預設值）
@@ -171,6 +171,21 @@ version() {
 
 contains() { printf '%s\n' "$1" | grep -Fxq -- "$2"; }
 
+# is_deprecated <id>：frontmatter 有 deprecated 欄位就是已淘汰
+is_deprecated() {
+  awk 'NR == 1 && $0 != "---" { exit 1 } NR > 1 && $0 == "---" { exit 1 } /^deprecated:/ { found = 1; exit } END { exit !found }' "$RULES/$1.md" 2>/dev/null
+}
+
+# deprecation_note <id>：「已淘汰：<原因>；改用 <替代守則>」
+deprecation_note() {
+  local reason replaced
+  reason="$(field "$RULES/$1.md" deprecated | unquote)"
+  replaced="$(field "$RULES/$1.md" replaced_by | unquote)"
+  printf '已淘汰：%s' "${reason:-未說明原因}"
+  [ -n "$replaced" ] && printf '；改用 %s' "$replaced"
+  return 0
+}
+
 # frontmatter 的 paths 清單，以「, 」串起來
 paths_of() {
   awk 'NR == 1 && $0 != "---" { exit } NR > 1 && $0 == "---" { exit }
@@ -276,7 +291,9 @@ if [ "$mode" = "list" ]; then
     scoped="always"; has_paths "$f" && scoped="on-demand"
     label="$(field "$f" label | unquote)"
     summary="$(field "$f" summary | unquote)"
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$(field "$f" tier)" "${stack:--}" "$scoped" "$(body_lines "$f")" "${label:-$(title "$f")}" "${summary:--}"
+    dep="-"; repl="-"
+    if is_deprecated "$id"; then dep="deprecated"; repl="$(field "$f" replaced_by | unquote)"; repl="${repl:--}"; fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$(field "$f" tier)" "${stack:--}" "$scoped" "$(body_lines "$f")" "${label:-$(title "$f")}" "${summary:--}" "$dep" "$repl"
   done
   exit 0
 fi
@@ -299,6 +316,7 @@ if [ "$mode" = "detect" ]; then
   dir="${detect_dir:-.}"
   case "$dir" in "~"/*) dir="$HOME/${dir#\~/}" ;; esac
   [ -d "$dir" ] || die "目錄不存在：$dir"
+  {
 
   # 1. 資料庫特徵
   if [ -d "$dir/migrations" ] || [ -d "$dir/migration" ] || [ -d "$dir/prisma" ] || [ -d "$dir/alembic" ] || [ -d "$dir/db/migrate" ] || [ -d "$dir/schema" ] || [ -f "$dir/schema.prisma" ] || [ -f "$dir/alembic.ini" ] || find "$dir" -maxdepth 2 -type f -name '*.sql' 2>/dev/null | grep -q .; then
@@ -348,6 +366,10 @@ if [ "$mode" = "detect" ]; then
     || { [ -f "$dir/go.mod" ] && grep -qiE '(sashabaranov/go-openai|tmc/langchaingo)' "$dir/go.mod" 2>/dev/null; }; then
     printf 'ai/pitfalls\t偵測到 AI / LLM 或向量資料庫依賴與模組\n'
   fi
+  } | while IFS=$'\t' read -r did dreason; do
+    # 已淘汰的守則不推薦
+    is_deprecated "$did" || printf '%s\t%s\n' "$did" "$dreason"
+  done
 
   exit 0
 fi
@@ -551,7 +573,7 @@ if [ "$mode" = "install" ]; then
       case "$policy_preset" in
         full)
           for id in $(all_ids); do
-            [ "$(field "$RULES/$id.md" tier)" != "core" ] && select_ids="${select_ids:+${select_ids},}$id"
+            [ "$(field "$RULES/$id.md" tier)" != "core" ] && ! is_deprecated "$id" && select_ids="${select_ids:+${select_ids},}$id"
           done
           echo "📋 依據團隊策略檔（$(basename "$active_policy")）套用方案：full（全套防禦）"
           ;;
@@ -577,6 +599,7 @@ if [ "$mode" = "install" ]; then
     for raw_id in $(printf '%s' "$select_ids" | tr ',' ' '); do
       id="$(alias_id "$raw_id")"
       [ -f "$RULES/$id.md" ] || die "找不到規則：${raw_id}（用 --list 查看可用 id）"
+      is_deprecated "$id" && echo "⚠️ 守則 ${id} $(deprecation_note "$id")" >&2
       contains "$desired" "$id" || desired="$desired$id"$'\n'
     done
   fi

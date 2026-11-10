@@ -56,8 +56,14 @@ jobs:
       - name: 守則評測框架離線測試（不呼叫 API）
         run: bash tests/eval.test.sh
 
+      - name: 守則淘汰與審查期限測試
+        run: bash tests/deprecation.test.sh
+
       - name: schema 與規則庫、策略檔範本一致
         run: scripts/check-schema.sh
+
+      - name: 守則與機器檢查連動測試
+        run: bash tests/check-schema.test.sh
 
       - name: 識別資訊掃描（CI 沒有私人禁用詞清單，只跑內建規則）
         run: scripts/sanitize-check.sh
