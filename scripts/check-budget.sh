@@ -1,20 +1,34 @@
 #!/usr/bin/env bash
 # check-budget.sh — 驗證規則檔 frontmatter，並檢查常駐（tier: core）規則的本文總行數。
+# frontmatter 必填：category（與目錄一致）、tier、incidents（至少一項）、last_reviewed（YYYY-MM-DD）。
+# 欄位定義見 docs/rule-quality.md。
 #
 # 用法：scripts/check-budget.sh [--quiet]
 #   BUDGET=400  常駐行數上限（預設 400）
+#   ROOT=<目錄>  改檢查其他目錄的 rules/（測試用）
 #
 # 結束碼：0 通過；1 frontmatter 不合格或超出預算。
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="${ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 BUDGET="${BUDGET:-400}"
 QUIET="${1:-}"
 
 errors=0
 core_total=0
 optional_total=0
+
+# frontmatter 清單欄位的項目數（`key:` 之後連續的 `  - ` 行）
+list_count() {
+  awk -v key="$2" '
+    NR == 1 && $0 != "---" { exit }
+    NR > 1 && $0 == "---" { exit }
+    NR > 1 && $0 == key ":" { on = 1; next }
+    on && /^[ ]+- / { n++; next }
+    on { on = 0 }
+    END { print n + 0 }' "$1"
+}
 
 # 讀出單一 frontmatter 欄位的值（只支援 `key: value` 單行格式）
 field() {
@@ -43,6 +57,20 @@ while IFS= read -r file; do
 
   if [ "$category" != "$dir_category" ]; then
     echo "✗ ${rel}：category「${category}」與所在目錄「${dir_category}」不一致" >&2
+    errors=$((errors + 1))
+  fi
+
+  if [ "$(list_count "$file" incidents)" -eq 0 ]; then
+    echo "✗ ${rel}：缺少 incidents（至少列一項事故來源）" >&2
+    errors=$((errors + 1))
+  fi
+
+  reviewed="$(field "$file" last_reviewed)"
+  if [ -z "$reviewed" ]; then
+    echo "✗ ${rel}：缺少 last_reviewed" >&2
+    errors=$((errors + 1))
+  elif ! printf '%s' "$reviewed" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+    echo "✗ ${rel}：last_reviewed「${reviewed}」格式要是 YYYY-MM-DD" >&2
     errors=$((errors + 1))
   fi
 

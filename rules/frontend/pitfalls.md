@@ -14,6 +14,11 @@ paths:
   - "next.config.*"
   - "nuxt.config.*"
   - "svelte.config.*"
+incidents:
+  - "動態拼接的 Tailwind class 在正式建置時被 purge，樣式全部消失"
+  - "SSR 或預渲染時存取 window，建置失敗"
+  - "組件卸載時沒清掉全域監聽與 Timer，記憶體飆高、handler 重複觸發"
+last_reviewed: 2026-11-10
 ---
 
 # 現代前端與組件化地雷

@@ -1,6 +1,9 @@
 ---
 category: writing
 tier: core
+incidents:
+  - "非英文測試方法名在工具、CI 報表與終端機顯示出問題，同一天被糾正兩次"
+last_reviewed: 2026-11-10
 ---
 
 # 測試命名
@@ -18,6 +21,6 @@ public function test_batch_fetch_returns_422_when_type_does_not_support_batch():
 
 **為什麼：** 同一天被糾正兩次。非英文方法名在部分工具、CI 報表、終端機的顯示會出問題，也會讓新的測試延續舊的寫法。
 
-## 測試結構
+## 測試結構 <!-- 慣例 -->
 
 照 Arrange、Act、Assert 三段寫，每段之間空一行。一個測試只驗證一件行為。

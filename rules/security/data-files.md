@@ -1,6 +1,9 @@
 ---
 category: security
 tier: core
+incidents:
+  - ".gitignore 只擋單一檔名，含個人資料的測試 CSV 在 squash 後被帶進 commit"
+last_reviewed: 2026-11-10
 ---
 
 # 個資與機敏檔案不進版控
@@ -20,7 +23,7 @@ tier: core
 
 repo 只要能被 clone，歷史裡的東西就等於公開了。
 
-## 新增 seed／fixture 資料檔之前
+## 新增 seed／fixture 資料檔之前 <!-- 參考 -->
 
 先 grep 確認全是假資料：
 
@@ -31,7 +34,7 @@ grep -nE '[A-Z][12][0-9]{8}' <file>                       # 台灣身分證字�
 grep -nE '\$2[aby]\$' <file>                              # bcrypt 雜湊
 ```
 
-## 清查現有 repo
+## 清查現有 repo <!-- 參考 -->
 
 ```bash
 git ls-files | grep -Ei '\.(csv|xlsx|docx|sql)$'

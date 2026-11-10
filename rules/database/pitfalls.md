@@ -13,6 +13,11 @@ paths:
   - "**/models/**"
   - "**/prisma/**"
   - "**/alembic/**"
+incidents:
+  - "migration 中途失敗後重跑報錯，部署流程卡死"
+  - "大表直接加欄位觸發排他鎖，正式環境 API 全面逾時"
+  - "金額用浮點數計算，對帳出現大量小額差異"
+last_reviewed: 2026-11-10
 ---
 
 # 資料庫與 ORM 地雷

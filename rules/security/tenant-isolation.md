@@ -3,6 +3,10 @@ category: security
 tier: optional
 label: "多租戶與匯出資料隔離"
 summary: "防範 BOLA / IDOR 授權漏洞：列表、統計報表與非同步匯出必須強制過濾租戶/用戶範圍，背景任務必須顯式傳遞授權上下文"
+incidents:
+  - "報表與匯出功能漏套租戶範圍，可讀到其他租戶資料（BOLA／IDOR）"
+  - "背景 Worker 沒有請求上下文，以為能取得目前登入者而越權"
+last_reviewed: 2026-11-10
 ---
 
 # 多租戶與匯出資料權限隔離 (Tenant Isolation & Data Scope)

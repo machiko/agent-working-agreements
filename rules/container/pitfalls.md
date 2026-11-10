@@ -11,6 +11,11 @@ paths:
   - "**/*compose*.yaml"
   - "**/nginx/**"
   - "**/.dockerignore"
+incidents:
+  - "切換分支後容器內設定退回預設值，queue worker 消失"
+  - "Host 端改了程式碼，容器內的開發伺服器沒有熱重載"
+  - "憑證與私鑰被打包進映像，推送到共享 Registry"
+last_reviewed: 2026-11-10
 ---
 
 # 容器與本機虛擬化環境地雷
