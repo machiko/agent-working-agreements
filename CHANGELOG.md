@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-10
+
+### Added
+
+- 新增 守則效果評測：`evals/run.sh` 讓 Agent 在有守則、無守則下各跑同一個任務，自動判定違規並輸出違規率對照表，標出無效守則；以評測專用設定目錄或 `--bare` 隔離個人設定，Agent 在 sandbox 內執行
+- 新增 27 個評測情境：core 守則各 2 個，testing、database、supply-chain、tenant-isolation、sast 各 1 個；情境格式與撰寫方式見 `evals/README.md`
+
 ## [1.1.0] - 2026-11-10
 
 ### Added
