@@ -158,6 +158,12 @@ if [ "$check_drift" -eq 1 ]; then
         exit 1
       fi
     done
+    policy_lang="$(aw_policy_lang "$policy_file")"
+    inst_lang="$(printf '%s\n' "$status_out" | sed -n 's/^守則語言：//p' | head -n 1)"
+    if [ -n "$policy_lang" ] && [ "${inst_lang:-zh-TW}" != "$policy_lang" ]; then
+      echo "  ✗ [DRIFT] 違反團隊策略（$(basename "$policy_file")）：守則語言應為 ${policy_lang}，目前安裝的是 ${inst_lang:-zh-TW}" >&2
+      exit 1
+    fi
     echo "  ✓ 符合團隊策略檔（$(basename "$policy_file")）之全部強制守則要求"
   fi
 

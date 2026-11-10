@@ -61,6 +61,30 @@ PY
   fi
 }
 
+# aw_policy_lang <策略檔>：印出 lang 值（en、zh-TW 之一），無或非合法值則回傳空字串
+aw_policy_lang() {
+  local pfile="$1" val
+  [ -f "$pfile" ] || return 0
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$pfile" <<'PY2'
+import json, sys
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as f:
+        d = json.load(f)
+except Exception:
+    sys.exit(0)
+lang = d.get("lang", "") if isinstance(d, dict) else ""
+if lang in ("en", "zh-TW"):
+    print(lang)
+PY2
+  else
+    val="$({ tr '\n' ' ' < "$pfile"; echo; } | sed -n 's/.*"lang"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+    case "$val" in
+      en|zh-TW) echo "$val" ;;
+    esac
+  fi
+}
+
 # aw_policy_enforce_rules <策略檔>：每行印一個 enforce_rules 的規則 id
 aw_policy_enforce_rules() {
   local pfile="$1"
