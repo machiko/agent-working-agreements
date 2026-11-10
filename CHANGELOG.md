@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-10
+
+### Added
+
+- 新增 貢獻指南（`CONTRIBUTING.md`、`CONTRIBUTING.en.md`）：從事故回報、分類判斷、寫守則、英文版、評測情境到開 PR 的完整流程
+- 新增 PR 範本：新守則要勾選事故來源、英文版、評測情境、去識別化與各項檢查
+- 新增 `/agreements:record` 回報上游：記錄事故後可整理成事故回報 issue 草稿，標題與草稿都做去識別化掃描，使用者看過並明確確認後才送出
+- 新增 `scripts/incident-draft.sh`：把自訂守則轉成事故回報草稿，只產生本機檔案、不會送出；`scripts/sanitize-check.sh` 可掃描指定檔案
+
+### Changed
+
+- 事故回報 issue 範本的分類選單更新為目前的 12 個分類
+
 ## [1.4.0] - 2026-11-10
 
 ### Added
