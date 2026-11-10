@@ -53,6 +53,9 @@ jobs:
       - name: 守則內容檢查測試
         run: bash tests/lint-rules.test.sh
 
+      - name: 守則評測框架離線測試（不呼叫 API）
+        run: bash tests/eval.test.sh
+
       - name: schema 與規則庫、策略檔範本一致
         run: scripts/check-schema.sh
 

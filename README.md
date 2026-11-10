@@ -373,6 +373,8 @@ scripts/install.sh --agents-md AGENTS.md --uninstall
 
 歡迎提交 Issue 與 PR 分享您踩過的新地雷！提交守則前請先讀 [守則品質標準](docs/rule-quality.md)：每個條目要有事故依據（**為什麼**，或地雷類的**症狀 → 根因 → 怎麼做**），frontmatter 要列 `incidents`（事故來源）與 `last_reviewed`（審查日期），並去除任何真實個資、主機或企業標識。沒有事故依據的條目要在標題標 `<!-- 慣例 -->` 或 `<!-- 參考 -->`。
 
+新守則也要附上效果評測情境，證明「裝了守則，Agent 比較不會犯錯」，格式與執行方式見 [`evals/README.md`](evals/README.md)。
+
 本專案在 CI 中執行嚴格的自動化驗證：
 ```bash
 scripts/check-budget.sh      # frontmatter（含 incidents、last_reviewed）與 Core 守則行數小於 400 行
@@ -389,6 +391,7 @@ bash tests/review.test.sh    # Agent 自省審核測試
 bash tests/check-version.test.sh  # 版號檢查腳本測試
 bash tests/check-budget.test.sh   # frontmatter 預算檢查測試
 bash tests/lint-rules.test.sh     # 守則內容檢查測試
+bash tests/eval.test.sh           # 守則評測框架離線測試（情境判定、執行器、報表）
 ```
 
 ---
