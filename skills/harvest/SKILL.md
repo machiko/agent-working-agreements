@@ -63,6 +63,7 @@ root="$(git rev-parse --show-toplevel 2>/dev/null)" \
 ```bash
 scripts/sanitize-check.sh     # 識別資訊（含私人禁用詞）
 scripts/check-budget.sh       # frontmatter 與 core 400 行上限
+scripts/check-i18n.sh         # 新增或修改的守則要同步更新 i18n/en/rules/ 的英文版
 bash tests/install.test.sh    # 安裝器沒有被新檔案弄壞
 ```
 

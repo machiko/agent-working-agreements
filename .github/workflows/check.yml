@@ -65,6 +65,12 @@ jobs:
       - name: 守則與機器檢查連動測試
         run: bash tests/check-schema.test.sh
 
+      - name: 英文守則與中文來源同步
+        run: scripts/check-i18n.sh
+
+      - name: 翻譯同步與 --lang 安裝測試
+        run: bash tests/i18n.test.sh
+
       - name: 識別資訊掃描（CI 沒有私人禁用詞清單，只跑內建規則）
         run: scripts/sanitize-check.sh
 

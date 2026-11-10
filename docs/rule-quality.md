@@ -8,6 +8,7 @@
 | 條目結構、空泛用語、標題重複、條目長度 | `scripts/lint-rules.sh` | 2、3、4、5 |
 | 淘汰欄位 | `scripts/check-budget.sh` | 7 |
 | 守則與機器檢查連動 | `scripts/check-schema.sh` | 8 |
+| 翻譯同步 | `scripts/check-i18n.sh` | 9 |
 
 其餘（根因是否說明機制、「怎麼做」是否真的可行）靠審查判斷。
 
@@ -107,3 +108,12 @@ enforced_by:
 `audit:<ID>` 對應 `scripts/audit.sh` 裡的 `# @check audit:<ID> <守則 id>`；`guard:<名稱>` 對應 `scripts/lib/guard-rules.tsv` 第 1 欄。只接受區塊清單寫法（每行 `  - `），項目後面不要加註解。
 
 `scripts/check-schema.sh` 雙向驗證：`enforced_by` 列的 ID 必須存在；`audit.sh` 每個 `@check` 都要被標示的守則列入；`guard-rules.tsv` 的每個名稱都要被同名守則列入。新增、改名或刪除檢查時，守則要一起改。
+
+## 9. 翻譯
+
+中文（`rules/`）是來源，英文版放在 `i18n/en/rules/`，同一個 id 一一對應。翻譯採**逐行對照**：英文第 N 行就是中文第 N 行的翻譯，方便左右比對與審查。
+
+- 結構欄位（`category`、`tier`、`stack`、`paths`、`enforced_by`、`sources`、`last_reviewed`、`replaced_by`）原樣複製；`label`、`summary`、`incidents`、`deprecated` 翻譯。
+- 標題層級、空行位置、程式碼區塊邊界與 `<!-- 慣例 -->`／`<!-- 參考 -->` 標註要與中文相同；段落標籤對應 `**症狀：**` → `**Symptom:**`、`**根因：**` → `**Root cause:**`、`**怎麼做：**` → `**How:**`、`**為什麼：**` → `**Why:**`、`**規則：**` → `**Rule:**`。
+- Agent 要照著輸出的字串（例如命中守則的標註格式）要翻成英文；示範中文寫法的範例（commit 動詞、台灣用語對照）保留中文。
+- 改了中文就要同步改英文，改完執行 `scripts/check-i18n.sh --stamp en <id>`，把 `source_sha256` 更新成目前中文檔的雜湊。CI 的 `scripts/check-i18n.sh` 會擋下雜湊不符、結構不一致或行數不同的翻譯。

@@ -2,9 +2,9 @@
 # install.sh — 依選擇把規則檔安裝到目標目錄，並以 profile 記錄，可重跑調整或移除。
 #
 # 用法：
-#   install.sh --list
+#   install.sh --list [--lang en]
 #   install.sh --detect [dir]
-#   install.sh --target <dir> [--select id1,id2] [--dry-run] [--force]
+#   install.sh --target <dir> [--select id1,id2] [--lang en|zh-TW] [--dry-run] [--force]
 #   install.sh --target <dir> --update [--dry-run] [--force]
 #   install.sh --target <dir> --uninstall [--dry-run] [--force]
 #   install.sh --cursor <dir> [--select id1,id2] [--dry-run] [--force]
@@ -35,6 +35,8 @@
 #   --uninstall 只移除 profile 記錄的檔案，不碰目錄內其他檔案
 #   --status    唯讀：依 core／選擇的規則分組列出已安裝規則的標題、載入方式與狀態
 #               （最新、有新版、已手動修改、檔案遺失、來源已移除）；不能搭配其他選項
+#   --lang      守則語言：zh-TW（預設，rules/）或 en（i18n/en/rules/）。沒指定時依序沿用團隊策略檔的 lang、
+#               既有安裝記錄的語言，最後才用 zh-TW；--list 也會顯示該語言的選項名稱與說明
 #   --list      列出所有規則：id、tier、stack、是否按需載入、本文行數、選項名稱、說明、是否淘汰（以 tab 分隔）
 #   --detect    自動掃描專案特徵並列出推薦的 optional 規則（以 tab 分隔 id 與推薦原因）
 #
@@ -46,6 +48,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RULES="$ROOT/rules"
+LANGS="zh-TW en"
+lang=""       # 實際使用的語言；--lang 有指定就固定，否則依策略檔、既有安裝記錄決定
+lang_arg=""
 PROFILE_NAME=".agreements-profile"
 # shellcheck source=lib/policy.sh
 . "$ROOT/scripts/lib/policy.sh"
@@ -101,6 +106,10 @@ while [ $# -gt 0 ]; do
       ;;
     --select) [ $# -ge 2 ] || die "--select 需要規則 id"; select_ids="$2"; shift 2 ;;
     --policy) [ $# -ge 2 ] || die "--policy 需要檔案路徑"; policy_file="$2"; shift 2 ;;
+    --lang)
+      [ $# -ge 2 ] || die "--lang 需要語言代碼（zh-TW 或 en）"
+      case "$2" in zh-TW|en) lang_arg="$2" ;; *) die "不支援的語言：$2（可用：$LANGS）" ;; esac
+      shift 2 ;;
     --dry-run) dry_run=1; shift ;;
     --force) force=1; shift ;;
     --uninstall) mode="uninstall"; shift ;;
@@ -120,9 +129,17 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# use_lang <語言>：切換守則來源目錄（zh-TW 用 rules/，其他語言用 i18n/<語言>/rules/）
+use_lang() {
+  lang="$1"
+  if [ "$lang" = "zh-TW" ]; then RULES="$ROOT/rules"; else RULES="$ROOT/i18n/$lang/rules"; fi
+  [ -d "$RULES" ] || die "找不到 ${lang} 守則目錄：$RULES"
+}
+use_lang "${lang_arg:-zh-TW}"
+
 if [ "$status" -eq 1 ]; then
-  [ "$mode" = "install" ] && [ -z "$select_ids" ] && [ "$dry_run" -eq 0 ] && [ "$force" -eq 0 ] \
-    || die "--status 不能搭配 --select、--uninstall、--list、--detect、--dry-run 或 --force"
+  [ "$mode" = "install" ] && [ -z "$select_ids" ] && [ "$dry_run" -eq 0 ] && [ "$force" -eq 0 ] && [ -z "$lang_arg" ] \
+    || die "--status 不能搭配 --select、--uninstall、--list、--detect、--dry-run、--force 或 --lang（會用安裝時的語言比對）"
   mode="status"
 fi
 
@@ -526,6 +543,19 @@ targets_set=0
 [ -n "$copilot_file" ] && agents_md="$copilot_file"
 [ -n "$windsurf_file" ] && agents_md="$windsurf_file"
 
+# 既有安裝記錄的語言（沒記錄的舊安裝視為 zh-TW）；--lang 沒指定時沿用
+installed_lang=""
+if [ -n "$agents_md" ]; then
+  am="$agents_md"; case "$am" in "~"/*) am="$HOME/${am#\~/}" ;; esac
+  [ -f "$am" ] && installed_lang="$(awk -v end="$END_LINE" '{ sub(/\r$/, "") } /^<!-- agent-agreements:start/ { on = 1; next } on && $0 == end { exit }
+    on && /^<!-- agent-agreements:lang=[^ ]+ -->$/ { sub(/^<!-- agent-agreements:lang=/, ""); sub(/ -->$/, ""); print; exit }' "$am")"
+else
+  it="${cursor_dir:-$target}"; case "$it" in "~"/*) it="$HOME/${it#\~/}" ;; esac
+  [ -f "$it/$PROFILE_NAME" ] && installed_lang="$(sed -n 's/^lang=//p' "$it/$PROFILE_NAME" | head -n 1)"
+fi
+case "$installed_lang" in zh-TW|en) ;; *) installed_lang="" ;; esac
+[ -z "$lang_arg" ] && [ -n "$installed_lang" ] && use_lang "$installed_lang"
+
 # ── --update：讀取既有設定並更新 ──────────────────────
 if [ "$mode" = "update" ]; then
   [ -z "$select_ids" ] || die "--update 不能搭配 --select（--update 會自動沿用既有安裝之規則選項）"
@@ -564,6 +594,15 @@ if [ "$mode" = "install" ]; then
         break
       fi
     done
+  fi
+
+  # 策略檔指定語言時，優先於既有安裝記錄（--lang 仍然最優先）
+  if [ -z "$lang_arg" ] && [ -n "$active_policy" ]; then
+    policy_lang="$(aw_policy_lang "$active_policy")"
+    if [ -n "$policy_lang" ] && [ "$policy_lang" != "$lang" ]; then
+      use_lang "$policy_lang"
+      echo "🌐 依據團隊策略檔（$(basename "$active_policy")）使用守則語言：${lang}"
+    fi
   fi
 
   # 若未自訂 --select，且策略檔有指定 preset，依 preset 展開預設規則
@@ -653,6 +692,7 @@ if [ -n "$agents_md" ]; then
     policy_v="$(sed -n "${start_ln},\$s/^<!-- agent-agreements:policy=\([^ ]*\) -->/\1/p" "$agents_md" | head -n 1)"
     echo "安裝位置：${agents_md}"
     echo "安裝版本：${installed_v:-未記錄}｜目前版本：$(version)"
+    echo "守則語言：${installed_lang:-zh-TW}"
     [ -n "$schema_v" ] && echo "規範結構：Schema v${schema_v}"
     [ -n "$policy_v" ] && echo "團隊策略：${policy_v}"
     for id in $(printf '%s\n' "$blk" | sed -n 's/^<!-- rule: \([^ ]*\) -->$/\1/p' | sort); do
@@ -684,6 +724,7 @@ if [ -n "$agents_md" ]; then
       echo "<!-- agent-agreements:schema=1 -->"
       [ -n "$active_policy" ] && echo "<!-- agent-agreements:policy=$(basename "$active_policy") -->"
       echo "<!-- agent-agreements:selected=$(printf '%s' "$select_ids" | tr -d ' ') -->"
+      echo "<!-- agent-agreements:lang=${lang} -->"
       echo "<!-- 由 agent-working-agreements 的 install.sh 產生，請勿手動編輯；重跑 install.sh --agents-md 即可更新 -->"
       for id in $desired; do
         echo
@@ -808,6 +849,7 @@ if [ "$mode" = "status" ]; then
   policy_v="$(sed -n 's/^policy=//p' "$profile" | head -n 1)"
   echo "安裝位置：${target}"
   echo "安裝版本：${installed_v:-未記錄}｜目前版本：$(version)"
+  echo "守則語言：${installed_lang:-zh-TW}"
   [ -n "$schema_v" ] && echo "規範結構：Schema v${schema_v}"
   [ -n "$policy_v" ] && echo "團隊策略：${policy_v}"
   for id in $installed; do
@@ -860,6 +902,7 @@ done
 
 # 新增或更新
 unchanged=0
+kept_modified=0
 for id in $desired; do
   src="$RULES/$id.md"
   dest="$target/$id.$ext"
@@ -872,6 +915,7 @@ for id in $desired; do
   if contains "$installed" "$id"; then
     if is_modified "$id" && [ "$force" -eq 0 ]; then
       echo "！ 保留（已被手動修改，加 --force 才覆蓋）$(with_title "$id" "$id.$ext")"
+      kept_modified=$((kept_modified + 1))
       record "$id" "$(recorded_sha "$id")"
       continue
     fi
@@ -919,6 +963,10 @@ if [ "$dry_run" -eq 1 ]; then
   exit 0
 fi
 
+if [ "$kept_modified" -gt 0 ] && [ -n "$installed" ] && [ "${installed_lang:-zh-TW}" != "$lang" ]; then
+  echo "⚠️ 守則語言從 ${installed_lang:-zh-TW} 換成 ${lang}，但有 ${kept_modified} 個手動修改過的檔案保留原語言；要一起換成 ${lang} 請加 --force" >&2
+fi
+
 # 寫入或移除 profile
 if [ -z "$new_profile" ]; then
   rm -f "$profile"
@@ -933,6 +981,7 @@ else
     [ "$is_cursor" -eq 1 ] && echo "format=cursor"
     [ -n "$active_policy" ] && echo "policy=$(basename "$active_policy")"
     echo "selected=$(printf '%s' "$select_ids" | tr -d ' ')"
+    echo "lang=${lang}"
     printf '%s' "$new_profile"
   } > "$profile"
   echo "✓ 完成：$target"

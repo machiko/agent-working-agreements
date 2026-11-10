@@ -4,11 +4,13 @@
 [![release](https://img.shields.io/github/v/release/machiko/agent-working-agreements)](https://github.com/machiko/agent-working-agreements/releases)
 [![license](https://img.shields.io/github/license/machiko/agent-working-agreements)](LICENSE)
 
+**繁體中文** | [English](README.en.md)
+
 跨 AI Coding Agent（Claude Code、Cursor、GitHub Copilot、Windsurf、Codex 等）的工作協約與防禦守則。
 
 源自長期在生產環境與 AI Agent 協作踩坑的真實事故（Production Incidents），不堆砌通用的最佳實踐廢話，專注於**防禦高危操作、攔截工程地雷、保護程式碼與測試完整性**。
 
-> 本專案規則本文以**繁體中文**撰寫。每條規則皆遵循固定架構：**規則（Rule）→ 為什麼（Why：觸發的真實事故）→ 怎麼做（How：具體落實指引）**。只有理解「為什麼」，Agent 才能在邊界情境下做出正確判斷。
+> 本專案規則本文以**繁體中文**撰寫，另有逐行對照的英文版（[`i18n/en/rules/`](i18n/en/rules/)），安裝時加 `--lang en` 即可。每條規則皆遵循固定架構：**規則（Rule）→ 為什麼（Why：觸發的真實事故）→ 怎麼做（How：具體落實指引）**。只有理解「為什麼」，Agent 才能在邊界情境下做出正確判斷。
 
 ---
 
@@ -98,7 +100,7 @@ curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/ma
 # 🔹 安裝通用 Git Hooks 防護網 (pre-push / pre-commit)
 curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh | bash -s -- --git-hooks
 ```
-*(亦可隨時在尾端加上 `--select frontend/pitfalls,database/pitfalls` 指定特定守則)*
+*(亦可隨時在尾端加上 `--select frontend/pitfalls,database/pitfalls` 指定特定守則；加上 `--lang en` 改裝英文版守則，之後 `--update` 會沿用同一個語言)*
 
 #### 📦 方式二：本機複製（離線開發或進階自訂）
 
@@ -230,11 +232,13 @@ scripts/review.sh --staged     # 審查暫存區變更
     "collaboration/git-safety",
     "security/tenant-isolation"
   ],
-  "prohibit_disable_hooks": false
+  "prohibit_disable_hooks": false,
+  "lang": "zh-TW"
 }
 ```
 * 執行 `install.sh` 或 `/agreements:setup` 時，會自動向上尋找專案或 Monorepo 根目錄策略檔並鎖定強制守則，避免個人環境設置歧異。搜尋到 git root 為止；不在 git repo 內時不讀家目錄的策略檔。
 * `preset` 支援指定團隊預設安裝方案（`"smart"` 智慧推薦、`"full"` 全套防禦、`"core"` 極簡核心）。當專案安裝且未明確指定 `--select` 時以此方案為基準展開，並自動疊加 `enforce_rules` 強制守則。
+* `lang` 指定團隊的守則語言（`"zh-TW"` 或 `"en"`）。沒有帶 `--lang` 時依此安裝；優先順序是 `--lang` → 策略檔 `lang` → 既有安裝記錄的語言 → `zh-TW`；`doctor.sh --check-drift` 會把安裝語言與策略檔不符視為漂移。
 * 若設定 `"prohibit_disable_hooks": true`，將鎖死防護網，強制忽略 `AGREEMENTS_HOOKS_DISABLE=1`，防止 Agent 或腳本繞過安全攔截。
 * 具備完整 JSON Schema（[`schema/v1.json`](schema/v1.json)），在 VS Code 與 Cursor 等現代編輯器中支援全 28 條守則 ID 自動補齊與結構驗證。
 * 可透過 `scripts/doctor.sh --init-policy` 或 `/agreements:doctor init-policy` 一鍵從現有安裝生成標準策略檔。
@@ -371,7 +375,7 @@ scripts/install.sh --agents-md AGENTS.md --uninstall
 
 ## 🤝 參與貢獻與品質驗證
 
-歡迎提交 Issue 與 PR 分享您踩過的新地雷！提交守則前請先讀 [守則品質標準](docs/rule-quality.md)：每個條目要有事故依據（**為什麼**，或地雷類的**症狀 → 根因 → 怎麼做**），frontmatter 要列 `incidents`（事故來源）與 `last_reviewed`（審查日期），並去除任何真實個資、主機或企業標識。沒有事故依據的條目要在標題標 `<!-- 慣例 -->` 或 `<!-- 參考 -->`。
+歡迎提交 Issue 與 PR 分享您踩過的新地雷！提交守則前請先讀 [守則品質標準](docs/rule-quality.md)：每個條目要有事故依據（**為什麼**，或地雷類的**症狀 → 根因 → 怎麼做**），frontmatter 要列 `incidents`（事故來源）與 `last_reviewed`（審查日期），並去除任何真實個資、主機或企業標識。沒有事故依據的條目要在標題標 `<!-- 慣例 -->` 或 `<!-- 參考 -->`。新增或修改守則時，`i18n/en/rules/` 的英文版要一起逐行更新，再執行 `scripts/check-i18n.sh --stamp en <id>`；不熟英文的話，PR 說明裡註明，維護者會協助翻譯。
 
 新守則也要附上效果評測情境，證明「裝了守則，Agent 比較不會犯錯」，格式與執行方式見 [`evals/README.md`](evals/README.md)。
 
@@ -382,6 +386,7 @@ scripts/lint-rules.sh        # 守則內容：條目結構、空泛用語、標�
 scripts/sanitize-check.sh    # 機敏字串、私有 IP、金鑰與去識別化掃描
 scripts/check-version.sh     # 跨檔案版號一致性檢查
 scripts/check-schema.sh      # schema/v1.json 與規則庫、策略檔範本一致；守則 enforced_by 與 audit／guard 檢查對得上
+scripts/check-i18n.sh        # 英文守則與中文來源同步（雜湊、結構欄位、逐行對照）
 bash tests/install.test.sh   # 多 Agent 安裝與還原完整測試
 bash tests/audit.test.sh     # 主動防線攔截行為測試
 bash tests/hook-guard.test.sh  # 執行期攔截（python3 與 bash 兩種模式）與 Git hook 安裝測試
@@ -394,6 +399,7 @@ bash tests/lint-rules.test.sh     # 守則內容檢查測試
 bash tests/eval.test.sh           # 守則評測框架離線測試（情境判定、執行器、報表）
 bash tests/deprecation.test.sh    # 守則淘汰與審查期限提示測試
 bash tests/check-schema.test.sh   # 守則與機器檢查連動測試
+bash tests/i18n.test.sh           # 翻譯同步檢查與 install.sh --lang 測試
 ```
 
 ---

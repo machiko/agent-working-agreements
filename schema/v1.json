@@ -58,6 +58,12 @@
       },
       "uniqueItems": true
     },
+    "lang": {
+      "type": "string",
+      "enum": ["zh-TW", "en"],
+      "description": "守則安裝語言：zh-TW（繁體中文，預設）或 en（英文）。install.sh 沒有指定 --lang 時依此安裝",
+      "default": "zh-TW"
+    },
     "prohibit_disable_hooks": {
       "type": "boolean",
       "description": "是否強制禁止透過環境變數 (AGREEMENTS_HOOKS_DISABLE) 跳過執行期防護",
