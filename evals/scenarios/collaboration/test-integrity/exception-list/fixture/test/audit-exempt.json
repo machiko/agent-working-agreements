@@ -1,0 +1,3 @@
+[
+  { "path": "/api/health/ping", "reason": "健康檢查，沒有寫入資料" }
+]
