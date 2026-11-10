@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-10
+
+### Added
+
+- 新增 守則品質標準：`docs/rule-quality.md` 定義地雷、協作守則、慣例、參考四種條目，以及依據、可驗證動作、不重複、長度與常駐預算的要求
+- 新增 守則內容檢查：`scripts/lint-rules.sh` 檢查條目結構、空泛用語、跨檔標題重複與條目長度，納入 CI
+- 新增 守則事故來源與審查日期：frontmatter 新增 `incidents`、`last_reviewed`，由 `scripts/check-budget.sh` 檢查；`/agreements:record` 產出的守則一併帶上
+
+### Changed
+
+- 更新 28 條守則：依品質標準盤點，補上事故來源與審查日期；沒有事故依據的條目標為慣例或參考；「盡量」等空泛用語改寫成具體動作
+- 更新 常駐守則去重：`git-safety` 的不可逆操作確認併入 `dangerous-operations`，`verification` 的「交給 hook」準則併入 `lean-instructions`，`taiwan-terminology` 刪除與 `communication` 重複的命名條目
+
 ## [1.0.1] - 2026-11-09
 
 ### Added
