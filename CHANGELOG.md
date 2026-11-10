@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-10
+
+### Added
+
+- 新增 守則淘汰機制：frontmatter 可標 `deprecated`（原因）與 `replaced_by`（替代守則）；淘汰守則不再被 `--detect` 推薦，`preset: full` 也不安裝，明確 `--select` 時照裝並提示替代守則，`install.sh --list` 第 8、9 欄標示淘汰狀態與替代守則
+- 新增 `doctor.sh` 守則生命週期檢查：已安裝的淘汰守則扣分並提示替代守則；`last_reviewed` 超過 1 年時提示重新審查，年數可用 `AGREEMENTS_REVIEW_MAX_YEARS` 調整
+- 新增 守則與機器檢查連動：`audit.sh` 每項檢查有穩定 ID，守則以 `enforced_by` 列出對應的 audit 檢查與執行期攔截規則，`scripts/check-schema.sh` 雙向驗證，避免改了檢查卻忘了守則
+
+### Changed
+
+- `scripts/check-budget.sh` 檢查淘汰欄位：原因不可空白、core 守則不可直接淘汰（先改成 optional），`replaced_by` 必須是另一條存在且未淘汰的守則
+- 守則品質標準新增第 7 節「淘汰守則」（含 CHANGELOG Deprecated／Removed 慣例）與第 8 節「守則與機器檢查連動」
+
 ## [1.2.0] - 2026-11-10
 
 ### Added
