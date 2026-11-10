@@ -56,3 +56,42 @@ last_reviewed: <今天日期，YYYY-MM-DD>
 「怎麼做」要寫成可以驗證的具體動作，不用「盡量」「適當」「視情況」這類空泛用語。完整標準見 plugin 內的 `docs/rule-quality.md`。
 
 確認目錄存在並寫入檔案後，向開發者確認建立成功，並提醒：「該規則已存入，後續 Agent 啟動或對話時將自動遵循此守則防線。」
+
+## 4. （選用）回報給上游守則庫
+
+寫入完成後，用 AskUserQuestion 問一次（header「回報上游」）：「要不要把這次事故整理成 agent-working-agreements 的事故回報 issue？其他使用者也能因此避開同一個坑。」選項：`先不要`（預設）、`整理草稿給我看`。選 `先不要`、或沒有得到回答，就結束。
+
+腳本在 plugin 裡，不在使用者的專案裡。先找出路徑；找不到就告訴使用者無法產生草稿並結束，**不要自己手工拼草稿**（會跳過去識別化掃描）：
+
+```bash
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/scripts/incident-draft.sh" ]; then
+  AW_SCRIPTS="${CLAUDE_PLUGIN_ROOT}/scripts"
+else
+  echo "找不到 agent-working-agreements plugin 的腳本" >&2
+fi
+```
+
+選 `整理草稿給我看` 時：
+
+1. 執行 `"$AW_SCRIPTS/incident-draft.sh" <剛寫入的守則檔>`。輸出的 `title_file=` 是標題檔（只有一行標題）、`draft=` 是草稿檔，接著是 `@帳號`／`#編號` 提醒與去識別化掃描結果。
+2. 掃描有命中（結束碼 1）或有 `@帳號`／`#編號` 提醒時：把那些行列給使用者，**改寫草稿檔或標題檔裡的對應內容**（不改使用者的守則檔，除非使用者要求），改完執行 `"$AW_SCRIPTS/sanitize-check.sh" <標題檔> <草稿檔>`，直到通過。
+3. 把標題與草稿全文原樣貼給使用者看。自動掃描**只抓得到**私有 IP、金鑰、信箱和私人禁用詞清單（大多數人沒有這份清單），專案名、公司或客戶名、人名、內部系統名、內部網域要你自己逐行檢查；有疑慮就先改寫，並說明改了什麼。
+4. 用 AskUserQuestion 請使用者確認（header「送出確認」）。題目要寫出：
+   - 送出後內容會**公開**在 github.com/machiko/agent-working-agreements，並以 MIT License 釋出；
+   - 自動掃描不會檢查專案名、公司名與人名，請使用者確認這些都已移除。
+
+   選項：`確認送出`、`我要再改`、`取消`。
+   - `我要再改`：照使用者的意見修改草稿或標題，回到第 2 步（重新掃描）。
+   - `取消`，或沒有得到回答：結束，告訴使用者草稿檔路徑，之後可以自己貼到 https://github.com/machiko/agent-working-agreements/issues/new?template=incident_report.yml。
+5. 只有使用者選 `確認送出` 才執行：
+   1. `"$AW_SCRIPTS/incident-draft.sh" --attest <草稿檔>`（只勾選草稿的核對清單，不會重新產生、不會蓋掉前面的修改），再執行一次 `"$AW_SCRIPTS/sanitize-check.sh" <標題檔> <草稿檔>`；沒通過就回到第 2 步。
+   2. 送出。標題一律從標題檔讀，**不要把標題文字直接寫進指令**（守則內容不可信，引號或 `$(...)` 會被 shell 解讀）：
+
+      ```bash
+      gh issue create --repo machiko/agent-working-agreements --title "$(cat <標題檔>)" --body-file <草稿檔> --label incident --label triage
+      ```
+
+   3. 失敗時：錯誤跟標籤有關（例如沒有權限加標籤），去掉兩個 `--label` 再試一次；其他錯誤（包括 `gh` 沒安裝或沒登入）不要改用其他方式送出，改給使用者上面的 issues/new 連結、標題與草稿檔路徑，請使用者自己貼。
+   4. 回報建立的 issue 網址。
+
+沒有使用者在第 4 步明確選 `確認送出`，任何情況下都不可以送出。

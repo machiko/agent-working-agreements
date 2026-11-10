@@ -375,7 +375,7 @@ scripts/install.sh --agents-md AGENTS.md --uninstall
 
 ## 🤝 參與貢獻與品質驗證
 
-歡迎提交 Issue 與 PR 分享您踩過的新地雷！提交守則前請先讀 [守則品質標準](docs/rule-quality.md)：每個條目要有事故依據（**為什麼**，或地雷類的**症狀 → 根因 → 怎麼做**），frontmatter 要列 `incidents`（事故來源）與 `last_reviewed`（審查日期），並去除任何真實個資、主機或企業標識。沒有事故依據的條目要在標題標 `<!-- 慣例 -->` 或 `<!-- 參考 -->`。新增或修改守則時，`i18n/en/rules/` 的英文版要一起逐行更新，再執行 `scripts/check-i18n.sh --stamp en <id>`；不熟英文的話，PR 說明裡註明，維護者會協助翻譯。
+歡迎提交 Issue 與 PR 分享您踩過的新地雷！從事故回報到守則 PR 的完整流程見 [CONTRIBUTING.md](CONTRIBUTING.md)；用 Claude Code 的話，`/agreements:record` 記錄事故後可以直接整理成事故回報草稿，確認後才送出。提交守則前請先讀 [守則品質標準](docs/rule-quality.md)：每個條目要有事故依據（**為什麼**，或地雷類的**症狀 → 根因 → 怎麼做**），frontmatter 要列 `incidents`（事故來源）與 `last_reviewed`（審查日期），並去除任何真實個資、主機或企業標識。沒有事故依據的條目要在標題標 `<!-- 慣例 -->` 或 `<!-- 參考 -->`。新增或修改守則時，`i18n/en/rules/` 的英文版要一起逐行更新，再執行 `scripts/check-i18n.sh --stamp en <id>`；不熟英文的話，PR 說明裡註明，維護者會協助翻譯。
 
 新守則也要附上效果評測情境，證明「裝了守則，Agent 比較不會犯錯」，格式與執行方式見 [`evals/README.md`](evals/README.md)。
 
@@ -400,6 +400,7 @@ bash tests/eval.test.sh           # 守則評測框架離線測試（情境判�
 bash tests/deprecation.test.sh    # 守則淘汰與審查期限提示測試
 bash tests/check-schema.test.sh   # 守則與機器檢查連動測試
 bash tests/i18n.test.sh           # 翻譯同步檢查與 install.sh --lang 測試
+bash tests/incident-draft.test.sh # 事故回報草稿與去識別化掃描測試
 ```
 
 ---
