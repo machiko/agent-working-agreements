@@ -1,0 +1,53 @@
+name: pages
+
+# 規則命中測試台（playground/）部署到 GitHub Pages。
+# data.json 在這裡從 guard-rules.tsv 與 rules/ 產生，不 commit，避免跟原始檔不一致。
+on:
+  push:
+    branches: [main]
+    paths:
+      - "playground/**"
+      - "scripts/lib/guard-rules.tsv"
+      - "rules/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 比對邏輯測試（跟 hook-guard 一致才部署）
+        run: bash tests/playground.test.sh
+
+      - name: 產生網站
+        run: |
+          mkdir -p _site
+          cp playground/*.html playground/*.css playground/*.js _site/
+          node playground/build-data.mjs > _site/data.json
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

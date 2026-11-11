@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>規則命中測試台｜agent-working-agreements</title>
+  <meta name="description" content="寫攔截規則或守則 glob，輸入指令與檔案路徑，立刻看到哪一條規則命中。">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="masthead">
+    <p class="kicker mono">agent-working-agreements / playground</p>
+    <h1>規則命中測試台</h1>
+    <p class="lede">改規則、丟樣本，立刻看到哪一條會 hit。比對邏輯跟 <code class="mono">hook-guard</code> 同一份案例驗證過，結果一致。</p>
+    <nav class="tabs" role="tablist" aria-label="測試模式">
+      <button id="tab-guard" class="tab" role="tab" type="button" aria-controls="panel-guard" aria-selected="true">
+        <span class="tab-num mono">01</span> 指令攔截
+      </button>
+      <button id="tab-load" class="tab" role="tab" type="button" aria-controls="panel-load" aria-selected="false" tabindex="-1">
+        <span class="tab-num mono">02</span> 守則載入
+      </button>
+    </nav>
+  </header>
+
+  <p id="notice" class="notice" role="alert" hidden></p>
+
+  <main>
+    <section id="panel-guard" class="panel" role="tabpanel" aria-labelledby="tab-guard">
+      <div class="workbench">
+        <section class="editor" aria-labelledby="guard-rules-heading">
+          <div class="editor-head">
+            <h2 id="guard-rules-heading">攔截規則</h2>
+            <p class="hint">來源 <code class="mono">scripts/lib/guard-rules.tsv</code>。佔位符：<code class="mono">{S}</code> 空白、<code class="mono">{NS}</code> 非空白非引號、<code class="mono">{E}</code> 字詞結尾。</p>
+            <div class="actions">
+              <button id="guard-add" type="button" class="button">＋ 新增規則</button>
+              <button id="guard-reset" type="button" class="button button-ghost">還原內建規則</button>
+            </div>
+          </div>
+          <ol id="guard-rules" class="rule-list"></ol>
+        </section>
+
+        <section class="bench" aria-labelledby="commands-heading">
+          <h2 id="commands-heading"><label for="commands">要測的指令</label></h2>
+          <p class="hint">一行一筆。指令會先依 <code class="mono">&amp;&amp; || ;</code> 切成子指令，逐段比對；命中攔截式、而且沒命中放行例外，就拒絕。</p>
+          <textarea id="commands" class="mono sample-input" rows="7" spellcheck="false"></textarea>
+          <p id="guard-summary" class="summary" aria-live="polite"></p>
+          <div id="guard-results" class="results"></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="panel-load" class="panel" role="tabpanel" aria-labelledby="tab-load" hidden>
+      <div class="workbench">
+        <section class="editor" aria-labelledby="load-rules-heading">
+          <div class="editor-head">
+            <h2 id="load-rules-heading">守則與 paths</h2>
+            <p class="hint">來源是 <code class="mono">rules/</code> 底下每份守則的 frontmatter。可以新增一份團隊守則來試 glob。</p>
+            <div class="actions">
+              <button id="load-add" type="button" class="button">＋ 新增團隊守則</button>
+              <button id="load-reset" type="button" class="button button-ghost">還原內建守則</button>
+            </div>
+          </div>
+          <ol id="load-rules" class="rule-list"></ol>
+        </section>
+
+        <section class="bench" aria-labelledby="files-heading">
+          <h2 id="files-heading"><label for="files">要測的檔案路徑</label></h2>
+          <p class="hint">一行一筆，從專案根目錄算起。比對採常見 glob 語意（<code class="mono">**</code> 跨目錄、<code class="mono">*</code> 不跨 <code class="mono">/</code>、<code class="mono">{a,b}</code> 多選一）；實際載入以各 Agent 的實作為準。</p>
+          <textarea id="files" class="mono sample-input" rows="7" spellcheck="false"></textarea>
+          <p id="load-summary" class="summary" aria-live="polite"></p>
+          <div id="load-results" class="results"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="colophon">
+    <p>網址會記住你改過的內容，複製連結就能分享這組測試。 · <a href="https://github.com/machiko/agent-working-agreements">GitHub</a></p>
+  </footer>
+</body>
+</html>

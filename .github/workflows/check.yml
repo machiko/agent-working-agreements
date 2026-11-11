@@ -29,6 +29,9 @@ jobs:
       - name: 執行期主動防線 Hook 測試（python3 與 bash fallback 兩種模式）
         run: bash tests/hook-guard.test.sh
 
+      - name: 規則命中測試台比對邏輯（JS 與 hook-guard 判定一致）
+        run: bash tests/playground.test.sh
+
       - name: 團隊策略檔搜尋與解析測試
         run: bash tests/policy.test.sh
 
