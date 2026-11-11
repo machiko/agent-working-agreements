@@ -292,6 +292,13 @@ scripts/hook-guard.sh --install-git-hooks
 scripts/audit.sh --install-hook
 ```
 
+### 🧪 規則命中測試台（[Playground](https://machiko.github.io/agent-working-agreements/)）
+在瀏覽器裡改規則、輸入樣本，馬上看到哪一條規則命中：
+- **指令攔截**：輸入指令，看切出哪幾段子指令、哪一條攔截規則命中、哪一段被放行例外放過，可以直接修改或新增規則再測一次
+- **守則載入**：輸入檔案路徑，看會載入哪些守則；每份守則會顯示命中幾筆路徑，命中超過一半時會提示 glob 範圍可能太寬
+- 比對邏輯跟 `hook-guard` 用同一份案例檔 [`tests/fixtures/guard-cases.tsv`](tests/fixtures/guard-cases.tsv) 驗證；新增攔截規則時，請在這份檔案補上應擋與應放行的案例
+- 本機預覽：`node playground/build-data.mjs > playground/data.json && python3 -m http.server -d playground`
+
 ### 📝 踩坑事故即時採集 (`/agreements:record`)
 當 Agent 又犯了新的低級錯誤時，執行此技能可透過引導式問答（*現象 → 根本原因 → 預防做法*），去識別化後自動儲存為自訂守則：
 ```bash

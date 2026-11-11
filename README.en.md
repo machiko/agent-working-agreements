@@ -292,6 +292,13 @@ Scans Git staged changes, diffs, or a given commit to catch common high-risk cha
 scripts/audit.sh --install-hook
 ```
 
+### 🧪 Rule Hit Playground ([Playground](https://machiko.github.io/agent-working-agreements/))
+Edit rules and paste samples in the browser to see which rule hits:
+- **Command guard**: enter commands to see how they split into sub-commands, which guard rule hits, and which segment an allow-exception lets through. Edit or add rules and test again.
+- **Rule loading**: enter file paths to see which rules would load. Each rule shows how many paths it matched and warns when it matches more than half, which suggests the glob may be too broad.
+- The matcher is verified against the same case file as `hook-guard`, [`tests/fixtures/guard-cases.tsv`](tests/fixtures/guard-cases.tsv). When you add a guard rule, add should-block and should-allow cases there.
+- Local preview: `node playground/build-data.mjs > playground/data.json && python3 -m http.server -d playground`
+
 ### 📝 Capture Incidents on the Spot (`/agreements:record`)
 When the agent makes a new basic mistake, run this skill. It walks you through a guided Q&A (*symptom → root cause → prevention*), anonymizes the result, and saves it as a custom rule:
 ```bash

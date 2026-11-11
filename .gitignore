@@ -9,3 +9,6 @@
 
 # 評測結果（含 transcript，可能很大）
 evals/results/
+
+# Playground 的資料檔由 playground/build-data.mjs 產生（部署時才產生）
+playground/data.json

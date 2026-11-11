@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 規則命中測試台（[Playground](https://machiko.github.io/agent-working-agreements/)）：「指令攔截」輸入指令，看切出哪幾段子指令、哪一條攔截規則命中、哪一段被放行例外放過，可以直接修改或新增規則再測；「守則載入」輸入檔案路徑，看會載入哪些守則，命中超過一半樣本的 glob 會提示範圍可能太寬；網址會記住改過的內容，可以分享
+- 新增 攔截規則的共用案例檔 `tests/fixtures/guard-cases.tsv`：hook-guard（python、bash）與 Playground 跑同一份案例，CI 確認三邊判定與命中的守則一致；新增攔截規則時在這裡補上應擋與應放行的案例
+
 ## [1.6.0] - 2026-11-11
 
 ### Added
