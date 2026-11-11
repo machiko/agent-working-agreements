@@ -77,6 +77,21 @@ check "core 方案（沒有 python3）" '[ "$(PATH="$NOPY" aw_policy_preset "$TM
 check "smart 方案（沒有 python3）" '[ "$(PATH="$NOPY" aw_policy_preset "$TMP/preset-smart.json")" = "smart" ]'
 check "非法方案忽略（沒有 python3）" '[ -z "$(PATH="$NOPY" aw_policy_preset "$TMP/preset-bad.json")" ]'
 
+echo "▸ targets、agreements_version、git_hooks 與團隊守則目錄"
+printf '{\n  "targets": ["claude",\n    "cursor", "vim"],\n  "agreements_version": "1.6.0",\n  "git_hooks": true\n}\n' > "$TMP/team.json"
+printf '{ "git_hooks": false }' > "$TMP/hooks-off.json"
+for mode in python3 nopy; do
+  P="$PATH"; [ "$mode" = nopy ] && P="$NOPY"
+  check "targets 只留合法目標（${mode}）" '[ "$(PATH="$P" aw_policy_targets "$TMP/team.json" | tr "\n" ,)" = "claude,cursor," ]'
+  check "agreements_version（${mode}）" '[ "$(PATH="$P" aw_policy_get "$TMP/team.json" agreements_version)" = "1.6.0" ]'
+  check "git_hooks true（${mode}）" '[ "$(PATH="$P" aw_policy_get "$TMP/team.json" git_hooks)" = "true" ]'
+  check "git_hooks false（${mode}）" '[ "$(PATH="$P" aw_policy_get "$TMP/hooks-off.json" git_hooks)" = "false" ]'
+  check "沒有的欄位印空字串（${mode}）" '[ -z "$(PATH="$P" aw_policy_get "$TMP/team.json" missing)" ]'
+done
+mkdir -p "$TMP/teamdir/.agreements/rules"; cp "$TMP/team.json" "$TMP/teamdir/.agreements.json"
+check "策略檔旁有 .agreements/rules 時回傳該目錄" '[ "$(aw_team_rules_dir "$TMP/teamdir/.agreements.json")" = "$(cd "$TMP/teamdir/.agreements/rules" && pwd -P)" ]'
+check "沒有 .agreements/rules 時不印" '[ -z "$(aw_team_rules_dir "$TMP/team.json")" ]'
+
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}"
 [ "$fail" -eq 0 ]

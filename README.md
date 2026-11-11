@@ -180,6 +180,20 @@ scripts/audit.sh --install-hook
 * 已有的 pre-commit／pre-push（非本工具安裝）會備份成 `<名稱>.agreements-bak`，守門檢查通過後接著執行，原本的 hook 不會消失。
 * 專案內沒有 `scripts/audit.sh` 時改用安裝當下的稽核腳本；兩者都找不到只印警告，不會擋住 commit。
 
+### 4. 團隊導入：負責人一條指令、成員一條指令
+
+整個團隊共用同一套守則（含團隊自己寫的規範），跨 Claude Code、Cursor、AGENTS.md 等 Agent 都一致：
+
+```bash
+# 負責人：產生 .agreements.json 與 .agreements/rules/，安裝每個 Agent、Git hooks 與 CI 防漂移檢查
+scripts/install.sh --team-init --targets claude,cursor,agents-md     # Claude Code：/agreements:setup team
+
+# 成員：pull 之後同步（依策略檔鎖定的版本下載）
+curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh | bash -s -- --sync
+```
+
+團隊規範寫在 `.agreements/rules/<name>.md`，`--sync` 會以 `custom/<name>` 裝到每個 Agent；沒同步的 PR 會被 CI 擋下。完整流程見 [團隊導入指南](docs/team.md)。
+
 ---
 
 ## 🛡️ 主動防護與體檢診斷工具
@@ -232,17 +246,21 @@ scripts/review.sh --staged     # 審查暫存區變更
     "collaboration/git-safety",
     "security/tenant-isolation"
   ],
+  "targets": ["claude", "cursor", "agents-md"],
+  "agreements_version": "1.6.0",
+  "git_hooks": true,
   "prohibit_disable_hooks": false,
   "lang": "zh-TW"
 }
 ```
+* `targets`、`agreements_version`、`git_hooks` 給 `install.sh --sync` 使用：裝好每個目標、鎖定版本（版本不同時停下）、安裝 Git hooks。`enforce_rules` 可以寫 `custom/<name>` 強制團隊守則（`.agreements/rules/<name>.md`）。用法見 [團隊導入指南](docs/team.md)。
 * 執行 `install.sh` 或 `/agreements:setup` 時，會自動向上尋找專案或 Monorepo 根目錄策略檔並鎖定強制守則，避免個人環境設置歧異。搜尋到 git root 為止；不在 git repo 內時不讀家目錄的策略檔。
 * `preset` 支援指定團隊預設安裝方案（`"smart"` 智慧推薦、`"full"` 全套防禦、`"core"` 極簡核心）。當專案安裝且未明確指定 `--select` 時以此方案為基準展開，並自動疊加 `enforce_rules` 強制守則。
 * `lang` 指定團隊的守則語言（`"zh-TW"` 或 `"en"`）。沒有帶 `--lang` 時依此安裝；優先順序是 `--lang` → 策略檔 `lang` → 既有安裝記錄的語言 → `zh-TW`；`doctor.sh --check-drift` 會把安裝語言與策略檔不符視為漂移。
 * 若設定 `"prohibit_disable_hooks": true`，將鎖死防護網，強制忽略 `AGREEMENTS_HOOKS_DISABLE=1`，防止 Agent 或腳本繞過安全攔截。
 * 具備完整 JSON Schema（[`schema/v1.json`](schema/v1.json)），在 VS Code 與 Cursor 等現代編輯器中支援全 28 條守則 ID 自動補齊與結構驗證。
 * 可透過 `scripts/doctor.sh --init-policy` 或 `/agreements:doctor init-policy` 一鍵從現有安裝生成標準策略檔。
-* CI 執行 `scripts/doctor.sh --check-drift` 時，會自動檢核專案是否嚴格安裝策略檔指定之全部守則。
+* CI 執行 `scripts/doctor.sh --check-drift` 時，會檢查 `targets` 的每個目標：策略檔指定之全部守則都已安裝、團隊守則與 `.agreements/rules/` 一致、安裝版本等於 `agreements_version`。
 
 ### 🛡️ 執行期主動防護 (Runtime Hooks & Universal Git Hooks)
 透過 Claude Code 的 Plugin Hook 機制，在 Agent 執行高危破壞性指令的當下直接阻擋：
@@ -391,6 +409,7 @@ bash tests/install.test.sh   # 多 Agent 安裝與還原完整測試
 bash tests/audit.test.sh     # 主動防線攔截行為測試
 bash tests/hook-guard.test.sh  # 執行期攔截（python3 與 bash 兩種模式）與 Git hook 安裝測試
 bash tests/policy.test.sh    # 團隊策略檔搜尋與解析測試
+bash tests/team.test.sh      # 團隊導入、同步、團隊守則與防漂移測試
 bash tests/doctor.test.sh    # 守則體檢與自動修復測試
 bash tests/review.test.sh    # Agent 自省審核測試
 bash tests/check-version.test.sh  # 版號檢查腳本測試

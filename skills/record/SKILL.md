@@ -23,7 +23,8 @@ argument-hint: "[自訂規則名稱]"
 
 - **自訂名稱**：若使用者執行時有附帶參數，或自訂一個英數小寫連字號的名稱（例如 `prevent-schema-wipe`、`tenant-isolation`）。
 - **目標範圍**：
-  - 本專案（預設）：`<git-root>/.claude/rules/agent-agreements/custom/<name>.md`
+  - 團隊（專案根目錄有 `.agreements.json` 時的預設）：`<git-root>/.agreements/rules/<name>.md`。這是團隊共用的守則來源，會同步到策略檔 `targets` 列的每個 Agent。
+  - 本專案（沒有 `.agreements.json` 時的預設）：`<git-root>/.claude/rules/agent-agreements/custom/<name>.md`。只有自己的 Claude Code 讀得到。
   - 全域：`~/.claude/rules/agent-agreements/custom/<name>.md`
 - **去識別化安全檢查**：檢查內容是否包含真實密碼、金鑰、內部 IP 或專有個人資訊。
 
@@ -55,7 +56,10 @@ last_reviewed: <今天日期，YYYY-MM-DD>
 
 「怎麼做」要寫成可以驗證的具體動作，不用「盡量」「適當」「視情況」這類空泛用語。完整標準見 plugin 內的 `docs/rule-quality.md`。
 
-確認目錄存在並寫入檔案後，向開發者確認建立成功，並提醒：「該規則已存入，後續 Agent 啟動或對話時將自動遵循此守則防線。」
+確認目錄存在並寫入檔案後：
+
+- **寫在團隊位置（`.agreements/rules/`）**：執行 `bash "${CLAUDE_PLUGIN_ROOT}/scripts/install.sh" --sync`，把守則同步到每個 Agent。輸出有「團隊守則品質」的 ⚠ 時，依提示修正守則檔再同步一次。最後提醒：「守則檔和同步產生的變更要一起 commit 並開 PR，其他成員 pull 後執行 `--sync` 就會套用；CI 的防漂移檢查會擋下沒同步的 PR。」
+- **寫在本專案或全域位置**：提醒「該規則已存入，後續 Agent 啟動或對話時將自動遵循此守則防線。」專案是 git repo 但沒有 `.agreements.json` 時，再補一句：「想讓團隊共用、也套用到 Cursor 等其他 Agent，可以執行 `/agreements:setup team` 導入團隊策略檔，再把守則搬到 `.agreements/rules/`。」
 
 ## 4. （選用）回報給上游守則庫
 

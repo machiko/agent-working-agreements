@@ -3,6 +3,7 @@
 #
 # 用法：scripts/lint-rules.sh
 #   ROOT=<目錄>            改檢查其他目錄的 rules/（測試用）
+#   RULES_DIR=<目錄>       直接指定守則目錄（例如團隊守則 .agreements/rules；README.md 不檢查）
 #   MAX_ENTRY_LINES=<n>   單一條目本文行數上限（預設 40）
 #
 # 檢查項目（條目＝每個 `##` 標題；檔案沒有 `##` 時改用 `###`）：
@@ -22,10 +23,11 @@ MAX_ENTRY_LINES="${MAX_ENTRY_LINES:-40}"
 VAGUE='盡量|儘量|盡可能|儘可能|適當|視情況|多加注意'
 
 files=()
-while IFS= read -r f; do files+=("$f"); done < <(find "$ROOT/rules" -type f -name '*.md' | sort)
-[ "${#files[@]}" -gt 0 ] || { echo "✗ ${ROOT}/rules 底下沒有規則檔" >&2; exit 1; }
+RULES_DIR="${RULES_DIR:-$ROOT/rules}"
+while IFS= read -r f; do files+=("$f"); done < <(find "$RULES_DIR" -type f -name '*.md' ! -name README.md | sort)
+[ "${#files[@]}" -gt 0 ] || { echo "✗ ${RULES_DIR} 底下沒有規則檔" >&2; exit 1; }
 
-awk -v root="$ROOT/" -v max="$MAX_ENTRY_LINES" -v vague="$VAGUE" '
+awk -v root="$(dirname "$RULES_DIR")/" -v max="$MAX_ENTRY_LINES" -v vague="$VAGUE" '
 function err(line, msg) { printf "✗ %s:%d：%s\n", rel, line, msg > "/dev/stderr"; errors++ }
 
 # 去掉「…」引號內文與 `…` 行內程式碼（逐字元處理，避免 awk 以位元組比對多位元組字元）

@@ -7,6 +7,8 @@
 # 用法：scripts/check-budget.sh [--quiet]
 #   BUDGET=400  常駐行數上限（預設 400）
 #   ROOT=<目錄>  改檢查其他目錄的 rules/（測試用）
+#   RULES_DIR=<目錄>  團隊守則模式：檢查該目錄（例如 .agreements/rules），README.md 略過；
+#                     要求 category: custom、tier: custom，不計 core 預算
 #
 # 結束碼：0 通過；1 frontmatter 不合格或超出預算。
 
@@ -15,6 +17,9 @@ set -euo pipefail
 ROOT="${ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 BUDGET="${BUDGET:-400}"
 QUIET="${1:-}"
+TEAM_MODE=0
+if [ -n "${RULES_DIR:-}" ]; then TEAM_MODE=1; else RULES_DIR="$ROOT/rules"; fi
+custom_total=0
 
 errors=0
 core_total=0
@@ -48,7 +53,7 @@ field() {
 }
 
 while IFS= read -r file; do
-  rel="${file#"$ROOT"/}"
+  rel="${file#"$(dirname "$RULES_DIR")"/}"
   dir_category="$(basename "$(dirname "$file")")"
   # 只算本文：Claude Code 載入規則前會移除 frontmatter，不佔 context
   lines=$(awk 'NR == 1 && $0 == "---" { fm = 1; next } fm && $0 == "---" { fm = 0; next } !fm { n++ } END { print n + 0 }' "$file")
@@ -62,6 +67,7 @@ while IFS= read -r file; do
   category="$(field "$file" category)"
   tier="$(field "$file" tier)"
 
+  [ "$TEAM_MODE" -eq 1 ] && dir_category="custom"
   if [ "$category" != "$dir_category" ]; then
     echo "✗ ${rel}：category「${category}」與所在目錄「${dir_category}」不一致" >&2
     errors=$((errors + 1))
@@ -108,6 +114,12 @@ while IFS= read -r file; do
   case "$tier" in
     core) core_total=$((core_total + lines)) ;;
     optional) optional_total=$((optional_total + lines)) ;;
+    custom)
+      if [ "$TEAM_MODE" -eq 1 ]; then custom_total=$((custom_total + lines))
+      else
+        echo "✗ ${rel}：tier: custom 只能用在團隊守則（.agreements/rules）" >&2
+        errors=$((errors + 1)); continue
+      fi ;;
     *)
       echo "✗ ${rel}：tier 必須是 core 或 optional，目前是「${tier}」" >&2
       errors=$((errors + 1))
@@ -116,10 +128,14 @@ while IFS= read -r file; do
   esac
 
   [ "$QUIET" = "--quiet" ] || printf '%-9s %4d  %s\n' "$tier" "$lines" "$rel"
-done < <(find "$ROOT/rules" -type f -name '*.md' | sort)
+done < <(find "$RULES_DIR" -type f -name '*.md' ! -name README.md | sort)
 
 echo "──"
-echo "core：${core_total} 行（上限 ${BUDGET}）｜optional：${optional_total} 行"
+if [ "$TEAM_MODE" -eq 1 ]; then
+  echo "團隊守則：${custom_total} 行"
+else
+  echo "core：${core_total} 行（上限 ${BUDGET}）｜optional：${optional_total} 行"
+fi
 
 if [ "$errors" -gt 0 ]; then
   echo "✗ ${errors} 個 frontmatter 錯誤" >&2

@@ -16,51 +16,91 @@
     },
     "preset": {
       "type": "string",
-      "enum": ["smart", "full", "core"],
+      "enum": [
+        "smart",
+        "full",
+        "core"
+      ],
       "description": "團隊偏好的預設安裝方案：smart (智慧推薦)、full (全套防禦)、core (極簡核心)。當專案安裝且未自訂 --select 時以此方案為基準，並疊加 enforce_rules 強制守則",
       "default": "smart"
     },
     "enforce_rules": {
       "type": "array",
-      "description": "團隊強制必備守則清單（不可被使用者取消）",
+      "description": "團隊強制必備守則清單（不可被使用者取消）。內建守則寫 id；團隊守則寫 custom/<name>，對應 .agreements/rules/<name>.md",
       "items": {
         "type": "string",
-        "enum": [
-          "ai/pitfalls",
-          "api/pitfalls",
-          "async/pitfalls",
-          "backend/pitfalls",
-          "cloud/pitfalls",
-          "collaboration/communication",
-          "collaboration/design-judgment",
-          "collaboration/git-safety",
-          "collaboration/honesty",
-          "collaboration/memory-hygiene",
-          "collaboration/sdlc-lifecycle",
-          "collaboration/test-integrity",
-          "collaboration/verification",
-          "container/pitfalls",
-          "database/pitfalls",
-          "frontend/pitfalls",
-          "security/dangerous-operations",
-          "security/data-files",
-          "security/sast-safe-patterns",
-          "security/supply-chain",
-          "security/tenant-isolation",
-          "testing/pitfalls",
-          "writing/changelog",
-          "writing/commit-messages",
-          "writing/docs-and-cards",
-          "writing/lean-instructions",
-          "writing/taiwan-terminology",
-          "writing/test-naming"
+        "anyOf": [
+          {
+            "enum": [
+              "ai/pitfalls",
+              "api/pitfalls",
+              "async/pitfalls",
+              "backend/pitfalls",
+              "cloud/pitfalls",
+              "collaboration/communication",
+              "collaboration/design-judgment",
+              "collaboration/git-safety",
+              "collaboration/honesty",
+              "collaboration/memory-hygiene",
+              "collaboration/sdlc-lifecycle",
+              "collaboration/test-integrity",
+              "collaboration/verification",
+              "container/pitfalls",
+              "database/pitfalls",
+              "frontend/pitfalls",
+              "security/dangerous-operations",
+              "security/data-files",
+              "security/sast-safe-patterns",
+              "security/supply-chain",
+              "security/tenant-isolation",
+              "testing/pitfalls",
+              "writing/changelog",
+              "writing/commit-messages",
+              "writing/docs-and-cards",
+              "writing/lean-instructions",
+              "writing/taiwan-terminology",
+              "writing/test-naming"
+            ]
+          },
+          {
+            "pattern": "^custom/[a-z0-9][a-z0-9-]*$",
+            "description": "團隊守則：.agreements/rules/<name>.md"
+          }
         ]
       },
       "uniqueItems": true
     },
+    "targets": {
+      "type": "array",
+      "description": "團隊使用的 Agent。install.sh --sync 會裝好或更新每一個；doctor.sh --check-drift 會逐一檢查",
+      "items": {
+        "type": "string",
+        "enum": [
+          "claude",
+          "cursor",
+          "agents-md",
+          "copilot",
+          "windsurf"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "agreements_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.]+)?$",
+      "description": "團隊鎖定的 agent-working-agreements 版本。--sync 遇到不同版本會停下；遠端安裝的 --sync 與 --check-drift 依此下載對應版本"
+    },
+    "git_hooks": {
+      "type": "boolean",
+      "description": "install.sh --sync 時是否一併安裝 Git pre-commit 與 pre-push 守門",
+      "default": false
+    },
     "lang": {
       "type": "string",
-      "enum": ["zh-TW", "en"],
+      "enum": [
+        "zh-TW",
+        "en"
+      ],
       "description": "守則安裝語言：zh-TW（繁體中文，預設）或 en（英文）。install.sh 沒有指定 --lang 時依此安裝",
       "default": "zh-TW"
     },

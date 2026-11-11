@@ -89,84 +89,107 @@ EOF
 fi
 
 # ── --check-drift CI 防漂移檢驗模式 ─────────────────────
+DRIFT_BAD='(已手動修改|檔案遺失|來源已移除)'
+drift=0
+drift_err() { echo "  ✗ [DRIFT] $1" >&2; drift=1; }
+
+# rule_line <status 輸出> <id>：取出該守則在 --status 的那一行
+rule_line() { printf '%s\n' "$1" | grep -E "^[[:space:]]*$2[[:space:]—]" || true; }
+
+# drift_check_target <目標> <路徑>：檢查一個安裝目標的 core、強制守則、團隊守則、語言與版本
+drift_check_target() {
+  local kind="$1" path="$2" out line id label
+  label="${kind}（${path#"$proj_root"/}）"
+  out="$(bash "$ROOT/scripts/install.sh" "$(aw_target_flag "$kind")" "$path" --status 2>/dev/null || true)"
+  if [ -z "$out" ] || printf '%s\n' "$out" | grep -q '^尚未安裝'; then
+    drift_err "${label} 尚未安裝守則"
+    return 0
+  fi
+  for id in $core_ids; do
+    line="$(rule_line "$out" "$id")"
+    if [ -z "$line" ]; then drift_err "${label} 缺少核心守則：${id}"
+    elif printf '%s\n' "$line" | grep -qE "$DRIFT_BAD"; then
+      drift_err "${label} 核心守則狀態異常 (${id})：$(printf '%s\n' "$line" | awk -F'｜' '{print $NF}')"
+    fi
+  done
+  [ -n "$policy_file" ] || return 0
+  for id in $enforced; do
+    line="$(rule_line "$out" "$id")"
+    if [ -z "$line" ]; then drift_err "${label} 違反團隊策略：強制守則 ${id} 尚未安裝"
+    elif printf '%s\n' "$line" | grep -qE "$DRIFT_BAD"; then
+      drift_err "${label} 違反團隊策略：強制守則狀態異常 (${id})：$(printf '%s\n' "$line" | awk -F'｜' '{print $NF}')"
+    fi
+  done
+  # 團隊守則：repo 裡改了卻沒同步（有新版）也算漂移
+  for id in $team; do
+    line="$(rule_line "$out" "$id")"
+    if [ -z "$line" ]; then drift_err "${label} 缺少團隊守則：${id}（執行 install.sh --sync）"
+    elif printf '%s\n' "$line" | grep -qE "(已手動修改|檔案遺失|有新版)"; then
+      drift_err "${label} 團隊守則與 .agreements/rules 不一致 (${id})：$(printf '%s\n' "$line" | awk -F'｜' '{print $NF}')（執行 install.sh --sync）"
+    fi
+  done
+  for id in $(printf '%s\n' "$out" | sed -n 's/^[[:space:]]*\(custom\/[a-z0-9-]*\)[[:space:]—].*/\1/p'); do
+    contains_word "$team" "$id" || drift_err "${label} 團隊守則 ${id} 已從 .agreements/rules 移除但仍安裝著（執行 install.sh --sync）"
+  done
+  local inst_lang inst_ver
+  inst_lang="$(printf '%s\n' "$out" | sed -n 's/^守則語言：//p' | head -n 1)"
+  if [ -n "$policy_lang" ] && [ "${inst_lang:-zh-TW}" != "$policy_lang" ]; then
+    drift_err "${label} 違反團隊策略：守則語言應為 ${policy_lang}，目前安裝的是 ${inst_lang:-zh-TW}"
+  fi
+  inst_ver="$(printf '%s\n' "$out" | sed -n 's/^安裝版本：\([^｜]*\)｜.*/\1/p' | head -n 1)"
+  if [ -n "$pinned" ] && [ "$inst_ver" != "$pinned" ]; then
+    drift_err "${label} 違反團隊策略：安裝版本應為 ${pinned}，目前是 ${inst_ver:-未記錄}（執行 install.sh --sync）"
+  fi
+}
+
+contains_word() { printf '%s\n' "$1" | grep -Fxq -- "$2"; }
+
 if [ "$check_drift" -eq 1 ]; then
   echo "▸ 執行 Agent 工作守則 CI 防漂移檢驗 (--check-drift)"
   echo "──"
 
-  rule_target=""
-  is_agents_md=0
-  is_cursor=0
-
-  if [ -d "$target_dir/.claude/rules/agent-agreements" ]; then
-    rule_target="$target_dir/.claude/rules/agent-agreements"
-  elif [ -d "$target_dir/.cursor/rules" ]; then
-    rule_target="$target_dir/.cursor/rules"
-    is_cursor=1
-  elif [ -f "$target_dir/AGENTS.md" ]; then
-    rule_target="$target_dir/AGENTS.md"
-    is_agents_md=1
-  elif [ -d "$HOME/.claude/rules/agent-agreements" ]; then
-    rule_target="$HOME/.claude/rules/agent-agreements"
-  fi
-
-  if [ -z "$rule_target" ]; then
-    echo "✗ [DRIFT] 未偵測到已安裝之 Agent 工作守則，無法通過 CI 漂移檢驗。" >&2
-    exit 1
-  fi
-
-  # 取得 status
-  if [ "$is_agents_md" -eq 1 ]; then
-    status_out="$(bash "$ROOT/scripts/install.sh" --agents-md "$rule_target" --status 2>/dev/null)"
-  elif [ "$is_cursor" -eq 1 ]; then
-    status_out="$(bash "$ROOT/scripts/install.sh" --cursor "$rule_target" --status 2>/dev/null)"
-  else
-    status_out="$(bash "$ROOT/scripts/install.sh" --target "$rule_target" --status 2>/dev/null)"
-  fi
-
-  # 檢查核心守則是否完整無損
-  drift_core=0
-  for core_f in $(find "$ROOT/rules" -type f -name '*.md' -exec grep -l "^tier: core" {} +); do
-    core_id="$(echo "$core_f" | sed -e "s#^$ROOT/rules/##" -e 's#\.md$##')"
-    rule_line="$(printf '%s\n' "$status_out" | grep -E "^[[:space:]]*${core_id}[[:space:]—]" || true)"
-    if [ -z "$rule_line" ]; then
-      echo "  ✗ [DRIFT] 缺少核心守則：${core_id}" >&2
-      drift_core=1
-    elif printf '%s\n' "$rule_line" | grep -qE "(已手動修改|檔案遺失|來源已移除)"; then
-      echo "  ✗ [DRIFT] 核心守則狀態異常 (${core_id})：$(printf '%s\n' "$rule_line" | awk -F'｜' '{print $NF}')" >&2
-      drift_core=1
-    fi
-  done
-
-  if [ "$drift_core" -eq 1 ]; then
-    echo "✗ [DRIFT] 核心守則完整性受損，請重新執行 /agreements:setup 或 install.sh 更新還原。" >&2
-    exit 1
-  fi
-
-  # 檢查團隊策略檔 (.agreements.json / .agreementsrc)
+  core_ids="$(find "$ROOT/rules" -type f -name '*.md' -exec grep -l "^tier: core" {} + | sed -e "s#^$ROOT/rules/##" -e 's#\.md$##' | sort)"
   policy_file="$(aw_find_policy "$target_dir" || true)"
-
+  enforced=""; team=""; policy_lang=""; pinned=""; targets=""; proj_root="$target_dir"
   if [ -n "$policy_file" ]; then
+    proj_root="$(dirname "$policy_file")"
     enforced="$(aw_policy_enforce_rules "$policy_file")"
-    for enf in $enforced; do
-      enf_line="$(printf '%s\n' "$status_out" | grep -E "^[[:space:]]*${enf}[[:space:]—]" || true)"
-      if [ -z "$enf_line" ]; then
-        echo "  ✗ [DRIFT] 違反團隊策略（$(basename "$policy_file")）：強制守則 ${enf} 尚未安裝！" >&2
-        exit 1
-      fi
-      if printf '%s\n' "$enf_line" | grep -qE "(已手動修改|檔案遺失|來源已移除)"; then
-        echo "  ✗ [DRIFT] 違反團隊策略（$(basename "$policy_file")）：強制守則狀態異常 (${enf})：$(printf '%s\n' "$enf_line" | awk -F'｜' '{print $NF}')" >&2
-        exit 1
-      fi
-    done
     policy_lang="$(aw_policy_lang "$policy_file")"
-    inst_lang="$(printf '%s\n' "$status_out" | sed -n 's/^守則語言：//p' | head -n 1)"
-    if [ -n "$policy_lang" ] && [ "${inst_lang:-zh-TW}" != "$policy_lang" ]; then
-      echo "  ✗ [DRIFT] 違反團隊策略（$(basename "$policy_file")）：守則語言應為 ${policy_lang}，目前安裝的是 ${inst_lang:-zh-TW}" >&2
+    pinned="$(aw_policy_get "$policy_file" agreements_version)"
+    targets="$(aw_policy_targets "$policy_file")"
+    tdir="$(aw_team_rules_dir "$policy_file")"
+    team="$(aw_team_rule_ids "$tdir" 2>/dev/null)"
+    for id in $enforced; do
+      case "$id" in custom/*) contains_word "$team" "$id" || drift_err "違反團隊策略（$(basename "$policy_file")）：強制守則 ${id} 在 .agreements/rules 找不到來源檔" ;; esac
+    done
+  fi
+
+  if [ -n "$targets" ]; then
+    # 策略檔有宣告 targets：每個目標都要檢查
+    for t in $targets; do
+      drift_check_target "$t" "$proj_root/$(aw_target_path "$t")"
+    done
+  else
+    # 沒宣告 targets：沿用舊行為，挑第一個偵測到的安裝位置
+    if [ -d "$target_dir/.claude/rules/agent-agreements" ]; then
+      drift_check_target claude "$target_dir/.claude/rules/agent-agreements"
+    elif [ -d "$target_dir/.cursor/rules" ]; then
+      drift_check_target cursor "$target_dir/.cursor/rules"
+    elif [ -f "$target_dir/AGENTS.md" ]; then
+      drift_check_target agents-md "$target_dir/AGENTS.md"
+    elif [ -d "$HOME/.claude/rules/agent-agreements" ]; then
+      drift_check_target claude "$HOME/.claude/rules/agent-agreements"
+    else
+      echo "✗ [DRIFT] 未偵測到已安裝之 Agent 工作守則，無法通過 CI 漂移檢驗。" >&2
       exit 1
     fi
-    echo "  ✓ 符合團隊策略檔（$(basename "$policy_file")）之全部強制守則要求"
   fi
 
+  if [ "$drift" -eq 1 ]; then
+    echo "✗ [DRIFT] 守則與團隊策略不一致：執行 scripts/install.sh --sync（或 /agreements:setup sync）同步後再提交。" >&2
+    exit 1
+  fi
+  [ -n "$policy_file" ] && echo "  ✓ 符合團隊策略檔（$(basename "$policy_file")）之全部要求"
   echo "✓ [PASS] 守則合規無漂移 (No Drift Detected)：核心防線完整且與來源一致"
   exit 0
 fi
@@ -316,12 +339,29 @@ else
   info_item "尚未配置 CI 守門工作流（若專案在 GitHub/GitLab 等可執行 scripts/install.sh --ci）"
 fi
 
-# 6. 自訂規則健康度 (Custom Rules)
+# 6. 團隊守則與舊版自訂守則
+team_policy="$(aw_find_policy "$target_dir" || true)"
+team_dir="$(aw_team_rules_dir "$team_policy")"
+if [ -n "$team_dir" ]; then
+  team_count="$(aw_team_rule_ids "$team_dir" 2>/dev/null | grep -c . || true)"
+  pass_item "團隊守則 ${team_count} 條 (.agreements/rules/)"
+fi
+if [ -n "$team_policy" ] && [ -z "$(aw_policy_targets "$team_policy")" ]; then
+  info_item "策略檔沒有 targets：加上團隊用的 Agent 後，成員只要執行 install.sh --sync"
+fi
+# 舊版 /agreements:record 寫在安裝目錄的 custom/，install.sh 沒有記錄這些檔案（只有團隊守則會記錄）
 custom_dir="$local_rules/custom"
 [ ! -d "$custom_dir" ] && custom_dir="$global_rules/custom"
-if [ -d "$custom_dir" ] && [ -n "$(ls -A "$custom_dir" 2>/dev/null)" ]; then
-  custom_count="$(ls -1 "$custom_dir"/*.md 2>/dev/null | wc -l | tr -d ' ')"
-  pass_item "偵測到 ${custom_count} 條現場採集之自訂守則 (custom/)"
+if [ -d "$custom_dir" ]; then
+  legacy=0
+  for f in "$custom_dir"/*.md; do
+    [ -f "$f" ] || continue
+    id="custom/$(basename "$f" .md)"
+    grep -q "^file=$id " "$(dirname "$custom_dir")/.agreements-profile" 2>/dev/null || legacy=$((legacy + 1))
+  done
+  if [ "$legacy" -gt 0 ]; then
+    info_item "偵測到 ${legacy} 條只存在本機的自訂守則 (${custom_dir})：搬到專案的 .agreements/rules/ 後執行 install.sh --sync，就能跟團隊共用並套用到其他 Agent"
+  fi
 fi
 
 echo "──"

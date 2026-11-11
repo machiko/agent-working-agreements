@@ -180,6 +180,20 @@ Works for any Git project on your machine and blocks at `git commit` time, keepi
 * An existing pre-commit/pre-push not installed by this tool is backed up as `<name>.agreements-bak` and runs after the gate check passes, so your original hook is kept.
 * If the project has no `scripts/audit.sh`, the audit script from install time is used instead; if neither is found, it only prints a warning and does not block the commit.
 
+### 4. Team setup: one command for the lead, one for members
+
+The whole team shares one set of rules (including rules your team writes), identical across Claude Code, Cursor, AGENTS.md and other agents:
+
+```bash
+# Lead: writes .agreements.json and .agreements/rules/, installs every agent, Git hooks and the CI drift check
+scripts/install.sh --team-init --targets claude,cursor,agents-md --lang en    # Claude Code: /agreements:setup team
+
+# Members: sync after pulling (downloads the version pinned in the policy)
+curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh | bash -s -- --sync
+```
+
+Team rules live in `.agreements/rules/<name>.md`; `--sync` installs them as `custom/<name>` into every agent, and CI blocks PRs that were not synced. The full flow is in the [team guide](docs/team.en.md).
+
 ---
 
 ## 🛡️ Active Protection and Checkup Tools
@@ -232,17 +246,21 @@ Put `.agreements.json` or `.agreementsrc` in the project root to lock team stand
     "collaboration/git-safety",
     "security/tenant-isolation"
   ],
+  "targets": ["claude", "cursor", "agents-md"],
+  "agreements_version": "1.6.0",
+  "git_hooks": true,
   "prohibit_disable_hooks": false,
   "lang": "zh-TW"
 }
 ```
+* `targets`, `agreements_version` and `git_hooks` drive `install.sh --sync`: install every target, pin the version (sync stops on a mismatch), and install Git hooks. `enforce_rules` accepts `custom/<name>` to enforce a team rule (`.agreements/rules/<name>.md`). See the [team guide](docs/team.en.md).
 * When you run `install.sh` or `/agreements:setup`, it searches upward for a policy file in the project or monorepo root and locks in the enforced rules, avoiding differences between personal setups. The search stops at the git root; outside a git repo, policy files in the home directory are not read.
 * `preset` sets the team's default install plan (`"smart"` smart recommendation, `"full"` full defense, `"core"` minimal core). When installing without an explicit `--select`, this plan is the baseline, and `enforce_rules` are added on top.
 * `lang` sets the team's rule language (`"zh-TW"` or `"en"`). English-speaking teams should set `"lang": "en"`. It applies when `--lang` is not given; the precedence is `--lang` → policy file `lang` → language of the existing install record → `zh-TW`. `doctor.sh --check-drift` treats an installed language that differs from the policy as drift.
 * With `"prohibit_disable_hooks": true`, the safety net is locked: `AGREEMENTS_HOOKS_DISABLE=1` is ignored, so agents or scripts cannot bypass interception.
 * Comes with a full JSON Schema ([`schema/v1.json`](schema/v1.json)), giving autocompletion for all 28 rule IDs and structure validation in modern editors such as VS Code and Cursor.
 * Generate a standard policy file from an existing install with `scripts/doctor.sh --init-policy` or `/agreements:doctor init-policy`.
-* When CI runs `scripts/doctor.sh --check-drift`, it checks that the project has installed every rule the policy file requires.
+* When CI runs `scripts/doctor.sh --check-drift`, it checks every target in `targets`: all rules the policy requires are installed, team rules match `.agreements/rules/`, and the installed version equals `agreements_version`.
 
 ### 🛡️ Runtime Protection (Runtime Hooks & Universal Git Hooks)
 Through Claude Code's plugin hook mechanism, high-risk destructive commands are blocked the moment the agent runs them:
@@ -395,6 +413,7 @@ bash tests/install.test.sh   # Full multi-agent install and restore tests
 bash tests/audit.test.sh     # Active gate interception tests
 bash tests/hook-guard.test.sh  # Runtime interception (python3 and bash modes) and Git hook install tests
 bash tests/policy.test.sh    # Team policy file search and parsing tests
+bash tests/team.test.sh      # Team setup, sync, team rules and drift tests
 bash tests/doctor.test.sh    # Rule checkup and auto-fix tests
 bash tests/review.test.sh    # Agent self-review tests
 bash tests/check-version.test.sh  # Version check script tests

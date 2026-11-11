@@ -1,7 +1,7 @@
 ---
 name: setup
 description: 智慧配置與安裝 Agent 工作守則（規則檔），支援專案自動偵測、套裝方案一鍵安裝、更新與移除。
-argument-hint: "[狀態｜更新｜移除]"
+argument-hint: "[狀態｜更新｜移除｜團隊｜同步]"
 disable-model-invocation: true
 ---
 
@@ -17,6 +17,21 @@ disable-model-invocation: true
 | 本專案 | `<git 根目錄或目前目錄>/.claude/rules/agent-agreements` |
 
 > 預設安裝目標：當前目錄處於 Git 專案內時，預設優先安裝至「本專案」；若不在 Git 專案內則預設為「全域」。
+
+## 0. 團隊模式（先判斷）
+
+先執行 `git rev-parse --show-toplevel 2>/dev/null`，看專案根目錄（不在 git repo 內就用目前目錄）有沒有 `.agreements.json`。
+
+- **參數是「同步」或 `sync`，或專案已有 `.agreements.json` 且沒有帶參數**：團隊已經導入，個人不用再選方案。執行 `install.sh --sync`，把輸出原樣整理給使用者看，就結束。
+  - 結束碼 1 且訊息是「團隊鎖定 vX」：照輸出提示說明。要跟團隊對齊，執行輸出裡那行 `curl … | bash -s -- --sync`；要把全隊升級是改策略檔並開 PR，由使用者決定，不要自己改。
+  - 結束碼 2 是找不到策略檔或沒有 targets：照輸出提示說明。
+  - 輸出有「團隊守則品質」的 ⚠：列給使用者看，說明不影響同步。
+- **參數是「團隊」或 `team`**：團隊負責人第一次導入。專案已有 `.agreements.json` 時說明已經導入過、改執行同步，然後結束。否則用一次 AskUserQuestion 問兩題：
+  1. header「團隊 Agent」（複選）：「團隊成員用哪些 AI Agent？每個都會安裝同一套守則。」選項：`Claude Code`（claude）、`Cursor`（cursor）、`AGENTS.md（Codex 等）`（agents-md）、`GitHub Copilot`（copilot）。使用者在 Other 填 Windsurf 時對應 windsurf。
+  2. header「配置方案」（單選）：`智慧推薦`（smart，推薦）、`完整防禦`（full）、`極簡核心`（core）。
+  
+  執行 `install.sh --team-init --targets <逗號分隔的 id> --preset <方案>`（語言要英文時加 `--lang en`），把輸出的「接下來」三步原樣交給使用者。不要替使用者 commit。
+- 其他情況照下面第 1 步以後的個人安裝流程。
 
 ## 1. 讀取現況與背景分析
 
