@@ -37,3 +37,5 @@ esac
   - 若提示版本過舊：引導執行 `/agreements:setup` 重新同步。
   - 若想固化目前已安裝之守則為專案 policy：可執行 `/agreements:doctor init-policy` 快速生成 `.agreements.json`。
   - 若需比對專案內守則是否與標準庫產生漂移：可執行 `/agreements:doctor drift`。
+  - 若 drift 報告團隊守則「有新版」「缺少」或「已移除但仍安裝著」：代表 `.agreements/rules/` 改了卻沒同步，引導執行 `/agreements:setup sync`。
+  - 若提示有只存在本機的自訂守則：說明搬到 `.agreements/rules/` 後執行 `/agreements:setup sync`，就能跟團隊共用。

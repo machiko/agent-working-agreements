@@ -1,0 +1,21 @@
+name: Agent Agreements Drift
+
+# 由 install.sh --team-init 產生：守則檔與 .agreements.json、.agreements/rules/ 不一致時讓 PR 失敗。
+# 修法：在本機執行 install.sh --sync，把產生的變更一起 commit。
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 守則與團隊策略一致
+        run: curl -fsSL https://raw.githubusercontent.com/machiko/agent-working-agreements/main/scripts/remote-install.sh | bash -s -- --check-drift .

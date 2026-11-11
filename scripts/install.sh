@@ -21,6 +21,8 @@
 #   install.sh --target <dir> --status
 #   install.sh --cursor <dir> --status
 #   install.sh --agents-md <file> --status
+#   install.sh --sync [dir] [--dry-run]                       # 依團隊策略檔同步所有安裝目標（見 team.sh）
+#   install.sh --team-init [dir] [--targets a,b] [--dry-run]  # 團隊一條指令導入（見 team.sh）
 #
 #   --target    安裝目錄，例如 ~/.claude/rules/agent-agreements 或 <專案>/.claude/rules/agent-agreements
 #   --cursor    Cursor 規則目錄（產出 .mdc 檔），例如 .cursor/rules
@@ -40,6 +42,9 @@
 #   --list      列出所有規則：id、tier、stack、是否按需載入、本文行數、選項名稱、說明、是否淘汰（以 tab 分隔）
 #   --detect    自動掃描專案特徵並列出推薦的 optional 規則（以 tab 分隔 id 與推薦原因）
 #
+#   團隊守則：策略檔旁的 .agreements/rules/<name>.md 以 id「custom/<name>」一律安裝到每個目標，
+#   可以列進策略檔的 enforce_rules；沒有策略檔時不讀團隊守則。
+#
 #   環境變數 AGENTS_MD_MAX_BYTES：AGENTS.md 大小警告門檻（預設 32768，Codex project_doc_max_bytes 預設值）
 #
 # 結束碼：0 成功；2 參數錯誤。
@@ -52,6 +57,11 @@ LANGS="zh-TW en"
 lang=""       # 實際使用的語言；--lang 有指定就固定，否則依策略檔、既有安裝記錄決定
 lang_arg=""
 PROFILE_NAME=".agreements-profile"
+TEAM_RULES=""  # 團隊守則目錄（策略檔旁的 .agreements/rules），找到策略檔才有
+
+case "${1:-}" in
+  --sync|--team-init) exec bash "$ROOT/scripts/team.sh" "$@" ;;
+esac
 # shellcheck source=lib/policy.sh
 . "$ROOT/scripts/lib/policy.sh"
 
@@ -188,16 +198,30 @@ version() {
 
 contains() { printf '%s\n' "$1" | grep -Fxq -- "$2"; }
 
+# src_of <id>：守則來源檔。custom/<name> 是團隊守則，其餘是內建守則
+src_of() {
+  case "$1" in
+    custom/*)
+      # 名稱不合法（例如 custom/../../x）時指向不存在的路徑，呼叫端的存在檢查會擋下
+      if aw_is_team_name "${1#custom/}"; then printf '%s/%s.md' "${TEAM_RULES:-/nonexistent}" "${1#custom/}"
+      else printf '/nonexistent/invalid-team-rule.md'; fi ;;
+    *) printf '%s/%s.md' "$RULES" "$1" ;;
+  esac
+}
+
+# team_ids：團隊守則 id（custom/<name>），檔名只接受小寫英數與連字號；README.md 略過
+team_ids() { aw_team_rule_ids "$TEAM_RULES"; }
+
 # is_deprecated <id>：frontmatter 有 deprecated 欄位就是已淘汰
 is_deprecated() {
-  awk 'NR == 1 && $0 != "---" { exit 1 } NR > 1 && $0 == "---" { exit 1 } /^deprecated:/ { found = 1; exit } END { exit !found }' "$RULES/$1.md" 2>/dev/null
+  awk 'NR == 1 && $0 != "---" { exit 1 } NR > 1 && $0 == "---" { exit 1 } /^deprecated:/ { found = 1; exit } END { exit !found }' "$(src_of "$1")" 2>/dev/null
 }
 
 # deprecation_note <id>：「已淘汰：<原因>；改用 <替代守則>」
 deprecation_note() {
   local reason replaced
-  reason="$(field "$RULES/$1.md" deprecated | unquote)"
-  replaced="$(field "$RULES/$1.md" replaced_by | unquote)"
+  reason="$(field "$(src_of "$1")" deprecated | unquote)"
+  replaced="$(field "$(src_of "$1")" replaced_by | unquote)"
   printf '已淘汰：%s' "${reason:-未說明原因}"
   [ -n "$replaced" ] && printf '；改用 %s' "$replaced"
   return 0
@@ -234,7 +258,7 @@ cursor_content() {
 # with_title <id> <顯示名稱>：來源規則有標題就印「<顯示名稱> — <標題>」，否則只印顯示名稱
 with_title() {
   local t=""
-  [ -f "$RULES/$1.md" ] && t="$(title "$RULES/$1.md")"
+  [ -f "$(src_of "$1")" ] && t="$(title "$(src_of "$1")")"
   if [ -n "$t" ]; then printf '%s — %s' "$2" "$t"; else printf '%s' "$2"; fi
 }
 
@@ -263,7 +287,8 @@ section() {
 US=$'\037'
 rule_record() {
   local tier="optional" load="常駐" od=0
-  [ -f "$RULES/$1.md" ] && tier="$(field "$RULES/$1.md" tier)"
+  [ -f "$(src_of "$1")" ] && tier="$(field "$(src_of "$1")" tier)"
+  case "$1" in custom/*) tier="custom" ;; esac
   if [ -n "$3" ] && [ -f "$3" ] && has_paths "$3"; then
     load="按需載入（$(paths_of "$3")）"; od=1
   fi
@@ -280,12 +305,15 @@ print_rule() {  # print_rule <id> <標題> <載入方式> <狀態>
 report_status() {
   local records rows group label n always=0 ondemand=0 total=0
   records="$(cat)"
-  for group in core selected; do
-    if [ "$group" = "core" ]; then
-      label="core"; rows="$(printf '%s\n' "$records" | awk -F"$US" '$2 == "core"')"
-    else
-      label="選擇的規則"; rows="$(printf '%s\n' "$records" | awk -F"$US" 'NF && $2 != "core"')"
-    fi
+  for group in core selected custom; do
+    case "$group" in
+      core) label="core"; rows="$(printf '%s\n' "$records" | awk -F"$US" '$2 == "core"')" ;;
+      selected) label="選擇的規則"; rows="$(printf '%s\n' "$records" | awk -F"$US" 'NF && $2 != "core" && $2 != "custom"')" ;;
+      custom)
+        rows="$(printf '%s\n' "$records" | awk -F"$US" '$2 == "custom"')"
+        [ -n "$rows" ] || continue
+        label="團隊守則" ;;
+    esac
     n="$(printf '%s\n' "$rows" | grep -c . || true)"
     echo "${label}（${n} 個）"
     [ "$n" -eq 0 ] && echo "  （無）"
@@ -376,7 +404,9 @@ if [ "$mode" = "detect" ]; then
   fi
 
   # 9. AI 與 LLM 應用特徵
-  if find "$dir" -maxdepth 3 -type f \( -name '*prompt*' -o -name '*agent*' -o -name '*rag*' \) 2>/dev/null | grep -q . \
+  # 排除 Agent 設定目錄與本工具產生的檔案（例如 .github/workflows/agent-audit.yml），否則安裝後再偵測會誤判
+  if find "$dir" -maxdepth 3 \( -path '*/.git' -o -path '*/.github' -o -path '*/.claude' -o -path '*/.cursor' -o -path '*/.agreements' -o -path '*/node_modules' \) -prune \
+       -o -type f \( -name '*prompt*' -o -name '*agent*' -o -name '*rag*' \) ! -name 'AGENTS.md' -print 2>/dev/null | grep -q . \
     || { [ -f "$dir/package.json" ] && grep -qiE '"(openai|@anthropic-ai|anthropic|@google/genai|langchain|@langchain|llamaindex|chromadb|pinecone|@pinecone-database|weaviate-client|qdrant|tiktoken)"' "$dir/package.json" 2>/dev/null; } \
     || { [ -f "$dir/requirements.txt" ] && grep -qiE '(openai|anthropic|google-generativeai|langchain|llama-index|chromadb|pinecone-client|qdrant-client|weaviate-client|tiktoken|litellm)' "$dir/requirements.txt" 2>/dev/null; } \
     || { [ -f "$dir/pyproject.toml" ] && grep -qiE '(openai|anthropic|google-generativeai|langchain|llama-index|chromadb|pinecone|qdrant|weaviate|litellm)' "$dir/pyproject.toml" 2>/dev/null; } \
@@ -573,28 +603,37 @@ if [ "$mode" = "update" ]; then
   mode="install"
 fi
 
-# 期望安裝的規則：core 全部 ＋ 選擇的 optional
+# 團隊策略檔：--policy 指定，否則從目標往上找；找到後一併決定團隊守則目錄
+if [ -n "$policy_file" ]; then
+  case "$policy_file" in "~"/*) policy_file="$HOME/${policy_file#\~/}" ;; esac
+  [ -f "$policy_file" ] || die "找不到團隊策略檔：$policy_file"
+  active_policy="$policy_file"
+else
+  policy_from_cwd=0
+  for sd in "${target:-}" "${cursor_dir:-}" "${agents_md:-}" .; do
+    [ -z "$sd" ] && continue
+    p="$(aw_find_policy "$sd" || true)"
+    if [ -n "$p" ] && [ -f "$p" ]; then
+      active_policy="$p"
+      [ "$sd" = "." ] && policy_from_cwd=1
+      break
+    fi
+  done
+fi
+# 策略檔是從目前目錄找到的（目標不在該專案內，例如全域安裝）：不帶入團隊守則，避免專案守則外洩到全域
+if [ -n "$active_policy" ] && [ "${policy_from_cwd:-0}" -eq 0 ]; then
+  TEAM_RULES="$(aw_team_rules_dir "$active_policy")"
+fi
+
+# 期望安裝的規則：core 全部 ＋ 團隊守則 ＋ 選擇的 optional
 desired=""
 if [ "$mode" = "install" ]; then
   for id in $(all_ids); do
     [ "$(field "$RULES/$id.md" tier)" = "core" ] && desired="$desired$id"$'\n'
   done
-
-  # 團隊策略檔處理
-  if [ -n "$policy_file" ]; then
-    case "$policy_file" in "~"/*) policy_file="$HOME/${policy_file#\~/}" ;; esac
-    [ -f "$policy_file" ] || die "找不到團隊策略檔：$policy_file"
-    active_policy="$policy_file"
-  else
-    for sd in "${target:-}" "${cursor_dir:-}" "${agents_md:-}" .; do
-      [ -z "$sd" ] && continue
-      p="$(aw_find_policy "$sd" || true)"
-      if [ -n "$p" ] && [ -f "$p" ]; then
-        active_policy="$p"
-        break
-      fi
-    done
-  fi
+  team="$(team_ids)"
+  for id in $team; do desired="$desired$id"$'\n'; done
+  [ -n "$team" ] && echo "👥 團隊守則（$(printf '%s\n' "$team" | grep -c .) 個）：$(printf '%s ' $team)"
 
   # 策略檔指定語言時，優先於既有安裝記錄（--lang 仍然最優先）
   if [ -z "$lang_arg" ] && [ -n "$active_policy" ]; then
@@ -617,8 +656,8 @@ if [ "$mode" = "install" ]; then
           echo "📋 依據團隊策略檔（$(basename "$active_policy")）套用方案：full（全套防禦）"
           ;;
         smart)
-          target_proj_dir="${target:-${cursor_dir:-${agents_md:-.}}}"
-          [ -f "$target_proj_dir" ] && target_proj_dir="$(dirname "$target_proj_dir")"
+          # 偵測專案根目錄（策略檔所在目錄），不是安裝目錄（.claude/rules/…、.cursor/rules）或還不存在的 AGENTS.md
+          target_proj_dir="$(dirname "$active_policy")"
           detected="$("$0" --detect "$target_proj_dir" 2>/dev/null | cut -f1 | tr '\n' ',' | sed 's/,$//' || true)"
           if [ -n "$detected" ]; then
             select_ids="$detected"
@@ -637,7 +676,7 @@ if [ "$mode" = "install" ]; then
   if [ -n "$select_ids" ]; then
     for raw_id in $(printf '%s' "$select_ids" | tr ',' ' '); do
       id="$(alias_id "$raw_id")"
-      [ -f "$RULES/$id.md" ] || die "找不到規則：${raw_id}（用 --list 查看可用 id）"
+      [ -f "$(src_of "$id")" ] || die "找不到規則：${raw_id}（用 --list 查看可用 id）"
       is_deprecated "$id" && echo "⚠️ 守則 ${id} $(deprecation_note "$id")" >&2
       contains "$desired" "$id" || desired="$desired$id"$'\n'
     done
@@ -648,8 +687,15 @@ if [ "$mode" = "install" ]; then
     if [ -n "$enforced" ]; then
       for enf_id in $enforced; do
         id="$(alias_id "$enf_id")"
-        [ -f "$RULES/$id.md" ] || die "策略檔指定的強制規則不存在：${enf_id}"
+        case "$id" in
+          custom/*)
+            aw_is_team_name "${id#custom/}" || die "策略檔的強制規則名稱不合法：${enf_id}（custom/ 後面只能用小寫英數與連字號）"
+            [ -f "$(src_of "$id")" ] || die "策略檔指定的強制規則不存在：${enf_id}（找不到團隊守則 .agreements/rules/${id#custom/}.md）" ;;
+          *) [ -f "$RULES/$id.md" ] || die "策略檔指定的強制規則不存在：${enf_id}" ;;
+        esac
         contains "$desired" "$id" || desired="$desired$id"$'\n'
+        # 團隊守則每次都會從 .agreements/rules 帶入，不記進 selected
+        case "$id" in custom/*) continue ;; esac
         if [ "$(field "$RULES/$id.md" tier)" != "core" ]; then
           if [ -z "$select_ids" ]; then
             select_ids="$id"
@@ -698,7 +744,7 @@ if [ -n "$agents_md" ]; then
     for id in $(printf '%s\n' "$blk" | sed -n 's/^<!-- rule: \([^ ]*\) -->$/\1/p' | sort); do
       sec="$(section "$id" - <<< "$blk")"
       lines=0; [ -n "$sec" ] && lines="$(printf '%s\n' "$sec" | grep -c '')"
-      src="$RULES/$id.md"
+      src="$(src_of "$id")"
       if [ -f "$src" ]; then
         t="$(title "$src")"
         if [ "$sec" = "$(strip_body "$src")" ]; then st="最新"; else st="有新版"; fi
@@ -729,7 +775,7 @@ if [ -n "$agents_md" ]; then
       for id in $desired; do
         echo
         echo "<!-- rule: $id -->"
-        strip_body "$RULES/$id.md"
+        strip_body "$(src_of "$id")"
       done
       echo
       echo "$END_LINE"
@@ -853,7 +899,7 @@ if [ "$mode" = "status" ]; then
   [ -n "$schema_v" ] && echo "規範結構：Schema v${schema_v}"
   [ -n "$policy_v" ] && echo "團隊策略：${policy_v}"
   for id in $installed; do
-    src="$RULES/$id.md"; dest="$target/$id.$ext"; rec="$(recorded_sha "$id")"
+    src="$(src_of "$id")"; dest="$target/$id.$ext"; rec="$(recorded_sha "$id")"
     if [ ! -f "$dest" ]; then st="檔案遺失"
     elif [ "$(sha "$dest")" != "$rec" ]; then st="已手動修改"
     elif [ ! -f "$src" ]; then st="來源已移除"
@@ -904,7 +950,7 @@ done
 unchanged=0
 kept_modified=0
 for id in $desired; do
-  src="$RULES/$id.md"
+  src="$(src_of "$id")"
   dest="$target/$id.$ext"
   if [ "$is_cursor" -eq 1 ]; then
     src_sha="$(cursor_content "$src" | sha)"
@@ -936,9 +982,12 @@ for id in $desired; do
   if [ "$dry_run" -eq 0 ]; then
     mkdir -p "$(dirname "$dest")"
     if [ "$is_cursor" -eq 1 ]; then
+      rm -f "$dest"
       cursor_content "$src" > "$dest"
     else
-      cp "$src" "$dest"
+      # 不用 cp：來源唯讀（例如唯讀的 plugin 快取）時 cp 會連權限一起複製，之後就無法更新
+      rm -f "$dest"
+      cat "$src" > "$dest"
     fi
   fi
   record "$id" "$src_sha"
@@ -947,8 +996,8 @@ done
 # 摘要：常駐（沒有 paths）與按需載入的本文行數
 always=0; ondemand=0
 for id in $desired; do
-  n="$(body_lines "$RULES/$id.md")"
-  if has_paths "$RULES/$id.md"; then ondemand=$((ondemand + n)); else always=$((always + n)); fi
+  n="$(body_lines "$(src_of "$id")")"
+  if has_paths "$(src_of "$id")"; then ondemand=$((ondemand + n)); else always=$((always + n)); fi
 done
 
 echo "──"

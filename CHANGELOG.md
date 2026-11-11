@@ -4,6 +4,27 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 團隊守則：放在策略檔旁的 `.agreements/rules/<name>.md`，以 `custom/<name>` 安裝到每個目標（Claude Code、Cursor、AGENTS.md、Copilot、Windsurf），`enforce_rules` 可以強制；`--status` 另列「團隊守則」分組
+- 新增 `install.sh --sync`（`/agreements:setup sync`）：依策略檔把每個目標裝好或更新、帶入團隊守則、安裝 Git hooks，每次依策略檔重新展開 `preset` 與 `enforce_rules`，連跑兩次第二次不會有變更；團隊守則有格式問題時列出提示，不擋同步；專案沒有 `scripts/audit.sh` 時複製一份給 pre-commit 稽核
+- 新增 `install.sh --team-init`（`/agreements:setup team`）：一條指令產生策略檔與 `.agreements/rules/`、安裝每個目標、Git hooks、CI 守門與防漂移工作流，最後列出要 commit 的檔案與給成員的同步指令
+- 新增 策略檔欄位 `targets`、`agreements_version`、`git_hooks`；`agreements_version` 跟工具版本不同時 `--sync` 停下並說明怎麼對齊或升級
+- 新增 `remote-install.sh --version`；遠端執行 `--sync`、`--check-drift` 時依策略檔的 `agreements_version` 下載對應版本；`--team-init` 產生的防漂移工作流與成員同步指令釘在當下版本的 tag
+- 新增 團隊導入指南（`docs/team.md`、`docs/team.en.md`）
+
+### Changed
+
+- `doctor.sh --check-drift` 檢查策略檔 `targets` 的每個目標，團隊守則改了沒同步、刪了沒同步、安裝版本與 `agreements_version` 不符都算漂移
+- `/agreements:record` 在有 `.agreements.json` 的專案預設寫到 `.agreements/rules/` 並同步；`doctor.sh` 提示還留在本機 `custom/` 的自訂守則可以搬過去
+- `scripts/lint-rules.sh`、`scripts/check-budget.sh` 可用 `RULES_DIR` 檢查團隊守則
+
+### Fixed
+
+- 來源守則檔唯讀時（例如唯讀的 plugin 快取），安裝出來的檔案也變成唯讀，之後無法更新
+- 策略檔 `preset: smart` 在專案安裝時偵測的是安裝目錄（例如 `.claude/rules/agent-agreements`）而不是專案根目錄，等於沒有偵測
+- `--detect` 把 `.github/workflows/agent-audit.yml` 等本工具產生的檔案當成 AI 專案特徵，安裝後再偵測會多推薦 `ai/pitfalls`
+
 ## [1.5.0] - 2026-11-10
 
 ### Added

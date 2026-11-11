@@ -34,7 +34,7 @@ rule_ids = sorted(
     os.path.relpath(os.path.join(d, n), rules_dir)[:-3]
     for d, _, names in os.walk(rules_dir) for n in names if n.endswith(".md")
 )
-enum_ids = props["enforce_rules"]["items"]["enum"]
+enum_ids = props["enforce_rules"]["items"]["anyOf"][0]["enum"]
 
 missing = sorted(set(rule_ids) - set(enum_ids))
 extra = sorted(set(enum_ids) - set(rule_ids))
@@ -112,6 +112,17 @@ for cid in sorted(guards):
 TYPES = {"string": str, "array": list, "boolean": bool, "object": dict}
 
 
+def item_ok(spec, v):
+    """陣列項目符合 enum、pattern，或 anyOf 其中一項"""
+    if "anyOf" in spec:
+        return any(item_ok(alt, v) for alt in spec["anyOf"])
+    if "enum" in spec and v not in spec["enum"]:
+        return False
+    if "pattern" in spec and not (isinstance(v, str) and re.match(spec["pattern"], v)):
+        return False
+    return True
+
+
 def validate(path):
     rel = os.path.relpath(path, root) if path.startswith(root) else path
     try:
@@ -133,10 +144,12 @@ def validate(path):
             continue
         if "enum" in spec and value not in spec["enum"]:
             errors.append(f"{rel}：「{key}」的值「{value}」不在允許清單內")
+        if "pattern" in spec and not re.match(spec["pattern"], value):
+            errors.append(f"{rel}：「{key}」的值「{value}」格式不對")
         if spec["type"] == "array":
-            bad = [v for v in value if v not in spec["items"]["enum"]]
+            bad = [v for v in value if not item_ok(spec["items"], v)]
             if bad:
-                errors.append(f"{rel}：「{key}」含未知規則：{', '.join(map(str, bad))}")
+                errors.append(f"{rel}：「{key}」含不允許的項目：{', '.join(map(str, bad))}")
             if spec.get("uniqueItems") and len(value) != len(set(map(str, value))):
                 errors.append(f"{rel}：「{key}」有重複項目")
 
