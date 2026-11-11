@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-11
+
 ### Added
 
 - 新增 團隊守則：放在策略檔旁的 `.agreements/rules/<name>.md`，以 `custom/<name>` 安裝到每個目標（Claude Code、Cursor、AGENTS.md、Copilot、Windsurf），`enforce_rules` 可以強制；`--status` 另列「團隊守則」分組
