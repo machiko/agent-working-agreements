@@ -1,0 +1,19 @@
+# Team guard rules: matched before Claude Code runs a Bash command; a match denies the command.
+# Built-in rules (git force push, recursive delete of the root directory, and so on) are checked first.
+# Rules here can only block more, never relax a built-in rule.
+#
+# Format: one rule per line, 3 or 4 tab-separated columns
+#   rule<TAB>pattern<TAB>message[<TAB>allow]
+# - rule: name shown in the deny message; use custom/<name> to match .agreements/rules/<name>.md
+# - pattern: regular expression. The command is split on && || ; and newlines, and each part is matched separately
+# - message: tells the agent why it can't do this and what to do instead
+# - allow (optional): a part that also matches this pattern is allowed
+#
+# Placeholders: {S} space or tab; {NS} non-space, non-quote; {E} end of word
+# Avoid \b \s \d \w and (?…): without python3 the hook falls back to grep -E, which doesn't support them
+#
+# Try rules in the Playground first: https://machiko.github.io/agent-working-agreements/
+# Broken lines are skipped with a warning at run time; install.sh --sync lists them and --check-drift fails.
+#
+# Example (remove the leading # to enable):
+# custom/infra	(^|[^A-Za-z0-9_-])terraform{S}(.*{S})?destroy{E}	Don't run terraform destroy directly; go through the change process.

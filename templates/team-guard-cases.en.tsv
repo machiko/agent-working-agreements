@@ -1,0 +1,7 @@
+# Team guard cases: one per line, deny or allow, a tab, then the command.
+# install.sh --sync and --check-drift judge each case with the built-in rules plus guard-rules.tsv and list any mismatch.
+# When you add or change a guard rule, add one case it should block and one it should allow.
+#
+# Example (remove the leading # to enable):
+# deny	terraform destroy -auto-approve
+# allow	terraform plan

@@ -88,6 +88,19 @@ scripts/install.sh --sync
 
 以前 `/agreements:record` 寫在 `.claude/rules/agent-agreements/custom/` 的守則只有自己的 Claude Code 讀得到。搬到 `.agreements/rules/` 後執行 `--sync`，就能跟團隊共用，也會套用到其他 Agent；`doctor.sh` 會提示還有幾條沒搬。
 
+### 團隊攔截規則
+
+要讓 Claude Code 不能執行某些指令（例如 `terraform destroy`、直接連正式機資料庫），寫在 `.agreements/guard-rules.tsv`。`--team-init` 會產生只有說明的範本。
+
+1. 一行一條，用 Tab 分成「守則、攔截式、訊息、放行例外（選填）」，格式跟內建的 [`scripts/lib/guard-rules.tsv`](../scripts/lib/guard-rules.tsv) 相同。可以先在 [Playground](https://machiko.github.io/agent-working-agreements/) 試寫。
+2. 在 `.agreements/guard-cases.tsv` 各補一筆應擋（`deny`）與應放行（`allow`）的指令。
+3. 執行 `--sync`，確認「團隊攔截規則：通過」，再 commit、開 PR。
+
+- 規則跟著 repo 走，不用重新安裝：Claude Code 執行指令時，從工作目錄往上找到策略檔，就讀旁邊的 `.agreements/guard-rules.tsv`。
+- 內建規則先比對，團隊規則只能多擋，不能放寬內建規則。
+- 有一行寫錯（欄位不足、正規表示式無法編譯、連空字串都會命中）時，執行時只跳過那一行並警告；`--sync` 會列出問題，`--check-drift` 會失敗。
+- 只有支援 PreToolUse hook 的 Claude Code 會攔截；Cursor、Copilot 等工具不會執行這些規則。
+
 ## 4. 升級版本
 
 1. 用新版工具，把 `.agreements.json` 的 `agreements_version` 改成新版本號。
@@ -106,6 +119,7 @@ scripts/install.sh --sync
 | 安裝版本應為 X | 策略檔改了版本但守則沒重裝 | 用該版本執行 `--sync` |
 | 強制守則尚未安裝／狀態異常 | `enforce_rules` 的守則沒裝或被改 | 執行 `--sync` |
 | 尚未安裝守則 | `targets` 裡的目標沒安裝 | 執行 `--sync` |
+| 團隊攔截規則（.agreements/guard-rules.tsv）或案例檔有問題 | 規則寫錯，或案例的判定跟預期不同 | 照上方列出的行號修正，執行 `--sync` 確認通過 |
 
 GitLab、Bitbucket 等平台不會自動加防漂移工作流，在 CI 加這一步：
 

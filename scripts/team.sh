@@ -94,6 +94,18 @@ lint_team_rules() {
   fi
 }
 
+# check_team_guard <策略檔>：團隊攔截規則與案例檔的檢查，只提示、不擋同步（--check-drift 才會擋）
+check_team_guard() {
+  local out
+  [ -n "$(aw_team_guard_file "$1")" ] || return 0
+  if out="$(aw_check_team_guard "$1")"; then
+    echo "▸ 團隊攔截規則：通過${out:+（$out）}"
+  else
+    echo "▸ 團隊攔截規則（只提示，不影響同步；寫錯的規則在 Claude Code 執行時會被跳過，--check-drift 會失敗）"
+    printf '%s\n' "$out" | sed 's/^✗ /  ⚠ .agreements\//'
+  fi
+}
+
 do_sync() {
   local policy root pinned local_v targets t path rel flag out rc changes=0 failed=0 lines
   policy="$(aw_find_policy "$dir" || true)"
@@ -150,6 +162,7 @@ do_sync() {
   done
 
   lint_team_rules "$policy"
+  check_team_guard "$policy"
 
   if [ "$(aw_policy_get "$policy" git_hooks)" = "true" ]; then
     if ! git -C "$root" rev-parse --git-dir >/dev/null 2>&1; then
@@ -230,6 +243,14 @@ write_team_readme() {
   else cp "$ROOT/templates/team-rules-README.md" "$1"; fi
 }
 
+write_team_guard() {  # 團隊攔截規則與案例檔範本；已有就不覆寫
+  local suffix="" f
+  [ "$lang" = "en" ] && suffix=".en"
+  for f in guard-rules guard-cases; do
+    [ -f "$1/$f.tsv" ] || cp "$ROOT/templates/team-$f$suffix.tsv" "$1/$f.tsv"
+  done
+}
+
 install_drift_ci() {  # 只有 GitHub Actions 自動加防漂移工作流；其他平台印出要加的指令
   local root="$1" wf="$1/.github/workflows/agent-agreements-drift.yml"
   if [ -d "$root/.github/workflows" ] || { [ ! -f "$root/.gitlab-ci.yml" ] && [ ! -f "$root/bitbucket-pipelines.yml" ]; }; then
@@ -264,6 +285,7 @@ do_init() {
   if [ "$dry_run" -eq 1 ]; then
     echo "  ＋ .agreements.json"
     echo "  ＋ .agreements/rules/README.md"
+    echo "  ＋ .agreements/guard-rules.tsv、.agreements/guard-cases.tsv（範本，只有說明）"
     for t in $(printf '%s' "$targets" | tr ',' ' '); do echo "  ＋ $(aw_target_path "$t")"; done
     echo "  ＋ Git hooks（pre-commit、pre-push）"
     [ "$with_ci" -eq 1 ] && echo "  ＋ CI 守門與防漂移工作流"
@@ -273,8 +295,10 @@ do_init() {
 
   write_policy "$root/.agreements.json" "$targets"
   write_team_readme "$root/.agreements/rules/README.md"
+  write_team_guard "$root/.agreements"
   echo "  ＋ .agreements.json"
   echo "  ＋ .agreements/rules/README.md"
+  echo "  ＋ .agreements/guard-rules.tsv、.agreements/guard-cases.tsv（範本，只有說明）"
   echo
   dir="$root"
   if ! ( do_sync ); then
@@ -302,6 +326,8 @@ do_init() {
   echo "2. 轉告成員：pull 之後執行一次"
   echo "   curl -fsSL $(remote_url "$(tool_version)") | bash -s -- --sync"
   echo "3. 團隊規範寫在 .agreements/rules/（格式見裡面的 README.md），改完執行 --sync 再開 PR"
+  echo "4. 要攔截的指令寫在 .agreements/guard-rules.tsv，應擋與應放行的例子寫在 .agreements/guard-cases.tsv；"
+  echo "   可以先在 Playground 試：https://machiko.github.io/agent-working-agreements/"
 }
 
 case "$mode" in

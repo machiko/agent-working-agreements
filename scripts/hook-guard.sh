@@ -6,6 +6,7 @@
 #   hook-guard.sh --install-git-hooks [目錄] # 安裝 Git pre-push（擋 force push）與 pre-commit（稽核）
 #
 # 攔截規則在 lib/guard-rules.tsv；有 python3 時交給 hook-guard.py 比對，否則用同一份規則走 bash fallback。
+# 團隊攔截規則放在策略檔旁的 .agreements/guard-rules.tsv，內建規則之後比對，只能多擋、不能放寬。
 # 停用開關 AGREEMENTS_HOOKS_DISABLE=1；團隊策略檔設 "prohibit_disable_hooks": true 時開關失效。
 set -euo pipefail
 
@@ -29,18 +30,25 @@ fi
 INPUT="$(cat)"
 [ -n "$INPUT" ] || exit 0
 
+# ── 團隊策略檔：從 Agent 的 cwd 往上找 ─────────────────
+start_dir="$(printf '%s' "$INPUT" | sed -n 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+[ -n "$start_dir" ] && [ -d "$start_dir" ] || start_dir="$PWD"
+policy="$(aw_find_policy "$start_dir" || true)"
+
 # ── 停用開關與團隊策略鎖定 ─────────────────────────────
 if [ -n "${AGREEMENTS_HOOKS_DISABLE:-}" ] && [ "$AGREEMENTS_HOOKS_DISABLE" != "0" ]; then
-  start_dir="$(printf '%s' "$INPUT" | sed -n 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
-  [ -n "$start_dir" ] && [ -d "$start_dir" ] || start_dir="$PWD"
-  policy="$(aw_find_policy "$start_dir" || true)"
   if [ -z "$policy" ] || ! aw_policy_prohibits_disable "$policy"; then
     exit 0
   fi
 fi
 
+# 團隊攔截規則（策略檔旁的 .agreements/guard-rules.tsv）：內建規則之後再比對，只能多擋
+TEAM_RULES="$(aw_team_guard_file "$policy")"
+
 if [ -z "${AGREEMENTS_HOOK_FORCE_BASH:-}" ] && command -v python3 >/dev/null 2>&1; then
-  if py_out="$(printf '%s' "$INPUT" | python3 "$ROOT/scripts/hook-guard.py")"; then
+  set --
+  [ -n "$TEAM_RULES" ] && set -- --team "$TEAM_RULES"
+  if py_out="$(printf '%s' "$INPUT" | python3 "$ROOT/scripts/hook-guard.py" "$@")"; then
     [ -n "$py_out" ] && printf '%s\n' "$py_out"
     exit 0
   fi
@@ -64,21 +72,35 @@ expand() {
   printf '%s' "$p"
 }
 
-while IFS=$'\t' read -r rule pattern message allow; do
-  case "$rule" in ''|'#'*) continue ;; esac
-  pattern="$(expand "$pattern")"
-  hit="$(printf '%s\n' "$segments" | grep -E -- "$pattern" || true)"
-  [ -n "$hit" ] || continue
-  if [ -n "${allow:-}" ]; then
-    hit="$(printf '%s\n' "$hit" | grep -vE -- "$(expand "$allow")" || true)"
+# check_rules <規則檔> <標籤>：命中就輸出 deny 並結束。
+# 團隊規則寫錯（缺欄位、正規表示式無法編譯、連空字串都命中）時跳過那一行並警告，不讓一行錯誤擋掉所有指令。
+check_rules() {
+  local file="$1" kind="$2" lineno=0 rule pattern message allow extra hit reason rc
+  while IFS=$'\t' read -r rule pattern message allow extra || [ -n "$rule" ]; do
+    lineno=$((lineno + 1))
+    case "$rule" in ''|'#'*) continue ;; esac
+    if [ -z "$pattern" ] || [ -z "$message" ] || [ -n "${extra:-}" ]; then
+      echo "⚠ [agent-agreements] 略過${kind}攔截規則 ${file}:${lineno}：欄位不完整或超過 4 欄" >&2; continue
+    fi
+    pattern="$(expand "$pattern")"
+    rc=0; printf '\n' | grep -qE -- "$pattern" 2>/dev/null || rc=$?
+    if [ "$rc" -ne 1 ]; then
+      echo "⚠ [agent-agreements] 略過${kind}攔截規則 ${file}:${lineno}：攔截式無法編譯，或連空字串都會命中" >&2; continue
+    fi
+    hit="$(printf '%s\n' "$segments" | grep -E -- "$pattern" || true)"
     [ -n "$hit" ] || continue
-  fi
-  if [ -n "$hit" ]; then
-    reason="🛡️ 觸發 ${rule} 守則攔截：${message}"
+    if [ -n "${allow:-}" ]; then
+      hit="$(printf '%s\n' "$hit" | grep -vE -- "$(expand "$allow")" || true)"
+      [ -n "$hit" ] || continue
+    fi
+    reason="🛡️ 觸發 ${rule} ${kind}攔截：${message}"
     printf '{"hookSpecificOutput": {"hookEventName": "%s", "permissionDecision": "deny", "permissionDecisionReason": "%s"}, "systemMessage": "%s"}\n' \
       "${event:-PreToolUse}" "$reason" "$reason"
     exit 0
-  fi
-done < "$RULES_FILE"
+  done < "$file"
+}
+
+check_rules "$RULES_FILE" "守則"
+[ -n "$TEAM_RULES" ] && check_rules "$TEAM_RULES" "團隊規則"
 
 exit 0

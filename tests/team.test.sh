@@ -74,6 +74,7 @@ check "策略檔記錄 targets" 'grep -q "\"targets\": \[\"claude\", \"cursor\",
 check "策略檔鎖定目前版本" 'grep -q "\"agreements_version\": \"$VERSION\"" "$R/.agreements.json"'
 check "策略檔符合 schema" '"$ROOT/scripts/check-schema.sh" "$R/.agreements.json" >/dev/null 2>&1'
 check "產生團隊守則 README" '[ -f "$R/.agreements/rules/README.md" ]'
+check "產生團隊攔截規則與案例檔範本" '[ -f "$R/.agreements/guard-rules.tsv" ] && [ -f "$R/.agreements/guard-cases.tsv" ]'
 check "安裝 Claude Code 目標" '[ -f "$R/.claude/rules/agent-agreements/.agreements-profile" ]'
 check "安裝 Cursor 目標" '[ -f "$R/.cursor/rules/.agreements-profile" ]'
 check "安裝 AGENTS.md 目標" 'grep -q "^<!-- agent-agreements:start" "$R/AGENTS.md"'
@@ -141,6 +142,26 @@ printf -- '---\ncategory: custom\ntier: custom\n---\n\n# 品質不足\n\n## 條�
 bash "$INSTALL" --sync "$R2" > "$TMP/out" 2>&1
 check "不合法檔名略過並警告" 'grep -q "略過團隊守則.*Bad_Name.md" "$TMP/out" && [ ! -e "$R2/.claude/rules/agent-agreements/custom/Bad_Name.md" ]'
 check "品質問題只提示、不擋同步" 'grep -q "團隊守則品質（只提示" "$TMP/out" && grep -q "空泛用語「盡量」" "$TMP/out" && [ -f "$R2/.claude/rules/agent-agreements/custom/weak.md" ]'
+
+echo "▸ 團隊攔截規則"
+printf 'custom/infra\t(^|[^A-Za-z0-9_-])terraform{S}(.*{S})?destroy{E}\t禁止 terraform destroy。\n' > "$R2/.agreements/guard-rules.tsv"
+printf 'deny\tterraform destroy\nallow\tterraform plan\n' > "$R2/.agreements/guard-cases.tsv"
+bash "$INSTALL" --sync "$R2" > "$TMP/out" 2>&1
+check "--sync 檢查團隊攔截規則" 'grep -q "團隊攔截規則：通過" "$TMP/out"'
+bash "$DOCTOR" --check-drift "$R2" > "$TMP/out" 2>&1
+check "規則與案例一致：--check-drift 通過並說明" '[ $? -eq 0 ] && grep -q "案例檔判定一致" "$TMP/out"'
+printf 'allow\tterraform destroy\n' >> "$R2/.agreements/guard-cases.tsv"
+bash "$INSTALL" --sync "$R2" > "$TMP/out" 2>&1
+check "案例不符：--sync 只提示、不擋同步" '[ $? -eq 0 ] && grep -q "⚠ .agreements/guard-cases.tsv:3：預期 allow，實際 deny" "$TMP/out"'
+bash "$DOCTOR" --check-drift "$R2" > "$TMP/out" 2>&1
+check "案例不符：--check-drift 失敗" '[ $? -eq 1 ] && grep -q "團隊攔截規則（.agreements/guard-rules.tsv）或案例檔有問題" "$TMP/out"'
+printf 'deny\tterraform destroy\n' > "$R2/.agreements/guard-cases.tsv"
+printf 'custom/bad\tfoo([\t無法編譯\n' >> "$R2/.agreements/guard-rules.tsv"
+bash "$DOCTOR" --check-drift "$R2" > "$TMP/out" 2>&1
+check "規則無法編譯：--check-drift 失敗並指出行號" '[ $? -eq 1 ] && grep -q "guard-rules.tsv:2：攔截式無法編譯" "$TMP/out"'
+bash "$DOCTOR" "$R2" > "$TMP/out" 2>&1
+check "doctor 提示團隊攔截規則有問題" 'grep -q "團隊攔截規則或案例檔有問題" "$TMP/out"'
+rm -f "$R2/.agreements/guard-rules.tsv" "$R2/.agreements/guard-cases.tsv"
 
 echo "▸ 版本鎖定"
 R3="$(new_repo pin)"
