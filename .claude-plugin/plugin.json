@@ -1,6 +1,6 @@
 {
   "name": "agreements",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "Incident-backed working agreements for AI coding agents. Pick the rules you want with a short Q&A, re-run any time to adjust.",
   "author": {
     "name": "machiko"
