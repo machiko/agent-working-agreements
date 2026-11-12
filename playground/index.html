@@ -33,11 +33,23 @@
         <section class="editor" aria-labelledby="guard-rules-heading">
           <div class="editor-head">
             <h2 id="guard-rules-heading">攔截規則</h2>
-            <p class="hint">來源 <code class="mono">scripts/lib/guard-rules.tsv</code>。佔位符：<code class="mono">{S}</code> 空白、<code class="mono">{NS}</code> 非空白非引號、<code class="mono">{E}</code> 字詞結尾。</p>
+            <p class="hint">「內建」來自 <code class="mono">scripts/lib/guard-rules.tsv</code>，「團隊」是你新增或匯入的規則，比對時排在內建規則後面。佔位符：<code class="mono">{S}</code> 空白、<code class="mono">{NS}</code> 非空白非引號、<code class="mono">{E}</code> 字詞結尾。</p>
             <div class="actions">
               <button id="guard-add" type="button" class="button">＋ 新增規則</button>
               <button id="guard-reset" type="button" class="button button-ghost">還原內建規則</button>
             </div>
+            <details class="team-file">
+              <summary>團隊規則檔 <code class="mono">.agreements/guard-rules.tsv</code></summary>
+              <p class="hint">貼上團隊現有的規則檔再按「匯入」，會取代標成「團隊」的規則。改好後「匯出」或「下載」，存成 <code class="mono">.agreements/guard-rules.tsv</code> commit，Claude Code 就會照這些規則攔截。</p>
+              <label class="visually-hidden" for="team-tsv">團隊規則檔內容</label>
+              <textarea id="team-tsv" class="mono" rows="6" spellcheck="false" placeholder="custom/infra&#9;(^|[^A-Za-z0-9_-])terraform{S}(.*{S})?destroy{E}&#9;禁止 terraform destroy。"></textarea>
+              <div class="actions">
+                <button id="team-import" type="button" class="button">匯入</button>
+                <button id="team-export" type="button" class="button button-ghost">匯出</button>
+                <button id="team-download" type="button" class="button button-ghost">下載</button>
+              </div>
+              <p id="team-status" class="hint" role="status" aria-live="polite"></p>
+            </details>
           </div>
           <ol id="guard-rules" class="rule-list"></ol>
         </section>

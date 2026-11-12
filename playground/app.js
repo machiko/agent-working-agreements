@@ -1,5 +1,7 @@
 // app.js — Playground 進入點：載入 data.json、管理狀態與 URL hash、切換分頁。
 import { compileGuardRules, refreshGuardMeta, renderGuardEditor, renderGuardResults } from "./guard-view.js";
+import { h } from "./dom.js";
+import { fromTeamTsv, TEAM_FILE, toTeamTsv } from "./team-tsv.js";
 import { computeLoad, refreshLoadCounts, renderLoadEditor, renderLoadResults } from "./load-view.js";
 
 const DEFAULT_COMMANDS = [
@@ -66,7 +68,9 @@ function readHash() {
     if (TABS.includes(raw.tab)) valid.tab = raw.tab;
     if (isString(raw.commands)) valid.commands = raw.commands;
     if (isString(raw.files)) valid.files = raw.files;
-    if (Array.isArray(raw.guardRules) && raw.guardRules.every(isGuardRule)) valid.guardRules = raw.guardRules;
+    if (Array.isArray(raw.guardRules) && raw.guardRules.every(isGuardRule)) {
+      valid.guardRules = orderGuardRules(raw.guardRules.map((r) => ({ ...r, team: Boolean(r.team) })));
+    }
     if (Array.isArray(raw.loadRules) && raw.loadRules.every(isLoadRule)) {
       valid.loadRules = raw.loadRules.map((r) => ({ ...r, builtin: Boolean(r.builtin) }));
     }
@@ -99,6 +103,10 @@ function setState(patch, { rebuildEditors = false } = {}) {
   if (rebuildEditors) renderEditors();
   scheduleResults();
 }
+
+// 內建規則一律排在團隊規則前面，跟 hook-guard 的比對順序相同
+const orderGuardRules = (rules) => [...rules.filter((r) => !r.team), ...rules.filter((r) => r.team)];
+const teamRules = () => state.guardRules.filter((r) => r.team);
 
 const replaceAt = (list, index, item) => list.map((x, i) => (i === index ? item : x));
 const removeAt = (list, index) => list.filter((_, i) => i !== index);
@@ -162,13 +170,19 @@ function bindControls() {
   $("files").addEventListener("input", (e) => setState({ files: e.target.value }));
   $("guard-add").addEventListener("click", () =>
     setState(
-      { guardRules: [...state.guardRules, { rule: "my-rule", pattern: "", message: "說明為什麼要擋、該怎麼做", allow: "" }] },
+      {
+        guardRules: [
+          ...state.guardRules,
+          { rule: "custom/my-rule", pattern: "", message: "說明為什麼要擋、該怎麼做", allow: "", team: true },
+        ],
+      },
       { rebuildEditors: true },
     ),
   );
   $("guard-reset").addEventListener("click", () =>
-    setState({ guardRules: defaults.guardRules }, { rebuildEditors: true }),
+    setState({ guardRules: [...defaults.guardRules, ...teamRules()] }, { rebuildEditors: true }),
   );
+  bindTeamFile();
   $("load-add").addEventListener("click", () =>
     setState(
       {
@@ -185,6 +199,37 @@ function bindControls() {
   );
 }
 
+// ---- 團隊規則檔：貼上匯入、匯出成可以 commit 的內容 ----
+
+function setTeamStatus(text) {
+  $("team-status").textContent = text;
+}
+
+function bindTeamFile() {
+  const textarea = $("team-tsv");
+  $("team-import").addEventListener("click", () => {
+    const imported = fromTeamTsv(textarea.value);
+    if (!imported.length) {
+      setTeamStatus("沒有讀到規則：一行一條，用 Tab 分隔欄位，# 開頭的行是註解。");
+      return;
+    }
+    setState({ guardRules: [...state.guardRules.filter((r) => !r.team), ...imported] }, { rebuildEditors: true });
+    setTeamStatus(`已匯入 ${imported.length} 條團隊規則，取代原本標成「團隊」的規則。`);
+  });
+  $("team-export").addEventListener("click", () => {
+    textarea.value = toTeamTsv(teamRules());
+    textarea.select();
+    setTeamStatus(`已匯出 ${teamRules().length} 條團隊規則。存成 ${TEAM_FILE} 後 commit。`);
+  });
+  $("team-download").addEventListener("click", () => {
+    const blob = new Blob([toTeamTsv(teamRules())], { type: "text/tab-separated-values;charset=utf-8" });
+    const link = h("a", { href: URL.createObjectURL(blob), download: "guard-rules.tsv" });
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 0);
+    setTeamStatus(`已下載 guard-rules.tsv，放到 ${TEAM_FILE} 後 commit。`);
+  });
+}
+
 async function init() {
   let data;
   try {
@@ -199,7 +244,7 @@ async function init() {
     tab: "guard",
     commands: DEFAULT_COMMANDS,
     files: DEFAULT_FILES,
-    guardRules: data.guardRules,
+    guardRules: data.guardRules.map((rule) => ({ ...rule, team: false })),
     loadRules: data.rules.map((rule) => ({ ...rule, builtin: true })),
   });
   state = { ...defaults, ...readHash() };

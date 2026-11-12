@@ -28,25 +28,35 @@ function compile(source) {
 }
 
 // rule: { rule, pattern, message, allow }
+// 跟 hook-guard.py 的 parse_rule_line 一致：這些情況 hook 會跳過那一行，這裡標成規則錯誤、不參與判定
+function ruleProblem(rule, block, allow) {
+  if (!rule.rule.trim() || !rule.pattern.trim() || !rule.message.trim()) return "守則、攔截式、訊息都不能是空的";
+  if (block.error || allow.error) return block.error || allow.error;
+  if (block.regex.test("")) return "攔截式連空字串都會命中，會擋掉所有指令";
+  return null;
+}
+
 export function compileRule(rule) {
   const block = compile(rule.pattern);
   const allow = compile(rule.allow || "");
+  const error = ruleProblem(rule, block, allow);
   return Object.freeze({
     ...rule,
     expandedPattern: expand(rule.pattern),
     expandedAllow: rule.allow ? expand(rule.allow) : "",
-    blockRegex: block.regex,
+    blockRegex: error ? null : block.regex,
     allowRegex: allow.regex,
-    error: block.error || allow.error,
+    error,
   });
 }
 
 export function parseRulesTsv(text) {
   return text
     .split("\n")
-    .filter((line) => line && !line.startsWith("#"))
+    .map((line) => line.replace(/\r$/, ""))
+    .filter((line) => line.trim() && !line.startsWith("#"))
     .map((line) => {
-      const [rule, pattern, message, allow = ""] = line.split("\t");
+      const [rule = "", pattern = "", message = "", allow = ""] = line.split("\t");
       return { rule, pattern, message, allow };
     });
 }

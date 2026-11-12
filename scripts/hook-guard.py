@@ -56,9 +56,9 @@ def parse_rule_line(line: str) -> Tuple[Optional[Rule], str]:
     fields = line.split("\t")
     if len(fields) < 3 or len(fields) > 4:
         return None, f"欄位數是 {len(fields)}，要用 Tab 分成 3 或 4 欄：守則、攔截式、訊息、放行例外（選填）"
-    name, pattern, message = (x.strip() for x in fields[:3])
-    allow_src = fields[3].strip() if len(fields) == 4 else ""
-    if not name or not pattern or not message:
+    name, pattern, message = fields[:3]
+    allow_src = fields[3] if len(fields) == 4 else ""
+    if not name.strip() or not pattern.strip() or not message.strip():
         return None, "守則、攔截式、訊息都不能是空的"
     try:
         compiled = re.compile(expand(pattern))

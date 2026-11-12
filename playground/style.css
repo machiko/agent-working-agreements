@@ -357,3 +357,21 @@ mark { padding: 1px 2px; border-radius: var(--radius-tight); color: var(--ink); 
   *, *::before, *::after { transition: none !important; }
   .button:hover, .button:active { transform: none; }
 }
+
+/* 團隊規則檔：匯入與匯出 */
+.team-file { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px dashed var(--grid); }
+.team-file summary { cursor: pointer; font-weight: 700; }
+.team-file summary code { font-weight: 400; }
+.team-file textarea { width: 100%; }
+.team-file .actions { margin-top: var(--space-2); }
+.team-file .hint:empty { display: none; }
+.rule-row-head .tier { align-self: center; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
