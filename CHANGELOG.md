@@ -8,9 +8,14 @@
 
 - 執行期攔截新增 5 類高危操作：對整個目錄的 `git checkout .`／`git restore .`（`git restore --staged .` 放行）、強制刪除分支、`git stash clear`、`terraform destroy`（含 `apply -destroy`、OpenTofu）、`kubectl delete namespace` 與 `kubectl delete --all`。團隊攔截規則的範本與文件範例改用 `helm uninstall`
 
+### Changed
+
+- `scripts/install.sh` 依職責拆到 `scripts/lib/`（守則解析、清單與狀態、偵測、CI、選擇守則、AGENTS.md 類目標、規則目錄目標），行為不變；`--ci github` 改讀 `templates/workflows/agent-audit.yml`，不再在程式裡重複一份
+
 ### Fixed
 
 - 只是在引號或 heredoc 裡提到高危指令不再被擋：`echo`、`printf`、`git commit`／`git tag`、`gh pr`／`issue`／`release`／`api` 引號裡的文字，以及交給 `cat`、`tee` 的 heredoc 內文，比對前先清空；接到 `|`、`>( )`、`bash -c`、`$( )` 或沒加引號的 heredoc 裡有 `$( )` 時照原文比對；同一條指令裡只要有一段不是只讀寫資料的指令（例如 `bash`、`make`、`npm`、`./x.sh`、`git -c`），或出現 `case`、`alias`、函式定義、找不到結束字的 heredoc 時，整條照原文比對。python、bash fallback 與 Playground 三邊用同一套規則，測試確認輸出一致
+- UTF-8 環境下，`install.sh --lang` 指定不支援的語言、`--ci` 指定不支援的平台、`--update` 找不到既有安裝，以及 `team.sh` 指定不支援的目標時，原本會出現 bash 的 unbound variable 錯誤，現在會印出正確的錯誤訊息
 - 沒有 python3 時的 bash 比對只解碼 `command` 欄位到結尾引號為止，同一行 JSON 的其他欄位（例如 `description`）不會再被拿去比對而誤擋
 
 ## [1.9.0] - 2026-11-12

@@ -74,7 +74,7 @@ judge_with() {
   printf 'source "$EVAL_LIB/check-helpers.sh"\n%s\n' "$4" > "$work.custom.sh"
   (cd "$work" && EVAL_TRANSCRIPT="$work.jsonl" bash "$work.custom.sh") >/dev/null 2>&1
   rc=0; (cd "$work" && EVAL_TRANSCRIPT="$work.jsonl" bash "$s/check.sh") >/dev/null 2>&1 || rc=$?
-  [ "$rc" = "$2" ] && ok "$3" || bad "$3（預期 $2，實際 $rc）"
+  [ "$rc" = "$2" ] && ok "$3" || bad "$3（預期 $2，實際 ${rc}）"
 }
 
 echo "▸ 判定的邊界案例（避免誤判）"
