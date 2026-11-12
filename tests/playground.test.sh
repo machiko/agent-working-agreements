@@ -119,6 +119,17 @@ check("每份守則都有標題", data.rules.every((r) => r.label));
 check("內建守則的 paths 都能編譯成 glob", data.rules.every((r) => r.paths.every((g) => compileGlob(g) instanceof RegExp)));
 check("有 paths 的守則數量大於零", data.rules.some((r) => r.paths.length > 0));
 
+// ai/pitfalls 曾用 **/*ai*、**/*rag*，main.go、storage.ts 這類一般檔案都會載入；放在 ai/ 目錄下的檔案反而沒命中
+console.log("▸ ai/pitfalls 載入範圍");
+const aiPaths = data.rules.find((r) => r.id === "ai/pitfalls")?.paths ?? [];
+const aiHits = ["src/ai/client.py", "src/rag/retriever.py", "src/prompts/system.md", "src/chat/ai_service.ts",
+  "app/Services/AiService.php", "src/Services/OpenAIClient.php", "src/LLMClient.ts", "src/rag_pipeline.py",
+  "services/vector_store.py", "src/anthropic_client.ts"];
+const aiMisses = ["src/main.go", "src/components/Detail.tsx", "app/Services/MailService.php", "docker/container.yml",
+  "src/utils/storage.ts", "src/fragment.js", "src/drag-drop.ts", "src/train.py", "lib/chain.rb", "src/air/quality.py"];
+for (const p of aiHits) check(`載入 ${p}`, firstMatchingGlob(p, aiPaths) !== null);
+for (const p of aiMisses) check(`不載入 ${p}`, firstMatchingGlob(p, aiPaths) === null);
+
 console.log("──");
 console.log(`通過 ${pass}｜失敗 ${fail}`);
 process.exit(fail ? 1 : 0);
