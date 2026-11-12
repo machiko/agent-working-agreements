@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 12 條選用守則的評測情境（`ai`、`api`、`async`、`backend`、`cloud`、`container`、`frontend` 的 pitfalls，`collaboration/sdlc-lifecycle`，`writing` 的 `changelog`、`commit-messages`、`docs-and-cards`、`taiwan-terminology`）：28 條守則都有至少 1 個情境，合規與違規模擬都通過離線判定；`tests/eval.test.sh` 新增「每條守則至少 1 個情境」的檢查
+
 ## [1.8.0] - 2026-11-12
 
 ### Added

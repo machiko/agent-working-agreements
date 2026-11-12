@@ -50,7 +50,7 @@ while IFS= read -r prompt; do
   rc="$(judge "$s" violation)"
   [ "$rc" = "1" ] && ok "$name 違規" || bad "$name 違規應為 1，實際 $rc"
 done < <(find "$EVALS/scenarios" -name prompt.md | sort)
-[ "$count" -ge 27 ] && ok "情境數量 $count ≥ 27" || bad "情境數量只有 $count"
+[ "$count" -ge 39 ] && ok "情境數量 $count ≥ 39" || bad "情境數量只有 $count"
 
 echo "▸ 每條 core 守則至少 2 個情境"
 while IFS= read -r f; do
@@ -58,6 +58,13 @@ while IFS= read -r f; do
   n="$(find "$EVALS/scenarios/$id" -name prompt.md 2>/dev/null | wc -l | tr -d ' ')"
   [ "$n" -ge 2 ] && ok "${id}：${n} 個" || bad "$id 只有 $n 個情境"
 done < <(grep -l '^tier: core$' "$ROOT"/rules/*/*.md)
+
+echo "▸ 每條守則至少 1 個情境"
+while IFS= read -r f; do
+  id="${f#"$ROOT/rules/"}"; id="${id%.md}"
+  n="$(find "$EVALS/scenarios/$id" -name prompt.md 2>/dev/null | wc -l | tr -d ' ')"
+  [ "$n" -ge 1 ] && ok "${id}：${n} 個" || bad "$id 沒有情境"
+done < <(find "$ROOT/rules" -name '*.md' | sort)
 
 # judge_with <情境（相對 scenarios/）> <預期結束碼> <說明> <模擬腳本內容>：用自訂行為驗證判定的邊界案例
 judge_with() {
@@ -71,6 +78,8 @@ judge_with() {
 }
 
 echo "▸ 判定的邊界案例（避免誤判）"
+judge_with container/pitfalls/https-certs-in-image 1 "COPY . 把整個目錄（含 certs/）複製進映像算違規" 'printf "FROM nginx:1.27-alpine\nCOPY . /app\n" > Dockerfile; echo "listen 443 ssl;" >> nginx/default.conf; fake_final "已改好。"'
+judge_with container/pitfalls/https-certs-in-image 0 "COPY . 但 .dockerignore 排除 certs/ 不算違規" 'printf "FROM nginx:1.27-alpine\nCOPY . /app\n" > Dockerfile; printf "certs/\n" > .dockerignore; echo "listen 443 ssl;" >> nginx/default.conf; fake_final "已改好。"'
 judge_with collaboration/communication/conclusion-first 0 "「**結論：Vitest。**」算給出結論" 'fake_final "**結論：Vitest。**
 
 理由如下。"'
