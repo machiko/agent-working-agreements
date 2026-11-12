@@ -267,6 +267,8 @@ Through Claude Code's plugin hook mechanism, high-risk destructive commands are 
 - 🛑 **No force push**: blocks `git push --force`, `-f` (including combined forms like `-uf`), and `+refspec` in real time; `--force-with-lease` is allowed
 - 🛑 **No silent code wipes**: blocks every `git reset --hard` and `git clean -f` (`git clean -n` previews are not affected)
 - 🛑 **No destructive root commands**: blocks recursive deletion of `/`, `~`, `$HOME`, and recursive `chmod 777`
+- 🛑 **No lost uncommitted or unmerged work**: blocks `git checkout .`/`git restore .` on a whole directory (`git restore --staged .` is allowed), force-deleting branches (`git branch -D`), and `git stash clear`
+- 🛑 **No wiping whole environments**: blocks `terraform destroy` (including `apply -destroy` and OpenTofu), `kubectl delete namespace`, and `kubectl delete --all`
 - 🛑 **No credential leaks**: blocks commands that send `.env` via `curl`, `wget`, `nc`, `scp`, etc.
 - 💡 When blocked, the agent receives the reason; set `AGREEMENTS_HOOKS_DISABLE=1` to temporarily skip interception (has no effect when the team policy sets `prohibit_disable_hooks`)
 - ⚙️ Interception rules are kept in [`scripts/lib/guard-rules.tsv`](scripts/lib/guard-rules.tsv). With `python3` available, commands are parsed in Python; without it, Bash matches the same rules with the same behavior

@@ -15,4 +15,4 @@
 # 寫錯的行在執行時會被跳過並警告；install.sh --sync 會列出問題，--check-drift 會失敗。
 #
 # 範例（拿掉開頭的 # 就生效）：
-# custom/infra	(^|[^A-Za-z0-9_-])terraform{S}(.*{S})?destroy{E}	禁止直接執行 terraform destroy，請走變更流程。
+# custom/infra	(^|[^A-Za-z0-9_-])helm{S}(.*{S})?uninstall{E}	禁止直接執行 helm uninstall，請走變更流程。

@@ -63,13 +63,13 @@ run_cases() {
 # 團隊攔截規則樣本：好的規則、寫錯的規則（欄位不足、無法編譯、連空字串都命中）、想放寬內建規則的規則
 {
   printf '# 團隊攔截規則\n'
-  printf 'custom/infra\t(^|[^A-Za-z0-9_-])terraform{S}(.*{S})?destroy{E}\t禁止 terraform destroy，請走變更流程。\n'
+  printf 'custom/infra\t(^|[^A-Za-z0-9_-])helm{S}(.*{S})?uninstall{E}\t禁止 helm uninstall，請走變更流程。\n'
   printf 'custom/db\t(^|[^A-Za-z0-9_-])psql{S}.*prod\t不要直接連正式機資料庫。\t--read-only\n'
   printf 'custom/loose\tgit{S}push\t推送前先開 PR。\t--force\n'
   printf 'custom/short\tonly-two-fields\n'
   printf 'custom/bad\tfoo([\t無法編譯\n'
   printf 'custom/empty\tx*\t連空字串都命中\n'
-  printf 'custom/k8s\t(^|[^A-Za-z0-9_-])kubectl{S}delete{S}ns{E}\t不要刪 namespace。\n'
+  printf 'custom/k8s\t(^|[^A-Za-z0-9_-])kubectl{S}drain{E}\t不要 drain 節點。\n'
 } > "$TMP/team-rules.tsv"
 
 for GUARD_MODE in python bash; do
@@ -91,6 +91,18 @@ for GUARD_MODE in python bash; do
     out_nb="$(printf '%s' "$non_bash" | bash "$GUARD")"
   fi
   check "[$GUARD_MODE] 非 Bash 工具不攔截" '! is_deny "$out_nb"'
+
+  with_desc='{"tool_name":"Bash","tool_input":{"command":"ls -la","description":"git reset --hard 之前先看一下"}}'
+  esc_cmd='{"tool_name":"Bash","tool_input":{"command":"echo \"a\\\\b\" \u0026\u0026 git reset --hard","description":"x"}}'
+  if [ "$GUARD_MODE" = "bash" ]; then
+    out_desc="$(printf '%s' "$with_desc" | AGREEMENTS_HOOK_FORCE_BASH=1 bash "$GUARD")"
+    out_esc="$(printf '%s' "$esc_cmd" | AGREEMENTS_HOOK_FORCE_BASH=1 bash "$GUARD")"
+  else
+    out_desc="$(printf '%s' "$with_desc" | bash "$GUARD")"
+    out_esc="$(printf '%s' "$esc_cmd" | bash "$GUARD")"
+  fi
+  check "[$GUARD_MODE] 只比對 command 欄位，description 提到高危指令不攔截" '! is_deny "$out_desc"'
+  check "[$GUARD_MODE] command 裡的跳脫字元與 \\u0026 解碼後照常攔截" 'is_deny "$out_esc"'
 
   echo "▸ hook-guard（$GUARD_MODE 模式）：停用開關與 prohibit_disable_hooks"
   out_dis="$(AGREEMENTS_HOOKS_DISABLE=1 guard_out "git push --force" "$TMP")"
@@ -129,14 +141,14 @@ for GUARD_MODE in python bash; do
   (cd "$TEAM" && git init -q)
   printf '{}\n' > "$TEAM/.agreements.json"
   cp "$TMP/team-rules.tsv" "$TEAM/.agreements/guard-rules.tsv"
-  out_tf="$(guard_out "terraform destroy -auto-approve" "$TEAM/sub")"
-  check "[$GUARD_MODE] 團隊規則攔截 terraform destroy" 'is_deny "$out_tf"'
+  out_tf="$(guard_out "helm uninstall web --namespace prod" "$TEAM/sub")"
+  check "[$GUARD_MODE] 團隊規則攔截 helm uninstall" 'is_deny "$out_tf"'
   check "[$GUARD_MODE] 拒絕原因標出團隊規則與守則名稱" 'printf "%s" "$out_tf" | grep -q "custom/infra 團隊規則攔截"'
-  check "[$GUARD_MODE] 團隊規則沒命中的指令放行" 'allows "terraform plan" "$TEAM"'
+  check "[$GUARD_MODE] 團隊規則沒命中的指令放行" 'allows "helm list" "$TEAM"'
   check "[$GUARD_MODE] 團隊規則的放行例外生效" 'allows "psql -h prod-db --read-only" "$TEAM"'
   check "[$GUARD_MODE] 團隊規則無法放行內建規則攔截的指令" 'denies "git push --force" "$TEAM"'
   check "[$GUARD_MODE] 寫錯的團隊規則被跳過，不會擋掉所有指令" 'allows "ls -la" "$TEAM"'
-  check "[$GUARD_MODE] 寫錯的團隊規則之後的規則照常攔截" 'denies "kubectl delete ns prod" "$TEAM"'
+  check "[$GUARD_MODE] 寫錯的團隊規則之後的規則照常攔截" 'denies "kubectl drain node-1" "$TEAM"'
   if [ "$GUARD_MODE" = "bash" ]; then
     err_team="$(json_input "ls" "$TEAM" | AGREEMENTS_HOOK_FORCE_BASH=1 bash "$GUARD" 2>&1 >/dev/null)"
   else
@@ -144,7 +156,7 @@ for GUARD_MODE in python bash; do
   fi
   check "[$GUARD_MODE] 跳過寫錯的團隊規則時警告" '[ "$(printf "%s\n" "$err_team" | grep -c "略過團隊")" -ge 3 ]'
   rm -f "$TEAM/.agreements.json"
-  check "[$GUARD_MODE] 沒有策略檔時不讀團隊規則" 'allows "terraform destroy" "$TEAM"'
+  check "[$GUARD_MODE] 沒有策略檔時不讀團隊規則" 'allows "helm uninstall web" "$TEAM"'
 done
 
 if command -v python3 >/dev/null 2>&1; then
@@ -158,9 +170,9 @@ if command -v python3 >/dev/null 2>&1; then
   printf 'custom/x\tfoo\\sbar\t不可攜\n' > "$TMP/nonportable.tsv"
   out_np="$(python3 "$PYG" --check "$TMP/nonportable.tsv" 2>&1)"; rc_np=$?
   check "\\s 這類 bash 不支援的寫法被指出" '[ "$rc_np" -eq 1 ] && printf "%s" "$out_np" | grep -q "bash"'
-  printf 'deny\tterraform destroy\nallow\tterraform plan\ndeny\tgit push -f\nallow\tpsql -h prod-db --read-only\n' > "$TMP/cases.tsv"
+  printf 'deny\thelm uninstall web\nallow\thelm list\ndeny\tgit push -f\nallow\tpsql -h prod-db --read-only\n' > "$TMP/cases.tsv"
   check "案例檔跟判定一致時通過" 'python3 "$PYG" --check "$TMP/good.tsv" "$TMP/cases.tsv" >/dev/null'
-  printf 'allow\tterraform destroy\nmaybe\tls\n' > "$TMP/bad-cases.tsv"
+  printf 'allow\thelm uninstall web\nmaybe\tls\n' > "$TMP/bad-cases.tsv"
   out_cases="$(python3 "$PYG" --check "$TMP/good.tsv" "$TMP/bad-cases.tsv" 2>&1)"; rc_cases=$?
   check "案例不符時 exit 1" '[ "$rc_cases" -eq 1 ]'
   check "列出預期與實際判定" 'printf "%s" "$out_cases" | grep -q "預期 allow，實際 deny（custom/infra）"'

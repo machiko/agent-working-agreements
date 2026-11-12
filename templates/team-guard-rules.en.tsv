@@ -16,4 +16,4 @@
 # Broken lines are skipped with a warning at run time; install.sh --sync lists them and --check-drift fails.
 #
 # Example (remove the leading # to enable):
-# custom/infra	(^|[^A-Za-z0-9_-])terraform{S}(.*{S})?destroy{E}	Don't run terraform destroy directly; go through the change process.
+# custom/infra	(^|[^A-Za-z0-9_-])helm{S}(.*{S})?uninstall{E}	Don't run helm uninstall directly; go through the change process.
