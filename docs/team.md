@@ -90,7 +90,7 @@ scripts/install.sh --sync
 
 ### 團隊攔截規則
 
-要讓 Claude Code 不能執行某些指令（例如 `terraform destroy`、直接連正式機資料庫），寫在 `.agreements/guard-rules.tsv`。`--team-init` 會產生只有說明的範本。
+要讓 Claude Code 不能執行某些指令（例如 `helm uninstall`、直接連正式機資料庫），寫在 `.agreements/guard-rules.tsv`。`--team-init` 會產生只有說明的範本。
 
 1. 一行一條，用 Tab 分成「守則、攔截式、訊息、放行例外（選填）」，格式跟內建的 [`scripts/lib/guard-rules.tsv`](../scripts/lib/guard-rules.tsv) 相同。可以先在 [Playground](https://machiko.github.io/agent-working-agreements/) 試寫。
 2. 在 `.agreements/guard-cases.tsv` 各補一筆應擋（`deny`）與應放行（`allow`）的指令。

@@ -90,7 +90,7 @@ Rules that older versions of `/agreements:record` wrote to `.claude/rules/agent-
 
 ### Team guard rules
 
-To stop Claude Code from running certain commands (for example `terraform destroy`, or connecting straight to the production database), write them in `.agreements/guard-rules.tsv`. `--team-init` creates a template that contains only comments.
+To stop Claude Code from running certain commands (for example `helm uninstall`, or connecting straight to the production database), write them in `.agreements/guard-rules.tsv`. `--team-init` creates a template that contains only comments.
 
 1. One rule per line, tab-separated: rule, pattern, message, optional allow pattern. The format matches the built-in [`scripts/lib/guard-rules.tsv`](../scripts/lib/guard-rules.tsv). Try rules in the [Playground](https://machiko.github.io/agent-working-agreements/) first.
 2. Add a command that should be blocked (`deny`) and one that should pass (`allow`) to `.agreements/guard-cases.tsv`.

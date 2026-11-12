@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- 執行期攔截新增 5 類高危操作：對整個目錄的 `git checkout .`／`git restore .`（`git restore --staged .` 放行）、強制刪除分支、`git stash clear`、`terraform destroy`（含 `apply -destroy`、OpenTofu）、`kubectl delete namespace` 與 `kubectl delete --all`。團隊攔截規則的範本與文件範例改用 `helm uninstall`
+
+### Fixed
+
+- 沒有 python3 時的 bash 比對只解碼 `command` 欄位到結尾引號為止，同一行 JSON 的其他欄位（例如 `description`）不會再被拿去比對而誤擋
+
 ## [1.9.0] - 2026-11-12
 
 ### Added

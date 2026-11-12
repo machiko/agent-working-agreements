@@ -31,6 +31,30 @@ deny	git push -fu
 deny	rm -rf ${HOME}
 deny	git clean -n; git clean -f
 deny	git clean -n || git clean -fd
+deny	git checkout .
+deny	git checkout -- .
+deny	git checkout HEAD -- ./
+deny	git restore .
+deny	git restore --worktree :/
+deny	git restore --staged --worktree .
+deny	git -C sub restore *
+deny	git branch -D feature/old
+deny	git branch -Dr origin/x
+deny	git branch --delete --force feature/old
+deny	git branch -d -f feature/old
+deny	git branch --force --delete feature/old
+deny	git branch -df feature/old
+deny	git stash clear
+deny	terraform destroy
+deny	terraform -chdir=infra destroy -auto-approve
+deny	terraform apply -destroy
+deny	tofu destroy
+deny	kubectl delete namespace staging
+deny	kubectl delete ns/staging
+deny	kubectl --context prod delete namespaces a b
+deny	kubectl delete pods --all
+deny	kubectl delete deploy -l app=web --all-namespaces
+deny	kubectl delete pods -A
 allow	git status && git log -n 5
 allow	git push origin feature/test
 allow	git push --force-with-lease origin feature/test
@@ -46,3 +70,26 @@ allow	chmod 755 script.sh
 allow	chmod -R 755 .
 allow	curl https://example.com/.envrc-docs
 allow	cat .envrc
+allow	git checkout main
+allow	git checkout -b feature/x
+allow	git checkout -- src/app.js
+allow	git checkout ./src
+allow	git restore src/app.js
+allow	git restore --staged .
+allow	git restore -S -- .
+allow	git diff .
+allow	git add .
+allow	git branch -d feature/old
+allow	git branch --delete feature/old
+allow	git branch -vv --sort=-committerdate
+allow	git branch --show-current
+allow	git branch -m old new
+allow	git stash list
+allow	git stash drop stash@{0}
+allow	terraform plan -destroy
+allow	terraform apply plan.out
+allow	terraform -chdir=infra plan
+allow	kubectl delete pod web-1
+allow	kubectl delete deploy web -n staging
+allow	kubectl get namespaces
+allow	kubectl get pods --all-namespaces

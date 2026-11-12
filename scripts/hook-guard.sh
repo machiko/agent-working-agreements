@@ -56,13 +56,11 @@ if [ -z "${AGREEMENTS_HOOK_FORCE_BASH:-}" ] && command -v python3 >/dev/null 2>&
 fi
 
 # ── Fallback：沒有 python3（或 python 失敗）時，以同一份規則比對 JSON 字串 ──
-# 只取 "command" 之後的內容並還原跳脫字元；不解析 JSON，同一行其他欄位的文字也可能被比對到。
+# 只解碼 "command" 字串本身（lib/guard-command.awk），不完整解析 JSON。
 printf '%s' "$INPUT" | grep -qE '"tool_name"[[:space:]]*:[[:space:]]*"Bash"' || exit 0
 
 event="$(printf '%s' "$INPUT" | sed -n 's/.*"hook_event_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
-segments="$(printf '%s\n' "$INPUT" | sed 's/^.*"command"[[:space:]]*:[[:space:]]*"//' | awk '{
-  gsub(/\\\\/, "\001"); gsub(/\\"/, "\""); gsub(/\\n/, "\n"); gsub(/\\t/, "\t"); gsub(/\001/, "\\")
-  gsub(/&&|\|\||;/, "\n"); print }')"
+segments="$(printf '%s\n' "$INPUT" | awk -f "$ROOT/scripts/lib/guard-command.awk")"
 
 expand() {
   local p="$1"
