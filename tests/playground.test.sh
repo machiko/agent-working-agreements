@@ -7,6 +7,7 @@ export PATH="/usr/bin:/bin:$PATH"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CASES="$ROOT/tests/fixtures/guard-cases.tsv"
+MULTI_CASES="$ROOT/tests/fixtures/guard-multiline-cases.tsv"
 
 if ! command -v node >/dev/null 2>&1; then
   echo "▸ 略過 playground 測試（環境沒有 node）"
@@ -16,20 +17,23 @@ fi
 # Python 的判定：每筆案例輸出「deny<TAB>守則」或「allow」，一行一筆，順序同案例檔
 PY_VERDICTS=""
 if command -v python3 >/dev/null 2>&1; then
-  PY_VERDICTS="$(python3 - "$ROOT/scripts/hook-guard.py" "$CASES" <<'PY'
+  PY_VERDICTS="$(python3 - "$ROOT/scripts/hook-guard.py" "$CASES" "$MULTI_CASES" <<'PY'
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("hook_guard", sys.argv[1])
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 rules = mod.load_rules()
-with open(sys.argv[2], encoding="utf-8") as f:
-    for line in f:
-        line = line.rstrip("\n")
-        if not line or line.startswith("#"):
-            continue
-        _, cmd = line.split("\t", 1)
-        hit = mod.find_violation(cmd, rules)
-        print(f"deny\t{hit[0]}" if hit else "allow")
+for path, multiline in ((sys.argv[2], False), (sys.argv[3], True)):
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if not line or line.startswith("#"):
+                continue
+            _, cmd = line.split("\t", 1)
+            if multiline:
+                cmd = cmd.replace("\\n", "\n").replace("\\t", "\t")
+            hit = mod.find_violation(cmd, rules)
+            print(f"deny\t{hit[0]}" if hit else "allow")
 PY
 )"
 fi
@@ -58,10 +62,18 @@ const check = (name, ok) => {
 const rules = parseRulesTsv(readFileSync(join(root, "scripts/lib/guard-rules.tsv"), "utf8")).map(compileRule);
 check("內建攔截規則全部能編譯成 JS RegExp", rules.length > 0 && rules.every((r) => !r.error));
 
-const cases = readFileSync(join(root, "tests/fixtures/guard-cases.tsv"), "utf8")
+const readCases = (rel, multiline) => readFileSync(join(root, rel), "utf8")
   .split("\n")
   .filter((l) => l && !l.startsWith("#"))
-  .map((l) => { const i = l.indexOf("\t"); return { kind: l.slice(0, i), cmd: l.slice(i + 1) }; });
+  .map((l) => {
+    const i = l.indexOf("\t");
+    const cmd = l.slice(i + 1);
+    return { kind: l.slice(0, i), cmd: multiline ? cmd.replaceAll("\\n", "\n").replaceAll("\\t", "\t") : cmd };
+  });
+const cases = [
+  ...readCases("tests/fixtures/guard-cases.tsv", false),
+  ...readCases("tests/fixtures/guard-multiline-cases.tsv", true),
+];
 const py = (process.env.PY_VERDICTS || "").split("\n").filter(Boolean);
 
 console.log("▸ JS 比對器 × 共用案例檔");
@@ -132,6 +144,43 @@ const aiMisses = ["src/main.go", "src/components/Detail.tsx", "app/Services/Mail
   "src/utils/storage.ts", "src/fragment.js", "src/drag-drop.ts", "src/train.py", "lib/chain.rb", "src/air/quality.py"];
 for (const p of aiHits) check(`載入 ${p}`, firstMatchingGlob(p, aiPaths) !== null);
 for (const p of aiMisses) check(`不載入 ${p}`, firstMatchingGlob(p, aiPaths) === null);
+
+console.log("▸ 引號與 heredoc 清空：JS、python、awk（bash fallback）三邊輸出一致");
+{
+  const { maskInert } = await load("playground/guard-lex.js");
+  const { spawnSync } = await import("node:child_process");
+  // 固定種子的隨機指令，專挑引號、heredoc、$( )、分隔符號這些容易出錯的組合
+  const TOKENS = ["echo", "printf", "cat", "tee", "git", "commit", "gh", "pr", "bash", "-c", "-m", " ", " ", " ",
+    "'", "'", '"', '"', "$(", "$((", ")", "(", "`", "\\", "<<", "<<-", "<<<", "EOF", "'EOF'", "A", "'A'", "\n", "\n",
+    "\t", "#", " #", "$'", "esac", "./x", "$x", "-v", "'EOF'x", "&&", "||", ";", ";;", "&", "|", ">", "<", ">(", "<(", "&>",
+    "x", "rm", "中文", "$", "{", "}"];
+  let seed = 20261112;
+  const rand = (n) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };
+  const fuzz = Array.from({ length: 400 }, () =>
+    Array.from({ length: 1 + rand(25) }, () => TOKENS[rand(TOKENS.length)]).join(""));
+  const inputs = [...cases.map((c) => c.cmd), ...fuzz];
+  const jsOut = inputs.map(maskInert);
+  const awkOut = inputs.map((command) => spawnSync("awk", ["-v", "MASK_ONLY=1", "-f", join(root, "scripts/lib/guard-command.awk")],
+    { input: JSON.stringify({ tool_name: "Bash", tool_input: { command } }), encoding: "utf8" }).stdout);
+  const awkDiff = inputs.filter((c, i) => jsOut[i] !== awkOut[i]);
+  check(`JS 與 awk 輸出一致（${inputs.length} 筆）`, awkDiff.length === 0);
+  if (awkDiff.length) console.error("  差異：", JSON.stringify(awkDiff.slice(0, 3)));
+  if (process.env.HAS_PY === "1") {
+    const py = spawnSync("python3", ["-c",
+      "import importlib.util,json,sys\n" +
+      "s=importlib.util.spec_from_file_location('h',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)\n" +
+      "print(json.dumps([m.mask_inert(c) for c in json.load(sys.stdin)]))", join(root, "scripts/hook-guard.py")],
+    { input: JSON.stringify(inputs), encoding: "utf8" });
+    const pyOut = JSON.parse(py.stdout || "[]");
+    const pyDiff = inputs.filter((c, i) => jsOut[i] !== pyOut[i]);
+    check(`JS 與 python 輸出一致（${inputs.length} 筆）`, pyDiff.length === 0);
+    if (pyDiff.length) console.error("  差異：", JSON.stringify(pyDiff.slice(0, 3)));
+  }
+  check("只是提到的文字被清空", maskInert(`echo "rm -rf /" && ls`) === `echo "" && ls`);
+  check("真正會執行的內容保留", maskInert(`echo 'x' | sh`) === `echo 'x' | sh`);
+  const view = evaluate(`git commit -m "a && b"`, rules);
+  check("evaluate 回傳清空後的指令，引號裡的 && 不再切出多餘的子指令", view.masked === `git commit -m ""` && view.segments.length === 1);
+}
 
 console.log("▸ 團隊規則：匯入、匯出與 hook-guard 一致");
 const { toTeamTsv, fromTeamTsv } = await load("playground/team-tsv.js");

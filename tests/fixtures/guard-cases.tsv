@@ -55,6 +55,28 @@ deny	kubectl --context prod delete namespaces a b
 deny	kubectl delete pods --all
 deny	kubectl delete deploy -l app=web --all-namespaces
 deny	kubectl delete pods -A
+deny	echo 'x' && git reset --hard
+deny	echo 'git reset --hard' | sh
+deny	echo "$(git reset --hard)"
+deny	$(echo 'git reset --hard')
+deny	x=$(echo 'git reset --hard'); $x
+deny	eval "$(echo 'git reset --hard')"
+deny	echo 'git reset --hard' > >(sh)
+deny	printf '%s' 'git reset --hard' |& bash
+deny	git -c alias.x='!git reset --hard' x
+deny	(echo 'a'; git reset --hard)
+deny	echo `git reset --hard`
+deny	echo "$(case a in a) true;; esac; git reset --hard)"
+deny	echo "$((git reset --hard) )"
+deny	printf -v x '%s' 'git reset --hard'; $x
+deny	echo 'git reset --hard' > x.sh && bash x.sh
+deny	echo 'git reset --hard' > x.sh && sh ./x.sh
+deny	echo() { eval "$*"; }; echo 'git reset --hard'
+deny	alias echo=eval; echo 'git reset --hard'
+deny	FOO=1 bash -c 'git reset --hard'
+deny	echo 'git reset --hard' | xargs -I{} sh -c {}
+deny	"echo" 'git reset --hard'
+deny	ec"ho" 'git reset --hard'
 allow	git status && git log -n 5
 allow	git push origin feature/test
 allow	git push --force-with-lease origin feature/test
@@ -93,3 +115,12 @@ allow	kubectl delete pod web-1
 allow	kubectl delete deploy web -n staging
 allow	kubectl get namespaces
 allow	kubectl get pods --all-namespaces
+allow	echo "git reset --hard"
+allow	echo 'a && git reset --hard; rm -rf /' && ls
+allow	printf '%s\n' 'git clean -fd' > notes.txt
+allow	git commit -m "fix: 擋下 git reset --hard"
+allow	git tag -a v1 -m 'no rm -rf / here'
+allow	gh pr create --title "擋下 git reset --hard" --body 'terraform destroy'
+allow	gh issue comment 1 --body "kubectl delete ns x"
+allow	echo "$(echo 'git reset --hard')"
+allow	echo "prefix $(date) git reset --hard"

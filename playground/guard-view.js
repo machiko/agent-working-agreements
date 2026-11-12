@@ -105,6 +105,9 @@ function commandCard(command, compiledRules) {
     result.segments.length > 1
       ? h("p", { class: "verdict-note" }, `切成 ${result.segments.length} 段子指令，逐段比對`)
       : null,
+    result.masked !== command
+      ? h("p", { class: "verdict-note" }, "echo、printf、git commit 這類指令引號裡的文字只是資料，清空後才比對")
+      : null,
     h("ol", { class: "segments" }, result.segments.map((seg) => segmentItem(seg, compiledRules))),
     isDeny
       ? h(
