@@ -84,13 +84,39 @@ def expand(pattern: str) -> str:
 # ── 只是「提到」的文字不比對 ────────────────────────────────
 # 指令先依 shell 詞法掃一遍，把確定只當資料用的引號內容與 heredoc 內文清空，再切子指令比對。
 # 只在這些情況清空，其他一律照原文比對（寧可誤擋，不可漏擋）：
-#   引號內容：管線開頭是 echo、printf、git commit／tag、gh pr／issue／release／api，且整條管線沒有 | 或 >( <(
-#   heredoc 內文：上面那些，或 cat、tee；分隔字加引號，或內文沒有 $( 與反引號
+#   引號內容：管線開頭是 echo、printf（不含 -v）、git commit／tag、gh pr／issue／release／api，且管線沒有 | 或 >( <(
+#   heredoc 內文：上面那些，或 cat、tee；分隔字加引號，或內文沒有 $( 與反引號；找不到結束字時不清空
 #   $( ) 與反引號：裡面照樣遞迴處理；只有外層管線符合上面條件時，才採用清空後的版本
+# 遇到沒模擬的語法，或可能把資料當指令執行的寫法，整條指令都不清空（_Bail）：
+#   任何管線的指令是 bash、sh、source、eval、xargs、env、sudo、python 這類執行器，或是路徑、變數、動態組出的名稱；
+#   出現 case／esac、alias、function、name() 函式定義；heredoc 結束字後面還黏著其他字。
 # 這段邏輯在 lib/guard-command.awk（bash fallback）與 playground/guard-lex.js 各有一份，要一起改。
 QUOTE_INERT = re.compile(r"^[ \t\n]*((echo|printf)([ \t\n]|$)|git[ \t]+(commit|tag)([ \t\n]|$)|gh[ \t]+(pr|issue|release|api)([ \t\n]|$))")
+PRINTF_V = re.compile(r"^[ \t\n]*printf[ \t]+-v")
 HEREDOC_SINK = re.compile(r"^[ \t\n]*(cat|tee)([ \t\n]|$)")
 HEREDOC_OP = re.compile(r"<<(-?)[ \t]*(?:'([^']*)'|\"([^\"]*)\"|\\?([^ \t\n;&|<>()'\"`]+))")
+BAIL_WORDS = re.compile(r"(^|[^A-Za-z0-9_-])(esac|alias|function)([^A-Za-z0-9_-]|$)|[A-Za-z0-9_-][ \t]*\(\)")
+EXEC_WORDS = frozenset("bash sh zsh dash ksh fish source . exec eval xargs env sudo nohup nice timeout watch ssh "
+                       "command builtin python python3 node perl ruby".split())
+SKIP_WORDS = frozenset("if then do else elif while until time ! { (".split())
+ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+WORD_END = " \t\n;&|<>()"
+COMMENT_AFTER = " \t\n;&|()<>"
+
+
+class _Bail(Exception):
+    """遇到沒模擬的語法或可能執行資料的寫法：整條指令照原文比對。"""
+
+
+def _command_word(prefix: str) -> Tuple[str, bool]:
+    """回傳 (指令名稱, 名稱是否為 prefix 的最後一個字且沒有以空白結尾)。"""
+    words = [w for w in re.split(r"[ \t\n]+", prefix) if w]
+    for k, w in enumerate(words):
+        w = w.lstrip("({!")
+        if not w or w in SKIP_WORDS or ASSIGNMENT.match(w):
+            continue
+        return w, k == len(words) - 1 and prefix[-1:] not in (" ", "\t", "\n")
+    return "", False
 
 
 class _Pipeline:
@@ -102,13 +128,17 @@ class _Pipeline:
         self.pieces.append((kind, text, masked))
 
     def flags(self) -> Tuple[bool, bool]:
-        """回傳 (引號內容可清空, heredoc 內文可清空)。"""
+        """回傳 (引號內容可清空, heredoc 內文可清空)；可能執行資料時丟 _Bail。"""
         prefix = ""
         for kind, text, _ in self.pieces:
             if kind != "plain":
                 break
             prefix += text
-        quote_ok = not self.piped and bool(QUOTE_INERT.match(prefix))
+        dynamic = any(kind != "plain" for kind, _, _ in self.pieces)
+        word, touches = _command_word(prefix)
+        if (not word and dynamic) or (touches and dynamic) or word in EXEC_WORDS or "/" in word or word[:1] == "$":
+            raise _Bail()
+        quote_ok = not self.piped and bool(QUOTE_INERT.match(prefix)) and not PRINTF_V.match(prefix)
         return quote_ok, quote_ok or (not self.piped and bool(HEREDOC_SINK.match(prefix)))
 
     def render(self) -> str:
@@ -131,7 +161,8 @@ class _Body:
         self.owner, self.text, self.inert = owner, text, inert
 
     def render(self) -> str:
-        return "" if self.inert and self.owner.flags()[1] else self.text
+        heredoc_ok = self.owner.flags()[1]
+        return "" if self.inert and heredoc_ok else self.text
 
 
 def _backtick_end(s: str, i: int) -> int:
@@ -143,6 +174,30 @@ def _backtick_end(s: str, i: int) -> int:
         else:
             i += 1
     return len(s)
+
+
+def _arith_end(s: str, i: int) -> int:
+    """i 在 $(( 之後；回傳對應的 )) 之後的位置（只數括號）。"""
+    depth = 2
+    while i < len(s) and depth > 0:
+        if s[i] == "(":
+            depth += 1
+        elif s[i] == ")":
+            depth -= 1
+        i += 1
+    return i
+
+
+def _ansi_quote_end(s: str, i: int) -> int:
+    """i 在 $' 之後；回傳結尾單引號的位置，沒有結尾回傳 -1。"""
+    while i < len(s):
+        if s[i] == "\\":
+            i += 2
+        elif s[i] == "'":
+            return i
+        else:
+            i += 1
+    return -1
 
 
 def _subst(s: str, i: int, pipe: _Pipeline) -> int:
@@ -166,7 +221,13 @@ def _double_quote(s: str, i: int, pipe: _Pipeline) -> int:
             pipe.add("quote", lit)
             pipe.add("plain", '"')
             return i + 1
-        elif s.startswith("$(", i) and not s.startswith("$((", i):
+        elif s.startswith("$((", i):
+            pipe.add("quote", lit)
+            lit = ""
+            end = _arith_end(s, i + 3)
+            pipe.add("code", s[i:end])
+            i = end
+        elif s.startswith("$(", i):
             pipe.add("quote", lit)
             lit = ""
             i = _subst(s, i, pipe)
@@ -183,10 +244,6 @@ def _double_quote(s: str, i: int, pipe: _Pipeline) -> int:
     return i
 
 
-def _inert_body(body: str, quoted: bool) -> bool:
-    return quoted or ("$(" not in body and "`" not in body)
-
-
 def _heredoc_bodies(s: str, i: int, pending: List[Tuple[str, bool, bool, _Pipeline]], out: list) -> int:
     """i 在 heredoc 開始的那一行換行之後；依序讀完每個 heredoc 內文，回傳之後的位置。"""
     for delim, strip_tabs, quoted, owner in pending:
@@ -197,14 +254,14 @@ def _heredoc_bodies(s: str, i: int, pending: List[Tuple[str, bool, bool, _Pipeli
             line = s[i:line_end]
             if (line.lstrip("\t") if strip_tabs else line) == delim:
                 body = s[start:i]
-                out.append(_Body(owner, body, _inert_body(body, quoted)))
+                inert = quoted or ("$(" not in body and "`" not in body)
+                out.append(_Body(owner, body, inert))
                 out.append(s[i:line_end + 1])
                 i = line_end + 1
                 break
             i = line_end + 1
         else:
-            body = s[start:]
-            out.append(_Body(owner, body, _inert_body(body, quoted)))
+            out.append(_Body(owner, s[start:], False))  # 找不到結束字：照原文比對
             i = len(s)
     return min(i, len(s))
 
@@ -226,6 +283,11 @@ def _scan(s: str, i: int, in_subst: bool) -> Tuple[str, int, bool]:
         if c == "\\":
             pipe.add("plain", s[i:i + 2])
             i += 2
+        elif c == "#" and (i == 0 or s[i - 1] in COMMENT_AFTER):
+            nl = s.find("\n", i)
+            end = n if nl < 0 else nl
+            pipe.add("plain", s[i:end])
+            i = end
         elif c == "'":
             end = s.find("'", i + 1)
             if end < 0:
@@ -236,13 +298,27 @@ def _scan(s: str, i: int, in_subst: bool) -> Tuple[str, int, bool]:
                 pipe.add("quote", s[i + 1:end])
                 pipe.add("plain", "'")
                 i = end + 1
+        elif two == "$'":
+            end = _ansi_quote_end(s, i + 2)
+            if end < 0:
+                pipe.add("plain", s[i:])
+                i = n
+            else:
+                pipe.add("plain", "$'")
+                pipe.add("quote", s[i + 2:end])
+                pipe.add("plain", "'")
+                i = end + 1
         elif c == '"':
             i = _double_quote(s, i, pipe)
         elif c == "`":
             end = _backtick_end(s, i + 1)
             pipe.add("code", s[i:end])
             i = end
-        elif two == "$(" and not s.startswith("$((", i):
+        elif s.startswith("$((", i):
+            end = _arith_end(s, i + 3)
+            pipe.add("code", s[i:end])
+            i = end
+        elif two == "$(":
             i = _subst(s, i, pipe)
         elif two in (">(", "<("):
             pipe.piped = True
@@ -267,6 +343,8 @@ def _scan(s: str, i: int, in_subst: bool) -> Tuple[str, int, bool]:
             m = HEREDOC_OP.match(s, i)
             delim = next((g for g in m.groups()[1:] if g is not None), "") if m else ""
             if m and delim:
+                if m.end() < n and s[m.end()] not in WORD_END:
+                    raise _Bail()  # 'EOF'x 這類相連的結束字
                 pending.append((delim, m.group(1) == "-", m.group(4) is None, pipe))
                 pipe.add("plain", m.group(0))
                 i = m.end()
@@ -299,8 +377,13 @@ def _scan(s: str, i: int, in_subst: bool) -> Tuple[str, int, bool]:
 
 
 def mask_inert(command: str) -> str:
-    """把只當資料用的引號內容與 heredoc 內文清空；其餘原樣保留。"""
-    return _scan(command, 0, False)[0]
+    """把只當資料用的引號內容與 heredoc 內文清空；沒把握時整條原樣回傳。"""
+    if BAIL_WORDS.search(command):
+        return command
+    try:
+        return _scan(command, 0, False)[0]
+    except _Bail:
+        return command
 
 
 def find_violation(command: str, rules: List[Rule], team: Optional[List[Rule]] = None) -> Optional[Tuple[str, str, bool]]:

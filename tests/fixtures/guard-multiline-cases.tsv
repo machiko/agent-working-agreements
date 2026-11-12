@@ -13,3 +13,14 @@ deny	bash <<'EOF'\ngit reset --hard\nEOF
 deny	python3 - <<'EOF'\nimport os; os.system("git reset --hard")\nEOF
 deny	bash -c "$(cat <<'EOF'\ngit reset --hard\nEOF\n)"
 deny	cat > x.sh <<'EOF'\nok\nEOF\necho 'a' && git clean -fd
+deny	echo "start" # we don't need this\ngit reset --hard\n# that's it
+deny	git commit -m "wip"  # we'll rebase later\ngit reset --hard\n# that's all
+deny	echo done # see <<EOF\ngit reset --hard
+deny	echo mask: $((1<<8))\ngit reset --hard
+deny	echo $'don\'t'\ngit reset --hard\necho 'x'
+deny	cat > y.sh <<'EOF'\ngit reset --hard\nEOF\nbash y.sh
+deny	cat > y.sh <<'EOF'\ngit reset --hard\nEOF\n./y.sh
+deny	echo "$(true # )\ngit reset --hard)"
+deny	cat <<'EOF'x\nhi\nEOFx\ngit reset --hard\nEOF
+deny	cat <<'EOF'\ngit reset --hard
+allow	echo "start" # it's fine\nls
