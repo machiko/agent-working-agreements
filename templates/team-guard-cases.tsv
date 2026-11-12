@@ -3,5 +3,5 @@
 # 新增或修改攔截規則時，各補一筆應擋與應放行的例子。
 #
 # 範例（拿掉開頭的 # 就生效）：
-# deny	terraform destroy -auto-approve
-# allow	terraform plan
+# deny	helm uninstall web --namespace prod
+# allow	helm list

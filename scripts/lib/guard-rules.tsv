@@ -7,7 +7,16 @@
 git-safety	(^|[^A-Za-z0-9_-])git{S}(.*{S})?push({S}.*)?{S}(--force|-[A-Za-z]*f[A-Za-z]*|\+{NS}+){E}	嚴禁使用 force push（--force、-f 或 +refspec）。一般變更走 feature 分支與 PR；確實需要覆寫遠端（例如 rebase 後）請先取得使用者同意，再由使用者自行執行。
 git-safety	(^|[^A-Za-z0-9_-])git{S}(.*{S})?clean({S}.*)?{S}(-[A-Za-z]*f[A-Za-z]*|--force){E}	git clean -f 會永久刪除未追蹤的檔案，不可未經使用者明確指示執行。先用 git clean -n 列出會刪的檔案給使用者確認。	{S}(-[A-Za-z]*n[A-Za-z]*|--dry-run){E}
 git-safety	(^|[^A-Za-z0-9_-])git{S}(.*{S})?reset({S}.*)?{S}--hard{E}	git reset --hard 會抹除工作區所有未提交的修改。需要暫存改動請改用 git stash；確實要丟棄請先取得使用者同意。
+git-safety	(^|[^A-Za-z0-9_-])git{S}(.*{S})?(checkout|restore)({S}.*)?{S}(\.|\./|:/|\*){E}	對整個目錄執行 git checkout／restore 會丟棄工作區所有未提交的修改。只還原指定檔案，或先用 git stash 保留改動；確實要全部丟棄請先取得使用者同意。	restore({S}+(--staged|-S))+({S}+--)?{S}+(\.|\./|:/)[ \t]*$
+git-safety	(^|[^A-Za-z0-9_-])git{S}(.*{S})?branch({S}.*)?{S}-[A-Za-z]*D[A-Za-z]*{E}	強制刪除分支會丟掉還沒合併的 commit。先用 git branch -d（沒合併會被拒絕）；確實要刪請先取得使用者同意。
+git-safety	(^|[^A-Za-z0-9_-])git{S}(.*{S})?branch({S}.*)?{S}(--delete|-[A-Za-z]*d[A-Za-z]*)({S}.*)?{S}(--force|-[A-Za-z]*f[A-Za-z]*){E}	強制刪除分支會丟掉還沒合併的 commit。先用 git branch -d（沒合併會被拒絕）；確實要刪請先取得使用者同意。
+git-safety	(^|[^A-Za-z0-9_-])git{S}(.*{S})?branch({S}.*)?{S}(--force|-[A-Za-z]*f[A-Za-z]*)({S}.*)?{S}(--delete|-[A-Za-z]*d[A-Za-z]*){E}	強制刪除分支會丟掉還沒合併的 commit。先用 git branch -d（沒合併會被拒絕）；確實要刪請先取得使用者同意。
+git-safety	(^|[^A-Za-z0-9_-])git{S}(.*{S})?branch({S}.*)?{S}-[A-Za-z]*(d[A-Za-z]*f|f[A-Za-z]*d)[A-Za-z]*{E}	強制刪除分支會丟掉還沒合併的 commit。先用 git branch -d（沒合併會被拒絕）；確實要刪請先取得使用者同意。
+git-safety	(^|[^A-Za-z0-9_-])git{S}(.*{S})?stash{S}+clear{E}	git stash clear 會一次刪掉所有 stash，無法復原。要刪單一筆請先列出內容給使用者確認。
 dangerous-operations	(^|[^A-Za-z0-9_-])rm{S}(.*{S})?(-[A-Za-z]*[rR][A-Za-z]*|--recursive)({S}.*)?{S}["']?(/|/\*|~|~/|~/\*|\$\{?HOME\}?|\$\{?HOME\}?/|\$\{?HOME\}?/\*)["']?{E}	嚴禁對根目錄或家目錄執行遞迴刪除。
+dangerous-operations	(^|[^A-Za-z0-9_-])(terraform|tofu|terragrunt){S}(.*{S})?(destroy|apply({S}.*)?{S}-destroy){E}	terraform destroy 會刪除整個環境的雲端資源。先用 terraform plan -destroy 列出影響範圍，交給使用者確認後由使用者執行。
+dangerous-operations	(^|[^A-Za-z0-9_-])kubectl{S}(.*{S})?delete({S}.*)?{S}(namespaces?|ns)({E}|/)	刪除 namespace 會連帶刪掉裡面所有資源。先列出影響範圍，交給使用者確認後由使用者執行。
+dangerous-operations	(^|[^A-Za-z0-9_-])kubectl{S}(.*{S})?delete({S}.*)?{S}(--all|--all-namespaces|-A)(=true)?{E}	kubectl delete --all 會刪掉整批資源。指定資源名稱或 label，先用 --dry-run=client 列出影響範圍給使用者確認。
 dangerous-operations	(^|[^A-Za-z0-9_-])chmod{S}(.*{S})?(-[A-Za-z]*R[A-Za-z]*|--recursive)({S}.*)?{S}0?777{E}	嚴禁遞迴設定 777 全開放權限。
 dangerous-operations	(^|[^A-Za-z0-9_-])chmod{S}(.*{S})?0?777{S}(.*{S})?(-[A-Za-z]*R[A-Za-z]*|--recursive){E}	嚴禁遞迴設定 777 全開放權限。
 data-files	(^|[^A-Za-z0-9_-])(curl|wget|nc|ncat|scp|rsync){S}(.*[@=/]|.*{S})?\.env(\.[A-Za-z0-9_-]+)?{E}	嚴禁把 .env 機敏設定檔透過網路傳輸或外洩。

@@ -136,7 +136,7 @@ for (const p of aiMisses) check(`不載入 ${p}`, firstMatchingGlob(p, aiPaths) 
 console.log("▸ 團隊規則：匯入、匯出與 hook-guard 一致");
 const { toTeamTsv, fromTeamTsv } = await load("playground/team-tsv.js");
 const teamInput = [
-  { rule: "custom/infra", pattern: "(^|[^A-Za-z0-9_-])terraform{S}(.*{S})?destroy{E}", message: "禁止 terraform destroy。", allow: "" },
+  { rule: "custom/infra", pattern: "(^|[^A-Za-z0-9_-])helm{S}(.*{S})?uninstall{E}", message: "禁止 helm uninstall。", allow: "" },
   { rule: "custom/db", pattern: "(^|[^A-Za-z0-9_-])psql{S}.*prod", message: "不要直接連\t正式機\n資料庫。", allow: "--read-only" },
 ];
 const exported = toTeamTsv(teamInput);
@@ -150,8 +150,8 @@ check("連空字串都命中的規則標成錯誤、不參與判定", Boolean(em
 check("訊息是空的規則標成錯誤", Boolean(compileRule({ rule: "x", pattern: "foo", message: " ", allow: "" }).error));
 const withTeam = [...rules, ...reimported.map(compileRule)];
 const builtinBlocked = ["git", "push", "--" + "force"].join(" ");
-const teamCmds = ["terraform destroy -auto-approve", "terraform plan", "psql -h prod-db", "psql -h prod-db --read-only", `${builtinBlocked} && terraform destroy`];
-const teamDeny = evaluate("terraform destroy", withTeam);
+const teamCmds = ["helm uninstall web --namespace prod", "helm list", "psql -h prod-db", "psql -h prod-db --read-only", `${builtinBlocked} && helm uninstall web`];
+const teamDeny = evaluate("helm uninstall web", withTeam);
 check("團隊規則命中時，violation 標出團隊規則", teamDeny.decision === "deny" && teamDeny.violation.rule.team === true);
 const pushTeam = [...rules, compileRule({ rule: "custom/push", pattern: "git{S}push", message: "先開 PR。", allow: "", team: true })];
 check("同一段子指令內建與團隊規則都命中時，內建規則先判定", evaluate(builtinBlocked, pushTeam).violation.rule.team !== true);

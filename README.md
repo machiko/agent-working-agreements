@@ -266,6 +266,8 @@ scripts/review.sh --staged     # 審查暫存區變更
 透過 Claude Code 的 Plugin Hook 機制，在 Agent 執行高危破壞性指令的當下直接阻擋：
 - 🛑 **禁止 Force Push**：即時攔截 `git push --force`、`-f`（含 `-uf` 等合併寫法）與 `+refspec`；`--force-with-lease` 放行
 - 🛑 **防範無預警清空代碼**：阻擋所有 `git reset --hard` 與 `git clean -f`（`git clean -n` 預覽不受影響）
+- 🛑 **防範丟失未提交或未合併的工作**：阻擋對整個目錄的 `git checkout .`／`git restore .`（`git restore --staged .` 放行）、強制刪除分支（`git branch -D`）與 `git stash clear`
+- 🛑 **防範刪除整個環境**：阻擋 `terraform destroy`（含 `apply -destroy`、OpenTofu）、`kubectl delete namespace` 與 `kubectl delete --all`
 - 🛑 **禁止根目錄毀滅性指令**：阻擋對 `/`、`~`、`$HOME` 遞迴刪除，以及遞迴 `chmod 777`
 - 🛑 **防範憑證外洩**：即時攔截以 `curl`、`wget`、`nc`、`scp` 等傳送 `.env` 的指令
 - 💡 被擋時 Agent 會收到攔截原因；可透過環境變數 `AGREEMENTS_HOOKS_DISABLE=1` 暫時跳過攔截（團隊策略設 `prohibit_disable_hooks` 時無效）

@@ -3,5 +3,5 @@
 # When you add or change a guard rule, add one case it should block and one it should allow.
 #
 # Example (remove the leading # to enable):
-# deny	terraform destroy -auto-approve
-# allow	terraform plan
+# deny	helm uninstall web --namespace prod
+# allow	helm list

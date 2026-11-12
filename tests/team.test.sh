@@ -144,18 +144,18 @@ check "不合法檔名略過並警告" 'grep -q "略過團隊守則.*Bad_Name.md
 check "品質問題只提示、不擋同步" 'grep -q "團隊守則品質（只提示" "$TMP/out" && grep -q "空泛用語「盡量」" "$TMP/out" && [ -f "$R2/.claude/rules/agent-agreements/custom/weak.md" ]'
 
 echo "▸ 團隊攔截規則"
-printf 'custom/infra\t(^|[^A-Za-z0-9_-])terraform{S}(.*{S})?destroy{E}\t禁止 terraform destroy。\n' > "$R2/.agreements/guard-rules.tsv"
-printf 'deny\tterraform destroy\nallow\tterraform plan\n' > "$R2/.agreements/guard-cases.tsv"
+printf 'custom/infra\t(^|[^A-Za-z0-9_-])helm{S}(.*{S})?uninstall{E}\t禁止 helm uninstall。\n' > "$R2/.agreements/guard-rules.tsv"
+printf 'deny\thelm uninstall web\nallow\thelm list\n' > "$R2/.agreements/guard-cases.tsv"
 bash "$INSTALL" --sync "$R2" > "$TMP/out" 2>&1
 check "--sync 檢查團隊攔截規則" 'grep -q "團隊攔截規則：通過" "$TMP/out"'
 bash "$DOCTOR" --check-drift "$R2" > "$TMP/out" 2>&1
 check "規則與案例一致：--check-drift 通過並說明" '[ $? -eq 0 ] && grep -q "案例檔判定一致" "$TMP/out"'
-printf 'allow\tterraform destroy\n' >> "$R2/.agreements/guard-cases.tsv"
+printf 'allow\thelm uninstall web\n' >> "$R2/.agreements/guard-cases.tsv"
 bash "$INSTALL" --sync "$R2" > "$TMP/out" 2>&1
 check "案例不符：--sync 只提示、不擋同步" '[ $? -eq 0 ] && grep -q "⚠ .agreements/guard-cases.tsv:3：預期 allow，實際 deny" "$TMP/out"'
 bash "$DOCTOR" --check-drift "$R2" > "$TMP/out" 2>&1
 check "案例不符：--check-drift 失敗" '[ $? -eq 1 ] && grep -q "團隊攔截規則（.agreements/guard-rules.tsv）或案例檔有問題" "$TMP/out"'
-printf 'deny\tterraform destroy\n' > "$R2/.agreements/guard-cases.tsv"
+printf 'deny\thelm uninstall web\n' > "$R2/.agreements/guard-cases.tsv"
 printf 'custom/bad\tfoo([\t無法編譯\n' >> "$R2/.agreements/guard-rules.tsv"
 bash "$DOCTOR" --check-drift "$R2" > "$TMP/out" 2>&1
 check "規則無法編譯：--check-drift 失敗並指出行號" '[ $? -eq 1 ] && grep -q "guard-rules.tsv:2：攔截式無法編譯" "$TMP/out"'
