@@ -23,4 +23,10 @@ deny	cat > y.sh <<'EOF'\ngit reset --hard\nEOF\n./y.sh
 deny	echo "$(true # )\ngit reset --hard)"
 deny	cat <<'EOF'x\nhi\nEOFx\ngit reset --hard\nEOF
 deny	cat <<'EOF'\ngit reset --hard
+deny	cat > Makefile <<'EOF'\nall:\n\tgit reset --hard\nEOF\nmake
+deny	cat > package.json <<'EOF'\n{"scripts":{"x":"git reset --hard"}}\nEOF\nnpm run x
+deny	cat > x.sh <<'EOF'\ngit reset --hard\nEOF\nfind . -name x.sh -exec sh {} \;
+deny	cat > x.sh <<'EOF'\ngit reset --hard\nEOF\ngit -c alias.y='!sh x.sh' y
+deny	if true; then cat > x.sh <<'EOF'\ngit reset --hard\nEOF\nfi; sh x.sh
 allow	echo "start" # it's fine\nls
+allow	mkdir -p docs && cat > docs/a.md <<'EOF'\n不要用 git reset --hard\nEOF\ngit add docs && git commit -m "docs: 說明 git reset --hard 的風險"

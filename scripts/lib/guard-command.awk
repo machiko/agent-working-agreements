@@ -44,9 +44,9 @@ function padd(id, kind, text, masked,    k) {
   k = ++PL[id, "n"]; PL[id, "k", k] = kind; PL[id, "t", k] = text; PL[id, "m", k] = masked
 }
 
-# 設定 CW_WORD（指令名稱）與 CW_TOUCH（名稱是最後一個字且 prefix 沒有以空白結尾）
+# 設定 CW_WORD（指令名稱）、CW_TOUCH（名稱是最後一個字且 prefix 沒有以空白結尾）與 CW_NEXT（下一個字）
 function cmdword(prefix,    W, T, cnt, k, m, w) {
-  CW_WORD = ""; CW_TOUCH = 0
+  CW_WORD = ""; CW_TOUCH = 0; CW_NEXT = ""
   cnt = split(prefix, W, /[ \t\n]+/); m = 0
   for (k = 1; k <= cnt; k++) if (W[k] != "") T[++m] = W[k]
   for (k = 1; k <= m; k++) {
@@ -54,8 +54,19 @@ function cmdword(prefix,    W, T, cnt, k, m, w) {
     if (w == "" || index(" if then do else elif while until time ! { ( ", " " w " ") || w ~ /^[A-Za-z_][A-Za-z0-9_]*=/) continue
     CW_WORD = w
     CW_TOUCH = (k == m && !index(" \t\n", substr(prefix, length(prefix), 1)))
+    CW_NEXT = (k < m) ? T[k + 1] : ""
     return
   }
+}
+
+# 這條管線可能執行資料（剛寫入的檔案、組出的字串）時回傳 1；SAFE 是只讀寫資料的指令
+function executes_data(dyn) {
+  if (CW_WORD == "") return dyn
+  if (CW_TOUCH && dyn) return 1
+  if (!index(" echo printf cat tee git gh cd ls pwd mkdir touch true false test [ wc head tail grep diff cp mv rm chmod sort uniq cut tr date sleep ", " " CW_WORD " ")) return 1
+  if (CW_WORD == "git") return (CW_NEXT == "" || substr(CW_NEXT, 1, 1) == "-")
+  if (CW_WORD == "gh") return !index(" pr issue release api repo run label search browse status ", " " CW_NEXT " ") || CW_NEXT == ""
+  return 0
 }
 
 # 設定 QOK（引號內容可清空）與 HOK（heredoc 內文可清空）
@@ -67,9 +78,7 @@ function pflags(id,    k, prefix, dyn) {
   }
   for (k = 1; k <= PL[id, "n"]; k++) if (PL[id, "k", k] != "plain") { dyn = 1; break }
   cmdword(prefix)
-  if ((CW_WORD == "" && dyn) || (CW_TOUCH && dyn) || index(CW_WORD, "/") || substr(CW_WORD, 1, 1) == "$" ||
-      (CW_WORD != "" && index(" bash sh zsh dash ksh fish source . exec eval xargs env sudo nohup nice timeout watch ssh command builtin python python3 node perl ruby ", " " CW_WORD " ")))
-    BAIL = 1
+  if (executes_data(dyn)) BAIL = 1
   QOK = !PL[id, "piped"] && match(prefix " ", /^[ \t\n]*((echo|printf)[ \t\n]|git[ \t]+(commit|tag)[ \t\n]|gh[ \t]+(pr|issue|release|api)[ \t\n])/) && !match(prefix, /^[ \t\n]*printf[ \t]+-v/)
   HOK = QOK || (!PL[id, "piped"] && match(prefix " ", /^[ \t\n]*(cat|tee)[ \t\n]/))
 }

@@ -7,8 +7,10 @@ const PRINTF_V = /^[ \t\n]*printf[ \t]+-v/;
 const HEREDOC_SINK = /^[ \t\n]*(cat|tee)([ \t\n]|$)/;
 const HEREDOC_OP = /<<(-?)[ \t]*(?:'([^']*)'|"([^"]*)"|\\?([^ \t\n;&|<>()'"`]+))/y;
 const BAIL_WORDS = /(^|[^A-Za-z0-9_-])(esac|alias|function)([^A-Za-z0-9_-]|$)|[A-Za-z0-9_-][ \t]*\(\)/;
-const EXEC_WORDS = new Set(("bash sh zsh dash ksh fish source . exec eval xargs env sudo nohup nice timeout watch ssh " +
-  "command builtin python python3 node perl ruby").split(" "));
+// 只讀寫資料、不會執行其他內容的指令；整條指令每條管線的指令都在這裡面才清空
+const SAFE_WORDS = new Set(("echo printf cat tee git gh cd ls pwd mkdir touch true false test [ wc head tail grep " +
+  "diff cp mv rm chmod sort uniq cut tr date sleep").split(" "));
+const GH_SUBCOMMANDS = new Set("pr issue release api repo run label search browse status".split(" "));
 const SKIP_WORDS = new Set("if then do else elif while until time ! { (".split(" "));
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const WORD_END = " \t\n;&|<>()";
@@ -16,15 +18,26 @@ const COMMENT_AFTER = " \t\n;&|()<>";
 
 class Bail extends Error {}
 
-// 回傳 [指令名稱, 名稱是否為 prefix 的最後一個字且沒有以空白結尾]
+// 回傳 [指令名稱, 名稱是否為 prefix 的最後一個字且沒有以空白結尾, 下一個字]
 function commandWord(prefix) {
   const words = prefix.split(/[ \t\n]+/).filter(Boolean);
   for (const [k, raw] of words.entries()) {
     const w = raw.replace(/^[({!]+/, "");
     if (!w || SKIP_WORDS.has(w) || ASSIGNMENT.test(w)) continue;
-    return [w, k === words.length - 1 && !" \t\n".includes(prefix.slice(-1) || "x")];
+    const touches = k === words.length - 1 && !" \t\n".includes(prefix.slice(-1) || "x");
+    return [w, touches, words[k + 1] ?? ""];
   }
-  return ["", false];
+  return ["", false, ""];
+}
+
+// 這條管線可能執行資料（剛寫入的檔案、組出的字串）時回傳 true
+function executesData([word, touches, after], dynamic) {
+  if (!word) return dynamic;
+  if (touches && dynamic) return true;
+  if (!SAFE_WORDS.has(word)) return true;
+  if (word === "git") return !after || after.startsWith("-");
+  if (word === "gh") return !GH_SUBCOMMANDS.has(after);
+  return false;
 }
 
 function newPipeline() {
@@ -43,10 +56,7 @@ function flags(pipe) {
     prefix += p.text;
   }
   const dynamic = pipe.pieces.some((p) => p.kind !== "plain");
-  const [word, touches] = commandWord(prefix);
-  if ((!word && dynamic) || (touches && dynamic) || EXEC_WORDS.has(word) || word.includes("/") || word.startsWith("$")) {
-    throw new Bail();
-  }
+  if (executesData(commandWord(prefix), dynamic)) throw new Bail();
   const quoteOk = !pipe.piped && QUOTE_INERT.test(prefix) && !PRINTF_V.test(prefix);
   return [quoteOk, quoteOk || (!pipe.piped && HEREDOC_SINK.test(prefix))];
 }

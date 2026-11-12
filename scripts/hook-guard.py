@@ -88,7 +88,7 @@ def expand(pattern: str) -> str:
 #   heredoc 內文：上面那些，或 cat、tee；分隔字加引號，或內文沒有 $( 與反引號；找不到結束字時不清空
 #   $( ) 與反引號：裡面照樣遞迴處理；只有外層管線符合上面條件時，才採用清空後的版本
 # 遇到沒模擬的語法，或可能把資料當指令執行的寫法，整條指令都不清空（_Bail）：
-#   任何管線的指令是 bash、sh、source、eval、xargs、env、sudo、python 這類執行器，或是路徑、變數、動態組出的名稱；
+#   任何一條管線的指令不在 SAFE_WORDS（只讀寫資料的指令），或是動態組出的名稱、git 全域選項、其他 gh 子指令；
 #   出現 case／esac、alias、function、name() 函式定義；heredoc 結束字後面還黏著其他字。
 # 這段邏輯在 lib/guard-command.awk（bash fallback）與 playground/guard-lex.js 各有一份，要一起改。
 QUOTE_INERT = re.compile(r"^[ \t\n]*((echo|printf)([ \t\n]|$)|git[ \t]+(commit|tag)([ \t\n]|$)|gh[ \t]+(pr|issue|release|api)([ \t\n]|$))")
@@ -96,8 +96,10 @@ PRINTF_V = re.compile(r"^[ \t\n]*printf[ \t]+-v")
 HEREDOC_SINK = re.compile(r"^[ \t\n]*(cat|tee)([ \t\n]|$)")
 HEREDOC_OP = re.compile(r"<<(-?)[ \t]*(?:'([^']*)'|\"([^\"]*)\"|\\?([^ \t\n;&|<>()'\"`]+))")
 BAIL_WORDS = re.compile(r"(^|[^A-Za-z0-9_-])(esac|alias|function)([^A-Za-z0-9_-]|$)|[A-Za-z0-9_-][ \t]*\(\)")
-EXEC_WORDS = frozenset("bash sh zsh dash ksh fish source . exec eval xargs env sudo nohup nice timeout watch ssh "
-                       "command builtin python python3 node perl ruby".split())
+# 只讀寫資料、不會執行其他內容的指令；整條指令每條管線的指令都在這裡面才清空
+SAFE_WORDS = frozenset("echo printf cat tee git gh cd ls pwd mkdir touch true false test [ wc head tail grep "
+                       "diff cp mv rm chmod sort uniq cut tr date sleep".split())
+GH_SUBCOMMANDS = frozenset("pr issue release api repo run label search browse status".split())
 SKIP_WORDS = frozenset("if then do else elif while until time ! { (".split())
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 WORD_END = " \t\n;&|<>()"
@@ -108,15 +110,31 @@ class _Bail(Exception):
     """遇到沒模擬的語法或可能執行資料的寫法：整條指令照原文比對。"""
 
 
-def _command_word(prefix: str) -> Tuple[str, bool]:
-    """回傳 (指令名稱, 名稱是否為 prefix 的最後一個字且沒有以空白結尾)。"""
+def _command_word(prefix: str) -> Tuple[str, bool, str]:
+    """回傳 (指令名稱, 名稱是否為 prefix 的最後一個字且沒有以空白結尾, 下一個字)。"""
     words = [w for w in re.split(r"[ \t\n]+", prefix) if w]
     for k, w in enumerate(words):
         w = w.lstrip("({!")
         if not w or w in SKIP_WORDS or ASSIGNMENT.match(w):
             continue
-        return w, k == len(words) - 1 and prefix[-1:] not in (" ", "\t", "\n")
-    return "", False
+        touches = k == len(words) - 1 and prefix[-1:] not in (" ", "\t", "\n")
+        return w, touches, words[k + 1] if k + 1 < len(words) else ""
+    return "", False, ""
+
+
+def _executes_data(word: str, touches: bool, after: str, dynamic: bool) -> bool:
+    """這條管線可能執行資料（剛寫入的檔案、組出的字串）時回傳 True。"""
+    if not word:
+        return dynamic
+    if touches and dynamic:
+        return True  # 指令名稱是動態組出來的，例如 ec"ho"
+    if word not in SAFE_WORDS:
+        return True
+    if word == "git":
+        return not after or after.startswith("-")  # git -c alias.x=… 這類全域選項
+    if word == "gh":
+        return after not in GH_SUBCOMMANDS
+    return False
 
 
 class _Pipeline:
@@ -135,8 +153,7 @@ class _Pipeline:
                 break
             prefix += text
         dynamic = any(kind != "plain" for kind, _, _ in self.pieces)
-        word, touches = _command_word(prefix)
-        if (not word and dynamic) or (touches and dynamic) or word in EXEC_WORDS or "/" in word or word[:1] == "$":
+        if _executes_data(*_command_word(prefix), dynamic):
             raise _Bail()
         quote_ok = not self.piped and bool(QUOTE_INERT.match(prefix)) and not PRINTF_V.match(prefix)
         return quote_ok, quote_ok or (not self.piped and bool(HEREDOC_SINK.match(prefix)))
