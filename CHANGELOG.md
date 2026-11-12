@@ -8,8 +8,13 @@
 
 - 執行期攔截新增 5 類高危操作：對整個目錄的 `git checkout .`／`git restore .`（`git restore --staged .` 放行）、強制刪除分支、`git stash clear`、`terraform destroy`（含 `apply -destroy`、OpenTofu）、`kubectl delete namespace` 與 `kubectl delete --all`。團隊攔截規則的範本與文件範例改用 `helm uninstall`
 
+### Changed
+
+- `scripts/install.sh` 依職責拆到 `scripts/lib/`（守則解析、清單與狀態、偵測、CI、選擇守則、AGENTS.md 類目標、規則目錄目標），行為不變；`--ci github` 改讀 `templates/workflows/agent-audit.yml`，不再在程式裡重複一份
+
 ### Fixed
 
+- UTF-8 環境下，`install.sh --lang` 指定不支援的語言、`--ci` 指定不支援的平台、`--update` 找不到既有安裝，以及 `team.sh` 指定不支援的目標時，原本會出現 bash 的 unbound variable 錯誤，現在會印出正確的錯誤訊息
 - 沒有 python3 時的 bash 比對只解碼 `command` 欄位到結尾引號為止，同一行 JSON 的其他欄位（例如 `description`）不會再被拿去比對而誤擋
 
 ## [1.9.0] - 2026-11-12
