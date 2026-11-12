@@ -132,7 +132,7 @@ while [ $# -gt 0 ]; do
     --policy) [ $# -ge 2 ] || die "--policy 需要檔案路徑"; policy_file="$2"; shift 2 ;;
     --lang)
       [ $# -ge 2 ] || die "--lang 需要語言代碼（zh-TW 或 en）"
-      case "$2" in zh-TW|en) lang_arg="$2" ;; *) die "不支援的語言：$2（可用：$LANGS）" ;; esac
+      case "$2" in zh-TW|en) lang_arg="$2" ;; *) die "不支援的語言：$2（可用：${LANGS}）" ;; esac
       shift 2 ;;
     --dry-run) dry_run=1; shift ;;
     --force) force=1; shift ;;

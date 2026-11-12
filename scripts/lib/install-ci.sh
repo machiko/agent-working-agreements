@@ -87,7 +87,7 @@ install_ci() {
       echo "✓ 已成功安裝 pre-commit 守門配置：$wf_file"
       ;;
     *)
-      die "不支援的 CI 平台：$platform（支援 github、gitlab、bitbucket、pre-commit）"
+      die "不支援的 CI 平台：${platform}（支援 github、gitlab、bitbucket、pre-commit）"
       ;;
   esac
   exit 0

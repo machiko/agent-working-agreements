@@ -99,7 +99,7 @@ check_team_guard() {
   local out
   [ -n "$(aw_team_guard_file "$1")" ] || return 0
   if out="$(aw_check_team_guard "$1")"; then
-    echo "▸ 團隊攔截規則：通過${out:+（$out）}"
+    echo "▸ 團隊攔截規則：通過${out:+（${out}）}"
   else
     echo "▸ 團隊攔截規則（只提示，不影響同步；寫錯的規則在 Claude Code 執行時會被跳過，--check-drift 會失敗）"
     printf '%s\n' "$out" | sed 's/^✗ /  ⚠ .agreements\//'
@@ -274,7 +274,7 @@ do_init() {
   fi
   targets="$(printf '%s' "${targets_arg:-$(detect_targets "$root")}" | tr -d ' \t')"
   for t in $(printf '%s' "$targets" | tr ',' ' '); do
-    case " $ALL_TARGETS " in *" $t "*) ;; *) die "不支援的目標：$t（可用：${ALL_TARGETS}）" ;; esac
+    case " $ALL_TARGETS " in *" $t "*) ;; *) die "不支援的目標：${t}（可用：${ALL_TARGETS}）" ;; esac
   done
   git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || echo "⚠️ ${root} 不是 git repo：策略檔與守則要放進版本控制才能跟團隊共用" >&2
 

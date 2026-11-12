@@ -558,6 +558,13 @@ check "遷移後保留 selected 選項" 'grep -q "^selected=.*writing/changelog"
 check "遷移後保留選擇的規則檔記錄與雜湊" 'grep -qE "^file=writing/changelog sha256=[0-9a-f]{64}" "$T_MIGRATE/.agreements-profile"'
 check "遷移後 core 規則記錄附雜湊" 'grep -qE "^file=collaboration/git-safety sha256=[0-9a-f]{64}" "$T_MIGRATE/.agreements-profile"'
 
+echo "▸ 錯誤訊息：變數後面緊接全形標點"
+# UTF-8 locale 下，bash 會把 $var 後面的全形字元當成變數名稱的一部分，觸發 unbound variable
+out_lang="$(LC_ALL=en_US.UTF-8 bash "$INSTALL" --lang fr 2>&1)"
+check "--lang 不支援的語言時印出可用語言" 'printf "%s" "$out_lang" | grep -q "不支援的語言：fr（可用："'
+unbraced="$(cd "$ROOT" && perl -ne 'print "$ARGV:$.\n" if /\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7f]/ && !/^\s*#/; close ARGV if eof' scripts/*.sh scripts/lib/*.sh tests/*.sh evals/lib/*.sh)"
+check "腳本裡 \$var 後面緊接非 ASCII 字元時都加了大括號" '[ -z "$unbraced" ]' || printf '%s\n' "$unbraced" >&2
+
 echo "──"
 echo "通過 ${pass}｜失敗 ${fail}｜暫存目錄 $TMP"
 [ "$fail" -eq 0 ]

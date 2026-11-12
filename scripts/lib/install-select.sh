@@ -29,13 +29,13 @@ resolve_update_selection() {
   [ -z "$select_ids" ] || die "--update 不能搭配 --select（--update 會自動沿用既有安裝之規則選項）"
   if [ -n "$agents_md" ]; then
     case "$agents_md" in "~"/*) agents_md="$HOME/${agents_md#\~/}" ;; esac
-    [ -f "$agents_md" ] || die "尚未安裝，無法更新（找不到 $agents_md）"
+    [ -f "$agents_md" ] || die "尚未安裝，無法更新（找不到 ${agents_md}）"
     select_ids="$(sed -n 's/<!-- agent-agreements:selected=\([^ ]*\) -->/\1/p' "$agents_md" | head -n 1)"
   else
     up_target="${cursor_dir:-$target}"
     case "$up_target" in "~"/*) up_target="$HOME/${up_target#\~/}" ;; esac
     up_profile="$up_target/$PROFILE_NAME"
-    [ -f "$up_profile" ] || die "尚未安裝，無法更新（找不到 $up_profile）"
+    [ -f "$up_profile" ] || die "尚未安裝，無法更新（找不到 ${up_profile}）"
     select_ids="$(sed -n 's/^selected=//p' "$up_profile" | head -n 1)"
   fi
   mode="install"

@@ -53,7 +53,7 @@ EOF
 echo "▸ 產生草稿"
 OUT="$TMP/draft.md"
 "$DRAFT" "$RULE" --out "$OUT" > "$TMP/stdout" 2>&1; rc=$?
-[ "$rc" -eq 0 ] && ok "乾淨的守則結束碼為 0" || { bad "乾淨的守則應通過（rc=$rc）"; cat "$TMP/stdout" >&2; }
+[ "$rc" -eq 0 ] && ok "乾淨的守則結束碼為 0" || { bad "乾淨的守則應通過（rc=${rc}）"; cat "$TMP/stdout" >&2; }
 has "印出標題檔路徑" "$TMP/stdout" "title_file=$OUT.title"
 check_title() { [ "$(cat "$OUT.title")" = "地雷提案：不可清空 migration" ]; }
 check_title && ok "標題檔內容" || bad "標題檔內容不對"
@@ -151,13 +151,13 @@ LEAK="$TMP/leak.md"
 PRIV_IP="192.168"".3.20"   # 拆開寫，避免本檔被 repo 的 sanitize-check 掃到
 sed "s/沒有檢查 DB_HOST。/沒有檢查 DB_HOST（${PRIV_IP}）。/" "$RULE" > "$LEAK"
 "$DRAFT" "$LEAK" --out "$OUT" > "$TMP/stdout" 2>&1; rc=$?
-[ "$rc" -eq 1 ] && ok "含私有 IP 時結束碼為 1" || bad "含私有 IP 應失敗（rc=$rc）"
+[ "$rc" -eq 1 ] && ok "含私有 IP 時結束碼為 1" || bad "含私有 IP 應失敗（rc=${rc}）"
 has "指出命中位置" "$TMP/stdout" "$PRIV_IP"
 [ -f "$OUT" ] && ok "仍然寫出草稿供修改" || bad "應寫出草稿"
 LABEL_LEAK="$TMP/label-leak.md"
 sed "s/^label: .*/label: \"結帳服務 ${PRIV_IP}\"/" "$RULE" > "$LABEL_LEAK"
 "$DRAFT" "$LABEL_LEAK" --out "$OUT" > "$TMP/stdout" 2>&1; rc=$?
-[ "$rc" -eq 1 ] && ok "標題含識別資訊時也會被抓到" || bad "標題也要掃描（rc=$rc）"
+[ "$rc" -eq 1 ] && ok "標題含識別資訊時也會被抓到" || bad "標題也要掃描（rc=${rc}）"
 
 echo "▸ sanitize-check.sh 檔案模式"
 printf 'contact: someone%scorp-internal.io\n' "@" > "$TMP/mail.md"
