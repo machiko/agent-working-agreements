@@ -273,7 +273,8 @@ scripts/review.sh --staged     # 審查暫存區變更
 - 💡 被擋時 Agent 會收到攔截原因；可透過環境變數 `AGREEMENTS_HOOKS_DISABLE=1` 暫時跳過攔截（團隊策略設 `prohibit_disable_hooks` 時無效）
 - ⚙️ 攔截規則集中在 [`scripts/lib/guard-rules.tsv`](scripts/lib/guard-rules.tsv)。有 `python3` 時以 Python 解析指令；沒有時改用 Bash 比對同一份規則，行為一致
 - 👥 團隊可以在策略檔旁的 `.agreements/guard-rules.tsv` 加自己的攔截規則，只能多擋、不能放寬內建規則（見 [團隊導入指南](docs/team.md#團隊攔截規則)）
-- ⚠️ 已知限制：比對的是指令字串，只是在引號內「提到」這些指令（例如 `echo "git push --force"`）也會被擋
+- 💬 只是「提到」不會被擋：`echo`、`printf`、`git commit -m`、`gh pr create --body` 這類指令引號裡的文字，以及交給 `cat`、`tee` 寫檔的 heredoc 內文，只當資料、不拿去比對；接到 `| sh`、`bash -c`、`$(…)` 這類會執行的內容照樣攔截
+- ⚠️ 已知限制：其他指令引號裡提到（例如 `grep "git push --force"`）仍會被擋；先寫進檔案、下一步再執行的指令攔不到，hook 擋的是「不小心」，不是安全邊界
 
 **為 Cursor、Windsurf 或一般終端機安裝跨工具通用防線：**
 ```bash

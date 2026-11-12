@@ -10,6 +10,7 @@
 
 ### Fixed
 
+- 只是在引號或 heredoc 裡提到高危指令不再被擋：`echo`、`printf`、`git commit`／`git tag`、`gh pr`／`issue`／`release`／`api` 引號裡的文字，以及交給 `cat`、`tee` 的 heredoc 內文，比對前先清空；接到 `|`、`>( )`、`bash -c`、`$( )` 或沒加引號的 heredoc 裡有 `$( )` 時照原文比對。python、bash fallback 與 Playground 三邊用同一套規則，測試確認輸出一致
 - 沒有 python3 時的 bash 比對只解碼 `command` 欄位到結尾引號為止，同一行 JSON 的其他欄位（例如 `description`）不會再被拿去比對而誤擋
 
 ## [1.9.0] - 2026-11-12

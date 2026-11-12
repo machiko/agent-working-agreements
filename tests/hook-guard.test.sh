@@ -19,7 +19,8 @@ check() { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 # json_input <command> [cwd]：組出 PreToolUse 的 stdin（指令裡的 \ 與 " 會跳脫）
 json_input() {
   local esc cwd_field=""
-  esc="$(printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
+  # 反斜線、引號、Tab、換行都要跳脫，才是合法的 JSON 字串
+  esc="$(printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | awk '{ gsub(/\t/, "\\t"); printf "%s%s", (NR > 1 ? "\\n" : ""), $0 }')"
   [ -n "${2:-}" ] && cwd_field=",\"cwd\":\"$2\""
   printf '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"%s"}%s}' "$esc" "$cwd_field"
 }
@@ -48,6 +49,14 @@ while IFS=$'\t' read -r kind cmd; do
     allow) ALLOW_CASES+=("$cmd") ;;
   esac
 done < "$CASES"
+# 多行案例（heredoc）：\n 代表換行、\t 代表 Tab
+while IFS=$'\t' read -r kind cmd; do
+  cmd="${cmd//\\n/$'\n'}"; cmd="${cmd//\\t/$'\t'}"
+  case "$kind" in
+    deny)  DENY_CASES+=("$cmd") ;;
+    allow) ALLOW_CASES+=("$cmd") ;;
+  esac
+done < "$ROOT/tests/fixtures/guard-multiline-cases.tsv"
 check "共用案例檔讀到攔截與放行案例" '[ "${#DENY_CASES[@]}" -gt 0 ] && [ "${#ALLOW_CASES[@]}" -gt 0 ]'
 
 run_cases() {

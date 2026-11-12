@@ -1,0 +1,15 @@
+# guard-multiline-cases.tsv — 多行指令（heredoc）的共用案例，格式同 guard-cases.tsv。
+# 指令裡的 \n 代表換行、\t 代表 Tab；不要用其他反斜線寫法。
+allow	cat > deploy.sh <<'EOF'\ngit reset --hard\nrm -rf /\nEOF
+allow	cat <<EOF > notes.md\ngit reset --hard\nEOF
+allow	tee notes.md <<-'EOF'\n\tgit clean -fd\n\tEOF
+allow	git commit -m "$(cat <<'EOF'\nfix: 擋下 git reset --hard\nEOF\n)"
+allow	gh pr create --title x --body "$(cat <<'EOF'\n不再誤擋 terraform destroy\nEOF\n)"
+allow	cat > a.txt <<'A' && cat > b.txt <<'B'\ngit reset --hard\nA\nrm -rf /\nB
+deny	cat > deploy.sh <<'EOF'\nx\nEOF\ngit reset --hard
+deny	cat <<'EOF' | bash\ngit reset --hard\nEOF
+deny	cat <<EOF\n$(git reset --hard)\nEOF
+deny	bash <<'EOF'\ngit reset --hard\nEOF
+deny	python3 - <<'EOF'\nimport os; os.system("git reset --hard")\nEOF
+deny	bash -c "$(cat <<'EOF'\ngit reset --hard\nEOF\n)"
+deny	cat > x.sh <<'EOF'\nok\nEOF\necho 'a' && git clean -fd

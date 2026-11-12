@@ -1,5 +1,7 @@
 // guard-match.js — scripts/hook-guard.py 比對邏輯的 JS 移植，給 Playground 使用。
 // 判定結果必須跟 Python／bash 一致：tests/playground.test.sh 用 tests/fixtures/guard-cases.tsv 驗證。
+import { maskInert } from "./guard-lex.js";
+
 // 跟 hook-guard.py 的差別只有一個：這裡回傳每段子指令 × 每條規則的比對明細，不是只回傳第一條命中。
 
 export const PLACEHOLDERS = Object.freeze({
@@ -77,8 +79,10 @@ function matchSegment(segment, compiled) {
 
 // 回傳 { decision: "deny" | "allow", violation, segments: [{ text, results: [...] }] }
 // violation 與 hook-guard.py 的 find_violation 相同：依子指令順序、再依規則順序的第一個 hit
+// masked：只當資料用的引號內容與 heredoc 內文清空後的指令（跟原指令不同時，畫面會提示）
 export function evaluate(command, compiledRules) {
-  const segments = command.split(SEPARATORS).map((text) => ({
+  const masked = maskInert(command);
+  const segments = masked.split(SEPARATORS).map((text) => ({
     text,
     results: compiledRules.map((rule, index) => ({ index, ...matchSegment(text, rule) })),
   }));
@@ -90,5 +94,5 @@ export function evaluate(command, compiledRules) {
       break;
     }
   }
-  return { decision: violation ? "deny" : "allow", violation, segments };
+  return { decision: violation ? "deny" : "allow", violation, segments, masked };
 }
