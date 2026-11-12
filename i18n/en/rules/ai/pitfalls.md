@@ -1,17 +1,20 @@
 ---
-source_sha256: ae6ad4285dc385c2db70afca570e51334371df9ec570e21c12bc47e95b733ee1
+source_sha256: a548581157c118531687996b440fa835d25a5fcce371b801287f02b25c974afe
 category: ai
 tier: optional
 stack: ai
 label: "AI and LLM application pitfalls"
 summary: "Guards against cascading failures from external LLM calls without timeouts, prompt-injection jailbreaks, streams that keep burning memory and tokens after disconnect, and unmasked PII in vector retrieval. Loaded only when touching AI/LLM-related files"
 paths:
-  - "**/*ai*"
-  - "**/*llm*"
-  - "**/*rag*"
-  - "**/*prompt*"
-  - "**/*agent*"
-  - "**/*embedding*"
+  - "**/{ai,llm,llms,rag,prompts,agents,embeddings}/**"
+  - "**/{ai,rag}{_,-,.}*"
+  - "**/*{_,-}{ai,rag}{_,-,.}*"
+  - "**/*{ai,Ai,AI}{Service,Client,Chat,Controller,Provider,Agent,Model}*"
+  - "**/*{Rag,RAG}{Service,Client,Pipeline,Retriever}*"
+  - "**/*{llm,Llm,LLM}*"
+  - "**/*{prompt,Prompt}*"
+  - "**/*{agent,Agent}*"
+  - "**/*{embedding,Embedding}*"
   - "**/*vector*"
   - "**/langchain*"
   - "**/openai*"
@@ -20,7 +23,7 @@ incidents:
   - "No timeout on LLM API calls during latency spikes or 429s; web server worker threads got stuck"
   - "A user extracted the internal system prompt via prompt injection"
   - "Conversations were written to the vector store without de-identification; RAG surfaced other people's personal data"
-last_reviewed: 2026-11-10
+last_reviewed: 2026-11-12
 ---
 
 # AI and LLM application pitfalls

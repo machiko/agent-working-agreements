@@ -5,12 +5,15 @@ stack: ai
 label: "AI 與 LLM 應用地雷"
 summary: "防範外部 LLM 呼叫未設超時雪崩、Prompt 注入越獄、串流斷線未釋放記憶體與 Token、向量檢索未遮罩 PII。只在碰到 AI/LLM 相關檔案時載入"
 paths:
-  - "**/*ai*"
-  - "**/*llm*"
-  - "**/*rag*"
-  - "**/*prompt*"
-  - "**/*agent*"
-  - "**/*embedding*"
+  - "**/{ai,llm,llms,rag,prompts,agents,embeddings}/**"
+  - "**/{ai,rag}{_,-,.}*"
+  - "**/*{_,-}{ai,rag}{_,-,.}*"
+  - "**/*{ai,Ai,AI}{Service,Client,Chat,Controller,Provider,Agent,Model}*"
+  - "**/*{Rag,RAG}{Service,Client,Pipeline,Retriever}*"
+  - "**/*{llm,Llm,LLM}*"
+  - "**/*{prompt,Prompt}*"
+  - "**/*{agent,Agent}*"
+  - "**/*{embedding,Embedding}*"
   - "**/*vector*"
   - "**/langchain*"
   - "**/openai*"
@@ -19,7 +22,7 @@ incidents:
   - "LLM API 延遲或 429 時沒設逾時，Web Server 工作執行緒被卡死"
   - "使用者用 Prompt 注入套出內部 System Prompt"
   - "對話內容未去識別化就寫進向量庫，RAG 召回他人個資"
-last_reviewed: 2026-11-10
+last_reviewed: 2026-11-12
 ---
 
 # AI 與 LLM 應用地雷
