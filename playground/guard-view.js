@@ -21,6 +21,7 @@ function ruleRow(rule, index, handlers) {
       "div",
       { class: "rule-row-head" },
       h("span", { class: "rule-index" }, `#${index + 1}`),
+      h("span", { class: rule.team ? "tier tier-custom" : "tier" }, rule.team ? "團隊" : "內建"),
       field("守則", h("input", { class: "mono", value: rule.rule, spellcheck: "false", oninput: change("rule") })),
       h(
         "button",
@@ -109,7 +110,7 @@ function commandCard(command, compiledRules) {
       ? h(
           "p",
           { class: "verdict-reason" },
-          `🛡️ 觸發 ${result.violation.rule.rule} 守則攔截：${result.violation.rule.message}`,
+          `🛡️ 觸發 ${result.violation.rule.rule} ${result.violation.rule.team ? "團隊規則" : "守則"}攔截：${result.violation.rule.message}`,
         )
       : null,
   );

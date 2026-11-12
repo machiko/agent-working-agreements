@@ -34,10 +34,13 @@ PY
 )"
 fi
 
-PY_VERDICTS="$PY_VERDICTS" node --input-type=module - "$ROOT" <<'JS'
+HAS_PY="$(command -v python3 >/dev/null 2>&1 && echo 1 || echo 0)" PY_VERDICTS="$PY_VERDICTS" node --input-type=module - "$ROOT" <<'JS'
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
 
 const root = process.argv[2];
 const load = (rel) => import(pathToFileURL(join(root, rel)).href);
@@ -129,6 +132,44 @@ const aiMisses = ["src/main.go", "src/components/Detail.tsx", "app/Services/Mail
   "src/utils/storage.ts", "src/fragment.js", "src/drag-drop.ts", "src/train.py", "lib/chain.rb", "src/air/quality.py"];
 for (const p of aiHits) check(`載入 ${p}`, firstMatchingGlob(p, aiPaths) !== null);
 for (const p of aiMisses) check(`不載入 ${p}`, firstMatchingGlob(p, aiPaths) === null);
+
+console.log("▸ 團隊規則：匯入、匯出與 hook-guard 一致");
+const { toTeamTsv, fromTeamTsv } = await load("playground/team-tsv.js");
+const teamInput = [
+  { rule: "custom/infra", pattern: "(^|[^A-Za-z0-9_-])terraform{S}(.*{S})?destroy{E}", message: "禁止 terraform destroy。", allow: "" },
+  { rule: "custom/db", pattern: "(^|[^A-Za-z0-9_-])psql{S}.*prod", message: "不要直接連\t正式機\n資料庫。", allow: "--read-only" },
+];
+const exported = toTeamTsv(teamInput);
+const reimported = fromTeamTsv(exported);
+check("匯出再匯入，規則數量與欄位不變", reimported.length === 2 && reimported[0].pattern === teamInput[0].pattern && reimported[1].allow === "--read-only");
+check("匯入的規則標成團隊規則", reimported.every((r) => r.team === true));
+check("欄位裡的 Tab 與換行換成空白，不會讓檔案錯位", exported.split("\n").filter((l) => l.startsWith("custom/db"))[0].split("\t").length === 4);
+check("匯入時略過註解與空白行、接受 CRLF", fromTeamTsv("# x\r\n\r\n   \r\ncustom/a\tfoo\tmsg\r\n").length === 1 && fromTeamTsv("custom/a\tfoo\tmsg\r\n")[0].message === "msg");
+const emptyMatch = compileRule({ rule: "x", pattern: "x*", message: "m", allow: "" });
+check("連空字串都命中的規則標成錯誤、不參與判定", Boolean(emptyMatch.error) && evaluate("ls", [emptyMatch]).decision === "allow");
+check("訊息是空的規則標成錯誤", Boolean(compileRule({ rule: "x", pattern: "foo", message: " ", allow: "" }).error));
+const withTeam = [...rules, ...reimported.map(compileRule)];
+const builtinBlocked = ["git", "push", "--" + "force"].join(" ");
+const teamCmds = ["terraform destroy -auto-approve", "terraform plan", "psql -h prod-db", "psql -h prod-db --read-only", `${builtinBlocked} && terraform destroy`];
+const teamDeny = evaluate("terraform destroy", withTeam);
+check("團隊規則命中時，violation 標出團隊規則", teamDeny.decision === "deny" && teamDeny.violation.rule.team === true);
+const pushTeam = [...rules, compileRule({ rule: "custom/push", pattern: "git{S}push", message: "先開 PR。", allow: "", team: true })];
+check("同一段子指令內建與團隊規則都命中時，內建規則先判定", evaluate(builtinBlocked, pushTeam).violation.rule.team !== true);
+check("團隊規則照樣攔截內建規則沒擋的指令", evaluate("git push origin main", pushTeam).violation.rule.rule === "custom/push");
+
+if (process.env.HAS_PY === "1") {
+  const dir = mkdtempSync(join(tmpdir(), "aw-pg-team-"));
+  const rulesPath = join(dir, "guard-rules.tsv");
+  const casesPath = join(dir, "guard-cases.tsv");
+  writeFileSync(rulesPath, exported);
+  writeFileSync(casesPath, teamCmds.map((c) => `${evaluate(c, withTeam).decision}\t${c}`).join("\n") + "\n");
+  const res = spawnSync("python3", [join(root, "scripts/hook-guard.py"), "--check", rulesPath, casesPath], { encoding: "utf8" });
+  check("匯出的檔案 hook-guard.py --check 通過，JS 判定的案例跟 python 一致", res.status === 0);
+  if (res.status !== 0) console.error(res.stdout, res.stderr);
+  rmSync(dir, { recursive: true, force: true });
+} else {
+  console.log("▸ 略過 hook-guard.py --check 對照（環境沒有 python3）");
+}
 
 console.log("──");
 console.log(`通過 ${pass}｜失敗 ${fail}`);
