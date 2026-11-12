@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-11-12
+
 ### Fixed
 
 - 修復 `ai/pitfalls` 的載入範圍：原本的 `**/*ai*`、`**/*rag*` 會讓 `main.go`、`Detail.tsx`、`storage.ts` 這類一般檔案也載入這份守則，放在 `ai/`、`rag/`、`prompts/` 目錄下的檔案反而沒載入；改成比對 AI 相關的目錄與檔名，並涵蓋 `AiService.php`、`LLMClient.ts` 這類大寫開頭的檔名
