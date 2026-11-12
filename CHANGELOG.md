@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 修復 搜尋團隊策略檔時，找到策略檔後往上列目錄的程序仍繼續寫入已關閉的管線；在忽略 SIGPIPE 的環境（例如 GitHub macOS runner）會停不下來，讓安裝、hook 與 CI 卡住
+
 ## [1.7.0] - 2026-11-11
 
 ### Added

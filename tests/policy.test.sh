@@ -42,6 +42,15 @@ mkdir -p "$FAKE_HOME/.claude/rules/agent-agreements"
 printf '{}' > "$FAKE_HOME/.agreements.json"
 check "不在 git repo 時不讀家目錄的策略檔（全域安裝）" '! HOME="$FAKE_HOME" aw_find_policy "$FAKE_HOME/.claude/rules/agent-agreements" >/dev/null'
 
+echo "▸ aw_find_policy：找到就停時不留下還在寫的管線"
+# 找到策略檔提早 return 時，往上列目錄的寫入端不可再寫進已關閉的管線。
+# GitHub macOS runner 忽略 SIGPIPE，寫入端遇到 Broken pipe 停不下來，整個 CI 卡住；這裡模擬同樣環境。
+deep="$TMP/mono/packages/api/a/b/c/d/e/f"
+mkdir -p "$deep"
+pipe_err="$( (trap '' PIPE; aw_find_policy "$deep" >/dev/null) 2>&1 )"
+check "忽略 SIGPIPE 時找到策略檔不出現 Broken pipe" '! printf "%s" "$pipe_err" | grep -q "Broken pipe"'
+check "深層子目錄仍找到根目錄策略檔" '[ "$(aw_find_policy "$deep")" = "$TMP/mono/.agreements.json" ]'
+
 echo "▸ aw_policy_enforce_rules"
 printf '{\n  "enforce_rules": [\n    "a/one",\n    "b/two"\n  ]\n}\n' > "$TMP/multi.json"
 printf '{ "enforce_rules": ["a/one", "b/two", "c/three"], "prohibit_disable_hooks": false }' > "$TMP/single.json"
