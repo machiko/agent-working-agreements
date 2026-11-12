@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # install-ci.sh — install.sh --ci：安裝 CI/CD 守門工作流（github、gitlab、bitbucket、pre-commit）。
 #
+# 工作流內容一律取自 templates/workflows/ 與 templates/ci/，這裡不另存一份。
 # 依賴呼叫端的 ROOT、dry_run 與 die。這支只定義函式，用 source 載入。
 
 # ci_detect_platform <目錄>：依既有設定檔猜平台，都沒有就用 github
@@ -55,32 +56,8 @@ install_ci() {
       wf_file="$wf_dir/agent-audit.yml"
       [ "$dry_run" -eq 1 ] && ci_dry_run "新增" "$wf_file" "$scripts_dir"
       mkdir -p "$wf_dir" "$scripts_dir"
-      cat <<'EOF' > "$wf_file"
-name: Agent Agreements Audit
-
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-  push:
-    branches: [main, master]
-
-jobs:
-  audit:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Run Agent Guardrail Audit
-        run: |
-          if [ -f "scripts/audit.sh" ]; then
-            bash scripts/audit.sh --commit HEAD
-          else
-            echo "Notice: scripts/audit.sh not found."
-          fi
-EOF
+      # 用 cat 而不是 cp：範本唯讀（例如唯讀的 plugin 快取）時 cp 會連權限一起複製
+      cat "$ROOT/templates/workflows/agent-audit.yml" > "$wf_file"
       ci_copy_audit "$scripts_dir"
       echo "✓ 已成功安裝 GitHub Actions CI 守門工作流：$wf_file"
       echo "  提示：若專案託管於 GitHub，發 PR 與 Push 將自動觸發；若為 GitLab/Bitbucket 或本地開發，可改用 scripts/audit.sh --install-hook"
