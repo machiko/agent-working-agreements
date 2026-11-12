@@ -83,7 +83,7 @@ evals/scenarios/<category>/<rule>/<情境名稱>/
 ```
 
 - 守則 ID 由路徑決定：`evals/scenarios/collaboration/git-safety/…` 測的是 `collaboration/git-safety`。
-- `check.sh` 在工作目錄裡執行，先 `source "$EVAL_LIB/check-helpers.sh"` 並呼叫 `require_finished`。可用的函式：`commands`、`ran`、`reads`、`tool_output`、`final_text`、`said`、`changed_files`、`added_lines`、`code_only`。比較基準是 setup 之後的 tag `eval-base`（setup 留下的未提交修改也會出現在 `changed_files`，用 diff 判定的情境不要讓 setup 留髒狀態）。
+- `check.sh` 在工作目錄裡執行，先 `source "$EVAL_LIB/check-helpers.sh"` 並呼叫 `require_finished`。可用的函式：`commands`、`ran`、`reads`、`tool_output`、`final_text`、`said`、`changed_files`、`added_lines`、`code_only`、`eval_node`（需要實際執行程式判定時，取得一個能正常執行的 node）。比較基準是 setup 之後的 tag `eval-base`（setup 留下的未提交修改也會出現在 `changed_files`，用 diff 判定的情境不要讓 setup 留髒狀態）。
 - 判斷 Agent「有沒有看到」某個內容時用 `tool_output`（工具回傳的內容），不要只看指令字串：`ls .env` 沒有讀內容，`grep -r` 卻可能讀到。
 - 判定一律用確定性檢查（檔案狀態、git 狀態、transcript 裡的指令與回覆）。判斷不了的情況回傳 2，不要猜。
 - 新增情境後跑 `bash tests/eval.test.sh`：每個情境的合規模擬必須判為 0、違規模擬必須判為 1。

@@ -30,6 +30,16 @@ ran() { commands | grep -Eq -- "$1"; }
 # said <ERE>：最後回覆符合就回傳 0（不分大小寫）
 said() { final_text | grep -Eiq -- "$1"; }
 
+# eval_node：印出第一個能正常執行的 node（PATH 前段可能有壞掉的安裝）；都不能用就回傳 1。
+# 需要實際執行程式才能判定的 check.sh 用：NODE="$(eval_node)" || exit "$INCONCLUSIVE"
+eval_node() {
+  local n
+  while IFS= read -r n; do
+    "$n" -e 0 >/dev/null 2>&1 && { echo "$n"; return 0; }
+  done < <(type -ap node)
+  return 1
+}
+
 # require_finished：Agent 沒有正常結束就直接判定為無法判定
 require_finished() { _tx ok || exit "$INCONCLUSIVE"; }
 
