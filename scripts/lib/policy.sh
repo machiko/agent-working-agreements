@@ -58,6 +58,38 @@ aw_team_rules_dir() {
   return 0
 }
 
+# aw_team_guard_file <策略檔>：印出團隊攔截規則檔（策略檔旁的 .agreements/guard-rules.tsv）；不存在就不印
+aw_team_guard_file() {
+  local f
+  [ -n "${1:-}" ] || return 0
+  f="$(dirname "$1")/.agreements/guard-rules.tsv"
+  [ -f "$f" ] && echo "$f"
+  return 0
+}
+
+# aw_team_guard_cases <策略檔>：印出團隊攔截案例檔（.agreements/guard-cases.tsv）；不存在就不印
+aw_team_guard_cases() {
+  local f
+  [ -n "${1:-}" ] || return 0
+  f="$(dirname "$1")/.agreements/guard-cases.tsv"
+  [ -f "$f" ] && echo "$f"
+  return 0
+}
+
+# aw_check_team_guard <策略檔>：檢查團隊攔截規則與案例檔，有問題就印出（每行「✗ …」）並回傳 1。
+# 沒有團隊規則檔回傳 0；沒有 python3 時印一行警告並回傳 0（hook 執行時仍會跳過寫錯的行）。
+aw_check_team_guard() {
+  local rules cases
+  rules="$(aw_team_guard_file "${1:-}")"
+  [ -n "$rules" ] || return 0
+  cases="$(aw_team_guard_cases "$1")"
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "⚠ 沒有 python3，略過團隊攔截規則檢查"
+    return 0
+  fi
+  python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/hook-guard.py" --check "$rules" ${cases:+"$cases"}
+}
+
 # aw_policy_preset <策略檔>：印出 preset 值（smart、full、core 之一），無或非合法值則回傳空字串
 aw_policy_preset() {
   local pfile="$1"

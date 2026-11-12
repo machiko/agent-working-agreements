@@ -88,6 +88,19 @@ To make a rule impossible to drop, add `custom/<name>` to `enforce_rules`.
 
 Rules that older versions of `/agreements:record` wrote to `.claude/rules/agent-agreements/custom/` are only read by your own Claude Code. Move them to `.agreements/rules/` and run `--sync` to share them with the team and apply them to other agents; `doctor.sh` tells you how many are left.
 
+### Team guard rules
+
+To stop Claude Code from running certain commands (for example `terraform destroy`, or connecting straight to the production database), write them in `.agreements/guard-rules.tsv`. `--team-init` creates a template that contains only comments.
+
+1. One rule per line, tab-separated: rule, pattern, message, optional allow pattern. The format matches the built-in [`scripts/lib/guard-rules.tsv`](../scripts/lib/guard-rules.tsv). Try rules in the [Playground](https://machiko.github.io/agent-working-agreements/) first.
+2. Add a command that should be blocked (`deny`) and one that should pass (`allow`) to `.agreements/guard-cases.tsv`.
+3. Run `--sync`, check that it reports the team guard rules as passing (團隊攔截規則：通過), then commit and open a PR.
+
+- The rules travel with the repo and need no reinstall: when Claude Code runs a command, it walks up from the working directory to the policy file and reads `.agreements/guard-rules.tsv` next to it.
+- Built-in rules are checked first. Team rules can only block more, never relax a built-in rule.
+- A broken line (missing columns, a regex that does not compile, or one that matches the empty string) is skipped with a warning at run time; `--sync` lists it and `--check-drift` fails.
+- Only Claude Code, which supports PreToolUse hooks, enforces these rules; Cursor, Copilot and other tools do not run them.
+
 ## 4. Upgrading
 
 1. With the new tool version, change `agreements_version` in `.agreements.json` to the new version.
@@ -106,6 +119,7 @@ The drift check (`doctor.sh --check-drift`) fails when:
 | 安裝版本應為 X (installed version should be X) | the policy version changed but the rules were not reinstalled | run `--sync` with that version |
 | 強制守則尚未安裝／狀態異常 (enforced rule missing or modified) | an `enforce_rules` entry is missing or edited | run `--sync` |
 | 尚未安裝守則 (no rules installed) | a target in `targets` is not installed | run `--sync` |
+| 團隊攔截規則…或案例檔有問題 (team guard rules or cases have problems) | a rule is broken, or a case's verdict differs from what it expects | fix the listed lines and run `--sync` until it passes |
 
 GitLab, Bitbucket and other platforms don't get the drift workflow automatically. Add this step to your CI:
 

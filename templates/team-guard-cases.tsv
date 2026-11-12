@@ -1,0 +1,7 @@
+# 團隊攔截案例：每行一筆，deny 或 allow，加一個 Tab，再接指令。
+# install.sh --sync 與 --check-drift 會用內建規則加上 guard-rules.tsv 判定每一筆，跟這裡寫的不同就列出來。
+# 新增或修改攔截規則時，各補一筆應擋與應放行的例子。
+#
+# 範例（拿掉開頭的 # 就生效）：
+# deny	terraform destroy -auto-approve
+# allow	terraform plan

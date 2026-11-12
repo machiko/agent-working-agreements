@@ -1,0 +1,18 @@
+# 團隊攔截規則：Claude Code 執行 Bash 指令前比對，命中就拒絕執行。
+# 內建規則（git force push、遞迴刪除根目錄等）先比對；這裡只能多擋，不能放寬內建規則。
+#
+# 格式：一行一條，用 Tab 分成 3 或 4 欄
+#   守則<TAB>攔截式<TAB>訊息[<TAB>放行例外]
+# - 守則：拒絕訊息裡顯示的名稱，建議用 custom/<name>，對應 .agreements/rules/<name>.md
+# - 攔截式：正規表示式。指令會先依 && || ; 換行切成子指令，再逐段比對
+# - 訊息：告訴 Agent 為什麼不能做、該怎麼做
+# - 放行例外（選填）：子指令同時命中這個式子就放行
+#
+# 佔位符：{S} 空白或 Tab；{NS} 非空白且非引號；{E} 字詞結尾
+# 不要用 \b \s \d \w 與 (?…)：沒有 python3 時改用 grep -E 比對，這些寫法不支援
+#
+# 先在 Playground 試寫：https://machiko.github.io/agent-working-agreements/
+# 寫錯的行在執行時會被跳過並警告；install.sh --sync 會列出問題，--check-drift 會失敗。
+#
+# 範例（拿掉開頭的 # 就生效）：
+# custom/infra	(^|[^A-Za-z0-9_-])terraform{S}(.*{S})?destroy{E}	禁止直接執行 terraform destroy，請走變更流程。

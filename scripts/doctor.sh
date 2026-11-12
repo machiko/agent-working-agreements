@@ -162,6 +162,12 @@ if [ "$check_drift" -eq 1 ]; then
     for id in $enforced; do
       case "$id" in custom/*) contains_word "$team" "$id" || drift_err "違反團隊策略（$(basename "$policy_file")）：強制守則 ${id} 在 .agreements/rules 找不到來源檔" ;; esac
     done
+    if ! guard_check="$(aw_check_team_guard "$policy_file")"; then
+      printf '%s\n' "$guard_check" | sed 's/^/    /' >&2
+      drift_err "團隊攔截規則（.agreements/guard-rules.tsv）或案例檔有問題，修正後再提交"
+    elif [ -n "$(aw_team_guard_file "$policy_file")" ]; then
+      echo "  ✓ 團隊攔截規則格式正確$([ -n "$(aw_team_guard_cases "$policy_file")" ] && echo "，案例檔判定一致")"
+    fi
   fi
 
   if [ -n "$targets" ]; then
@@ -345,6 +351,15 @@ team_dir="$(aw_team_rules_dir "$team_policy")"
 if [ -n "$team_dir" ]; then
   team_count="$(aw_team_rule_ids "$team_dir" 2>/dev/null | grep -c . || true)"
   pass_item "團隊守則 ${team_count} 條 (.agreements/rules/)"
+fi
+team_guard="$(aw_team_guard_file "$team_policy")"
+if [ -n "$team_guard" ]; then
+  guard_count="$(grep -cvE '^(#|[[:space:]]*$)' "$team_guard" || true)"
+  if aw_check_team_guard "$team_policy" >/dev/null; then
+    pass_item "團隊攔截規則 ${guard_count} 條 (.agreements/guard-rules.tsv)"
+  else
+    warn_item "團隊攔截規則或案例檔有問題（寫錯的規則在 Claude Code 執行時會被跳過）：執行 install.sh --sync 看細節" 5
+  fi
 fi
 if [ -n "$team_policy" ] && [ -z "$(aw_policy_targets "$team_policy")" ]; then
   info_item "策略檔沒有 targets：加上團隊用的 Agent 後，成員只要執行 install.sh --sync"
