@@ -28,7 +28,7 @@ aw_ancestors() {
     if [ -z "$git_root" ] && { [ "$cur" = "$home_abs" ] || [ "$cur" = "/" ]; }; then
       return 0
     fi
-    echo "$cur"
+    echo "$cur" || return 0
     [ "$cur" = "$git_root" ] && return 0
     [ "$cur" = "/" ] && return 0
     cur="$(dirname "$cur")"
@@ -37,11 +37,15 @@ aw_ancestors() {
 
 # aw_find_policy <起點>：找到就印出策略檔路徑並回傳 0，否則回傳 1
 aw_find_policy() {
-  local d
+  local d dirs
+  # 先收齊再比對，不用 < <(aw_ancestors)：找到就 return 會關掉讀取端，寫入端再 echo 就遇到 Broken pipe。
+  # GitHub macOS runner 忽略 SIGPIPE，寫入端因此停不下來、持續洗版，CI 整個卡住。
+  dirs="$(aw_ancestors "${1:-.}")"
   while IFS= read -r d; do
+    [ -n "$d" ] || continue
     if [ -f "$d/.agreements.json" ]; then echo "$d/.agreements.json"; return 0; fi
     if [ -f "$d/.agreementsrc" ]; then echo "$d/.agreementsrc"; return 0; fi
-  done < <(aw_ancestors "${1:-.}")
+  done <<< "$dirs"
   return 1
 }
 
