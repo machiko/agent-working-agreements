@@ -1,11 +1,11 @@
 ---
-source_sha256: c74b3ea3f9f833e0f1126a93700462b494cbee0d0e4599daa66ae97923fa9514
+source_sha256: 54c5e96443f7219532850d948fe360bf852d1e7e3acd88ad1357f2429f2a2caf
 category: collaboration
 tier: core
 incidents:
   - "A decision the user needed to make was written only in the review file, and the user never saw it"
   - "Rearranged a whiteboard in bulk based only on API coordinates, and the whole layout came out wrong"
-last_reviewed: 2026-11-10
+last_reviewed: 2026-11-24
 ---
 
 # Communication: let the user decide with the least effort
@@ -49,13 +49,3 @@ For operations that affect many things at once, such as tidying a whiteboard, re
 **Why:** Once, a dozen-plus frames on a whiteboard were moved in bulk to a new area and rearranged based only on API coordinates, and repeated attempts all came out poorly. Frames lost their relation to their original positions, and connectors whose bend points had been dragged by hand were knocked out of place. When the agent can't see the actual screen and runs a bulk operation from coordinates alone, the result will come out wrong.
 
 **How:** Before acting, record the original state so it can be restored; if you can take a screenshot, look at the actual screen first; propose long-distance moves or structural changes instead of doing them directly.
-
-## When a rule applies, flag it explicitly at the end of the response
-
-When a rule is triggered while performing concrete engineering or collaboration actions (writing or modifying code/tests, Git and commit operations, hitting the more-than-3-files confirmation threshold, blocking a high-risk operation, applying a domain pitfall rule or a writing convention), list one-line notes together at the end of the response:
-`🛡️ Rule applied: [category/name] the specific safeguard or convention action taken`
-Baseline habits that apply to every message (e.g. "conclusion first, details after", "don't fabricate results", "Taiwan terminology") are not flagged each time, to avoid flooding the response.
-
-**Why:** When rules take effect silently in the background, the user can't tell whether the agent got it right by chance or a rule actually caught a pitfall. Only by seeing the specific rule and action each time one applies can the user build trust and keep iterating on the rule set.
-
-**How:** Before ending each reply, check whether this turn changed the implementation, added a safeguard, ran a check, or stopped to confirm because of a specific rule; if so, list each one on its own line at the very end of the response as `🛡️ Rule applied: [<category>/<name>] <one-line description of the action>`.
