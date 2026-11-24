@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Removed
+
+- 刪除 core 守則 `collaboration/communication` 的「命中守則時，在回應結尾顯式標註」規範：回覆結尾不再要求加上 `🛡️ 命中守則：` 標註，`templates/CLAUDE.md` 與 `/agreements:review` 的對應要求一併拿掉
+
 ## [1.10.0] - 2026-11-12
 
 ### Added
