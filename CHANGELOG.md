@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 core 守則條目「新功能至少附一個失敗情境測試」（`collaboration/test-integrity`）：新功能或修 bug 至少測一個錯誤輸入、外部失敗或找不到資料的情境，斷言要驗證具體的錯誤結果；附評測情境，`/agreements:review` 加上對應的人工檢查
+- 新增 README 說明搭配 Claude Code 的 `permissions.ask` 設定，讓 `git push` 等改遠端的指令每次都要確認，補上 hook 比對不到的寫法
+
 ## [1.10.0] - 2026-11-12
 
 ### Added
