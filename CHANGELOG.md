@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 更新 `collaboration/verification`：完成證據改附測試的通過與失敗數量和關鍵輸出行，不再列結束碼；測試指令直接單獨執行，不在後面接管線或 `; echo $?`，只有腳本或背景執行才用 `set -o pipefail` 或 `exit $rc`。原寫法讓 Agent 在指令後接 `echo` 取結束碼，比對不到權限允許清單而被擋，連單純的測試和 commit 都停下來問
+
 ## [1.10.0] - 2026-11-12
 
 ### Added
