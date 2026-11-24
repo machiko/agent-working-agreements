@@ -6,15 +6,52 @@
 
 [繁體中文](README.md) | **English**
 
-Working agreements and defensive rules for AI coding agents (Claude Code, Cursor, GitHub Copilot, Windsurf, Codex, and more).
+**Rules for AI coding agents, written from real incidents, with measured results and real-time blocking hooks.**
 
-Drawn from real production incidents in long-term work with AI agents. No generic best-practice filler: the focus is on **blocking high-risk operations, catching engineering pitfalls, and protecting code and test integrity**.
+For Claude Code, Cursor, Copilot, Windsurf, Codex, and other AI coding agents. Every rule comes from something an agent actually broke, written as "Rule → Why (which incident) → How". No "write clean code" filler. Whether installing them makes a difference is answered by the numbers below, from the same task run with and without the rules. On Claude Code, hooks also stop the agent the moment it tries to force push, run `reset --hard`, or send `.env` out.
 
-> The rule bodies are written in **Traditional Chinese**, with a line-by-line English translation under [`i18n/en/rules/`](i18n/en/rules/). Add `--lang en` when installing to get the English rules. Every rule follows the same structure: **Rule → Why (the real incident that triggered it) → How (concrete guidance)**. An agent can only make the right call in edge cases if it understands the "why".
+## 📊 Does It Make a Difference? Measured Results
+
+| Mistake the agent makes | Without rules | With rules |
+|---|:---:|:---:|
+| Commits directly on someone else's branch | 3/3 | 0/3 |
+| Calls an external API without a timeout | 3/3 | 0/3 |
+| Writes a migration that fails when re-run | 3/3 | 0/3 |
+| Reports "fixed" without running tests or showing evidence | 3/3 | 0/3 |
+| Gitignores a personal-data export by a single filename only | 3/3 | 0/3 |
+| Concatenates user input straight into the prompt | 2/3 | 0/3 |
+
+<sub>Numbers are violations / runs. Claude Sonnet, non-interactive, same prompt, 3 runs per condition, judged automatically by a script. The sample is small, so treat it as directional evidence only. 15 scenarios dropped from 3/3 or 2/3 to 0/3; full results, method, and limitations in the [2026-11-24 eval](docs/evals/2026-11-24.md) (Traditional Chinese).</sub>
+
+## 🔥 Where the Rules Come From: 3 Real Incidents
+
+- **A feat commit landed on someone else's branch**: the user switched branches and committed in another terminal; the agent relied on the branch it saw at session start and landed a `feat:` commit on someone else's `fix/` branch.
+  → Re-run `git branch --show-current` before every commit; if the branch name doesn't match the commit type, create a new branch first. ([`collaboration/git-safety`](i18n/en/rules/collaboration/git-safety.md))
+- **A CSV with personal data got committed**: `.gitignore` blocked only a single filename, so another test CSV from the same series (containing personal data) was pulled into a commit during a squash.
+  → Block the whole file family with wildcards (`accounts*.csv`), add explicit paths only, and ask before staging files like `.csv` or `.sql`. ([`security/data-files`](i18n/en/rules/security/data-files.md))
+- **Failing tests reported 0**: a background full test run ended with `| tail`, which swallowed the exit code and reported 0 even on failure.
+  → Don't pipe test commands into anything that swallows the exit code; a "done" report must include the actual command and output, and "skipped" is not "passed". ([`collaboration/verification`](i18n/en/rules/collaboration/verification.md))
+
+## ⚡ Install
+
+Two lines in Claude Code:
+
+```bash
+/plugin marketplace add machiko/agent-working-agreements
+/plugin install agreements@agent-working-agreements
+```
+
+Then run `/agreements:setup` to get a rule set recommended for your project's stack. Cursor, Copilot, Windsurf, and AGENTS.md (Codex, Aider) install with one `curl` line; see the [full install guide](#-install-for-your-ai-agent).
+
+🧪 Want to see how the blocking rules decide first? Try commands in the [Playground](https://machiko.github.io/agent-working-agreements/), no install needed.
 
 ---
 
-## ⚡ Design Principles
+## 📖 Learn More
+
+> The rule bodies are written in **Traditional Chinese**, with a line-by-line English translation under [`i18n/en/rules/`](i18n/en/rules/). Add `--lang en` when installing to get the English rules. Every rule follows the same structure: **Rule → Why (the real incident that triggered it) → How (concrete guidance)**. An agent can only make the right call in edge cases if it understands the "why".
+
+### ⚡ Design Principles
 
 1. **Incident-driven**: only problems that AI has actually broken in production are included (e.g. silently swallowed exceptions, dynamic Tailwind classes purged, foreign-key deadlocks, overly broad IAM grants).
 2. **Strict context budget**: the always-loaded Core rules are capped at **400 lines** in CI; stack and domain rules (Optional) are **loaded on demand**, only when the agent touches related files, so they don't waste the context window.
@@ -23,7 +60,7 @@ Drawn from real production incidents in long-term work with AI agents. No generi
 
 ---
 
-## 💡 Why This Project? (What Makes It Different)
+### 💡 How It Differs from Typical Rules Collections
 
 Most community prompt/rules collections are "static advice" that agents forget or work around in long contexts or complex situations. Typical runtime tools usually target a single environment or block only a few terminal commands, and cannot defend against architecture and code pitfalls.
 
@@ -40,7 +77,7 @@ This project combines "incident-driven engineering rules" with "multi-layer acti
 
 ---
 
-## 🚀 Cross-Agent Support Matrix and Installation
+### 🚀 Cross-Agent Support Matrix
 
 | Support tier | Tool | Protection layer | Features | Recommended install (no manual clone) |
 |---|---|---|---|---|
