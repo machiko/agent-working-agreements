@@ -4,9 +4,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 core 守則條目「新功能至少附一個失敗情境測試」（`collaboration/test-integrity`）：新功能或修 bug 至少測一個錯誤輸入、外部失敗或找不到資料的情境，斷言要驗證具體的錯誤結果；附評測情境，`/agreements:review` 加上對應的人工檢查
+- 新增 README 說明搭配 Claude Code 的 `permissions.ask` 設定，讓 `git push` 等改遠端的指令每次都要確認，補上 hook 比對不到的寫法
+- 新增 2026-11-24 守則效果評測結果文件 `docs/evals/2026-11-24.md`：有守則／無守則對照表、方法與限制、守則副作用修正紀錄，以及自己重跑的步驟
+
 ### Changed
 
 - 更新 `collaboration/verification`：完成證據改附測試的通過與失敗數量和關鍵輸出行，不再列結束碼；測試指令直接單獨執行，不在後面接管線或 `; echo $?`，只有腳本或背景執行才用 `set -o pipefail` 或 `exit $rc`。原寫法讓 Agent 在指令後接 `echo` 取結束碼，比對不到權限允許清單而被擋，連單純的測試和 commit 都停下來問
+- 更新 README（中英文）第一屏：改以一句話定位、實測對比表、3 則真實事故、兩行安裝與 Playground 開頭；原本的設計原則、比較表與跨 Agent 支援矩陣移到「進一步了解」
+
+### Removed
+
+- 刪除 core 守則 `collaboration/communication` 的「命中守則時，在回應結尾顯式標註」規範：回覆結尾不再要求加上 `🛡️ 命中守則：` 標註，`templates/CLAUDE.md` 與 `/agreements:review` 的對應要求一併拿掉
 
 ## [1.10.0] - 2026-11-12
 

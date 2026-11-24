@@ -275,6 +275,17 @@ scripts/review.sh --staged     # 審查暫存區變更
 - 👥 團隊可以在策略檔旁的 `.agreements/guard-rules.tsv` 加自己的攔截規則，只能多擋、不能放寬內建規則（見 [團隊導入指南](docs/team.md#團隊攔截規則)）
 - 💬 只是「提到」不會被擋：`echo`、`printf`、`git commit -m`、`gh pr create --body` 這類指令引號裡的文字，以及交給 `cat`、`tee` 寫檔的 heredoc 內文，只當資料、不拿去比對；接到 `| sh`、`bash -c`、`$(…)` 這類會執行的內容照樣攔截。同一條指令裡只要有一段不是只讀寫資料的指令（例如 `bash`、`make`、`npm`、`./x.sh`），或出現沒把握的語法，整條照原文比對
 - ⚠️ 已知限制：其他指令引號裡提到（例如 `grep "git push --force"`）仍會被擋；先寫進檔案、下一步再執行的指令攔不到，hook 擋的是「不小心」，不是安全邊界
+- 🔐 **搭配 Claude Code 權限設定**：hook 是比對指令文字，換個寫法（例如 `git -C . push`、`bash -c '…'`）就擋不到。建議再把 `git push` 這類會改遠端的指令設成每次都要你確認，寫在專案的 `.claude/settings.json`（或個人的 `~/.claude/settings.json`）：
+
+  ```json
+  {
+    "permissions": {
+      "ask": ["Bash(git push *)", "Bash(gh pr merge *)", "Bash(gh release create *)"]
+    }
+  }
+  ```
+
+  `ask` 規則比 `allow` 優先，auto 模式下也會跳出確認。它跟 hook 一樣比對指令文字，擋不到所有變形寫法，兩者是互補的兩層；格式見 [Claude Code 權限設定](https://code.claude.com/docs/en/permissions)
 
 **為 Cursor、Windsurf 或一般終端機安裝跨工具通用防線：**
 ```bash
@@ -319,7 +330,7 @@ scripts/audit.sh --install-hook
 | 領域 | 守則名稱 | 重點規範 |
 |------|---------|---------|
 | **協作** | [`collaboration/honesty`](rules/collaboration/honesty.md) | 不得偽造工具執行結果、無證據不得聲稱「測試通過」（跳過不算通過） |
-| **協作** | [`collaboration/test-integrity`](rules/collaboration/test-integrity.md) | 禁止刪除或放寬既有測試斷言來換取綠燈 |
+| **協作** | [`collaboration/test-integrity`](rules/collaboration/test-integrity.md) | 禁止刪除或放寬既有測試斷言來換取綠燈；新功能或修 bug 至少附一個失敗情境測試 |
 | **協作** | [`collaboration/git-safety`](rules/collaboration/git-safety.md) | Commit 前必須重新確認目前分支，禁止直接在他人分支或主分支亂提交 |
 | **協作** | [`collaboration/verification`](rules/collaboration/verification.md) | 以執行證據說話，報告完整重現步驟與驗證日誌 |
 | **協作** | [`collaboration/communication`](rules/collaboration/communication.md) | 決策放在使用者看的見之處、重大變更先確認、命中守則時於結尾顯式標註 |

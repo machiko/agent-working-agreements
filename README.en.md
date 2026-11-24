@@ -275,6 +275,17 @@ Through Claude Code's plugin hook mechanism, high-risk destructive commands are 
 - 👥 Teams can add their own rules in `.agreements/guard-rules.tsv` next to the policy file; they can only block more, never relax a built-in rule (see the [team guide](docs/team.en.md#team-guard-rules))
 - 💬 Merely mentioning a command is not blocked: text inside quotes for commands such as `echo`, `printf`, `git commit -m`, and `gh pr create --body`, and heredoc bodies written to files by `cat` or `tee`, are treated as data and not matched; anything that gets executed, such as `| sh`, `bash -c`, or `$(…)`, is still blocked. If any part of the same command runs something other than a data-only command (e.g. `bash`, `make`, `npm`, `./x.sh`), or uses syntax the matcher does not model, the whole command is matched as is
 - ⚠️ Known limitation: mentions inside quotes for other commands (e.g. `grep "git push --force"`) are still blocked; a command written to a file and run in a later step is not caught. The hook guards against accidents; it is not a security boundary
+- 🔐 **Pair it with Claude Code permissions**: the hook matches command text, so a different spelling (e.g. `git -C . push`, `bash -c '…'`) slips past it. We recommend also requiring your confirmation every time for commands that change the remote, such as `git push`, in the project's `.claude/settings.json` (or your personal `~/.claude/settings.json`):
+
+  ```json
+  {
+    "permissions": {
+      "ask": ["Bash(git push *)", "Bash(gh pr merge *)", "Bash(gh release create *)"]
+    }
+  }
+  ```
+
+  `ask` rules take precedence over `allow` and still prompt in auto mode. Like the hook, they match command text and can't catch every variant, so the two are complementary layers; see [Claude Code permissions](https://code.claude.com/docs/en/permissions) for the format
 
 **Install the cross-tool universal guardrails for Cursor, Windsurf, or plain terminals:**
 ```bash
@@ -321,7 +332,7 @@ Kept under a **400-line** budget; baseline agreements that apply across all lang
 | Area | Rule | Focus |
 |------|---------|---------|
 | **Collaboration** | [`collaboration/honesty`](i18n/en/rules/collaboration/honesty.md) | Honest reporting: only report what actually happened |
-| **Collaboration** | [`collaboration/test-integrity`](i18n/en/rules/collaboration/test-integrity.md) | Test integrity: don't change tests just to go green |
+| **Collaboration** | [`collaboration/test-integrity`](i18n/en/rules/collaboration/test-integrity.md) | Test integrity: don't change tests just to go green; ship every new feature or bug fix with at least one failure-case test |
 | **Collaboration** | [`collaboration/git-safety`](i18n/en/rules/collaboration/git-safety.md) | Git safety: branches, the staging area, parallel sessions |
 | **Collaboration** | [`collaboration/verification`](i18n/en/rules/collaboration/verification.md) | Verification loop: completion needs evidence |
 | **Collaboration** | [`collaboration/communication`](i18n/en/rules/collaboration/communication.md) | Communication: let the user decide with the least effort |
