@@ -1,5 +1,5 @@
 ---
-source_sha256: f3585694e8eb3fac5edd48fa744138d58c8f610016ef2759e0120d7bd0a98260
+source_sha256: 9f7307491d0bff59ea99f06f2396361cef9d857ced0d49c5d49f50cfbe7eb401
 category: collaboration
 tier: core
 sources:
@@ -8,7 +8,8 @@ sources:
 incidents:
   - "A commit hook checked only the main worktree, so changes in another worktree were treated as passing tests"
   - "A pipe after the test command swallowed the exit code, reporting 0 even on failure"
-last_reviewed: 2026-11-10
+  - "Appending `; echo $?` to a test command to report the exit code made it miss the permission allowlist; it was blocked, and even plain test runs and commits stopped to ask"
+last_reviewed: 2026-11-24
 enforced_by:
   - audit:debug-statements
 ---
@@ -21,7 +22,7 @@ Before each task, name a check that can produce "pass" or "fail": which test to 
 
 ## Attach evidence when reporting completion <!-- 慣例 -->
 
-A "done" report must include the **commands actually run** and the **key output**, e.g. the number of tests passed, the exit code, a screenshot. "Should pass" is not "passed": without evidence it isn't done; report it as "unverified".
+A "done" report must include the **commands actually run** and the **key output**, e.g. the number of tests passed and failed, the key output lines, a screenshot. "Should pass" is not "passed": without evidence it isn't done; report it as "unverified".
 
 The same goes for git and file operations: before reporting "committed", "reverted", or "deleted", check the real state with read-only commands (`git log`, `git status`, `ls`); don't conclude from conversation memory alone.
 
@@ -37,6 +38,6 @@ The same goes for git and file operations: before reporting "committed", "revert
 **How:**
 
 - "Skipped" is not "passed". When you see skipped, 0 tests, or no output, track down why.
-- Propagate exit codes explicitly (`exit $rc`); don't pipe test commands into anything that swallows the exit code.
+- Run test commands on their own, without a trailing pipe or `; echo $?`: a pipe replaces the exit code with the last command's, and `echo` makes the command miss the permission allowlist. Use the passed and failed counts in the output as evidence; only in scripts or background runs use `set -o pipefail` or save the exit code and `exit $rc`.
 - For wide-impact changes, run the full test suite, not just the related files.
 - Check UI changes on the real page and take a screenshot; don't stop at whether the build succeeded.

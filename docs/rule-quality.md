@@ -115,5 +115,5 @@ enforced_by:
 
 - 結構欄位（`category`、`tier`、`stack`、`paths`、`enforced_by`、`sources`、`last_reviewed`、`replaced_by`）原樣複製；`label`、`summary`、`incidents`、`deprecated` 翻譯。
 - 標題層級、空行位置、程式碼區塊邊界與 `<!-- 慣例 -->`／`<!-- 參考 -->` 標註要與中文相同；段落標籤對應 `**症狀：**` → `**Symptom:**`、`**根因：**` → `**Root cause:**`、`**怎麼做：**` → `**How:**`、`**為什麼：**` → `**Why:**`、`**規則：**` → `**Rule:**`。
-- Agent 要照著輸出的字串（例如命中守則的標註格式）要翻成英文；示範中文寫法的範例（commit 動詞、台灣用語對照）保留中文。
+- Agent 要照著輸出的字串（例如要 Agent 寫進回應或檔案的固定標籤與格式）要翻成英文；示範中文寫法的範例（commit 動詞、台灣用語對照）保留中文。
 - 改了中文就要同步改英文，改完執行 `scripts/check-i18n.sh --stamp en <id>`，把 `source_sha256` 更新成目前中文檔的雜湊。CI 的 `scripts/check-i18n.sh` 會擋下雜湊不符、結構不一致或行數不同的翻譯。

@@ -1,5 +1,5 @@
 ---
-source_sha256: 5ad679b9814f5560f4066c2f41f0643e5f3bb351c1186b3f88f47ac7c8b4dba9
+source_sha256: 67d0cf0171a7b0eb4f269df8f5d0727e15adf45d38ec1230d9368740c1034bd0
 category: collaboration
 tier: core
 sources:
@@ -7,7 +7,8 @@ sources:
 incidents:
   - "Added a new route to the guard test's exception list to turn CI green"
   - "Retries papered over intermittent failures, hiding two bugs: session garbage collection and IDs of 0"
-last_reviewed: 2026-11-10
+  - "A new feature's tests covered only the success path and passed; the bad-input and external-failure branches were never tested and broke in production"
+last_reviewed: 2026-11-24
 enforced_by:
   - audit:assertions-removed
 ---
@@ -34,6 +35,18 @@ Don't paper over intermittent failures with retries or skips; find the root caus
 - Check shared state: file sessions, cache, time (freeze it), databases shared by parallel tests.
 
 **Why:** One test that intermittently returned 302 turned out to have two independent root causes: file session garbage collection randomly wiping sessions during the full suite, and a factory occasionally producing an ID of 0, which was treated as "not found". Adding retries would only have hidden both bugs.
+
+## Ship every new feature with at least one failure-case test
+
+When you add a feature or fix a bug, add at least one failure-case test besides the success path. For a bug fix, the regression test that reproduces the bug counts.
+
+**Why:** When an agent writes tests, it follows the success path it just wrote. The tests pass, but the bad-input, external-failure and not-found branches never run once, and the failure shows up in production on an error branch. The pre-commit `audit:empty-catch` only catches empty catch blocks; it can't catch "the error branch was never tested", so this layer has to be covered when the tests are written.
+
+**How:**
+
+- Pick the case most likely to go wrong: bad input rejected (wrong format, out of range, missing field), handling of a failed external call (timeout, 5xx, dropped connection), or data not found (nonexistent ID, empty query result).
+- Assert the specific error result: the error type or message, the HTTP status code, the return value, or that no data was written. Asserting only "an exception was thrown" or `assertNotNull` doesn't count.
+- In your report, list which failure cases you tested; if you wrote none, say why (e.g. text-only change, pure refactor).
 
 ## Keep structural and behavioral changes separate <!-- 慣例 -->
 
